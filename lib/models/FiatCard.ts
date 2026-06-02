@@ -76,6 +76,7 @@ export interface IFiatCard extends Document {
   credit_limit?: number;
   points_balance?: number;
   credit_token_balance?: number;
+  redemption_rate_display?: string;
 
   // Nested objects
   financials: IFinancials;
@@ -176,6 +177,7 @@ const FiatCardSchema = new Schema<IFiatCard>(
     credit_limit:         { type: Number },
     points_balance:       { type: Number },
     credit_token_balance: { type: Number, default: 0 },
+    redemption_rate_display: { type: String, default: '' },
 
     financials:            { type: FinancialsSchema,          required: true },
     rewards_structure:     { type: RewardsStructureSchema,    required: true },

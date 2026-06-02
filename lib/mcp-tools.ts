@@ -148,7 +148,8 @@ async function refreshRates() {
 // Stage 3: Real MongoDB read
 async function getUserBalances(userId: string) {
   await connectDB();
-  const { CARDS, computeTotalOp } = await import('@/lib/cards');
+  const { getCards, computeTotalOp } = await import('@/lib/cards');
+  const CARDS = await getCards(userId);
 
   const user = await User.findOne({
     $or: [{ _id: userId }, { email: userId }],

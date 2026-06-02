@@ -99,48 +99,68 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Card Portfolio Grid */}
+        {/* Card Portfolio Table */}
         <section className="mb-16">
-          <h2 className="text-2xl font-bold text-white mb-6">Your Cards</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {cards.map((card) => (
-              <div
-                key={card.key}
-                onClick={() => handleCardClick(card)}
-                className={`bg-gradient-to-br ${card.color} rounded-xl p-5 text-white shadow-lg relative overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200`}
-              >
-                {/* Card shine effect */}
-                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
-
-                <div className="relative z-10">
-                  <p className="text-xs font-medium text-white/70 mb-1">{card.issuer}</p>
-                  <p className="text-base font-bold leading-tight mb-4">{card.name}</p>
-
-                  <p className="text-2xl font-bold">
-                    {card.currency === 'cash'
-                      ? `$${card.balance.toFixed(2)}` 
-                      : card.balance.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-white/70 mt-1">
-                    {card.currency === 'cash' ? 'cashback' : card.currency}
-                  </p>
-
-                  <div className="mt-4 pt-3 border-t border-white/20 flex justify-between items-center">
-                    <div>
-                      <p className="text-xs text-white/60">OP Value</p>
-                      <p className="text-sm font-semibold">{Math.round(card.opValue).toLocaleString()} OP</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-white/60">Rate</p>
-                      <p className="text-sm font-semibold">{card.opRate}x</p>
-                    </div>
-                  </div>
-
-                  {/* Top perk */}
-                  <p className="mt-3 text-xs text-white/60 truncate">{card.perks[0]}</p>
-                </div>
-              </div>
-            ))}
+          <h2 className="text-2xl font-bold text-white mb-6">Your Linked Cards</h2>
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-700/50 border-b border-slate-600">
+                  <th className="text-left p-4 text-slate-300 font-semibold">Card & Network</th>
+                  <th className="text-left p-4 text-slate-300 font-semibold">Financial Status</th>
+                  <th className="text-left p-4 text-slate-300 font-semibold">Available Rewards (OP Value)</th>
+                  <th className="text-left p-4 text-slate-300 font-semibold">Redemption Rate</th>
+                  <th className="text-left p-4 text-slate-300 font-semibold">Primary Perk</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cards.map((card) => (
+                  <tr 
+                    key={card.key}
+                    onClick={() => handleCardClick(card)}
+                    className="border-b border-slate-700 hover:bg-slate-700/30 cursor-pointer transition-colors"
+                  >
+                    <td className="p-4">
+                      <p className="text-white font-semibold">{card.issuer}</p>
+                      <p className="text-slate-400 text-sm">{card.name}</p>
+                    </td>
+                    <td className="p-4">
+                      <p className="text-slate-300">
+                        <span className="text-slate-400 text-sm">Owed:</span>{' '}
+                        <span className="text-white font-semibold">${card.balance?.toFixed(2) || '0.00'}</span>
+                      </p>
+                      <p className="text-slate-400 text-sm">
+                        Limit: ${(card.limit || 0).toLocaleString()}
+                      </p>
+                    </td>
+                    <td className="p-4">
+                      <p className="text-purple-300 font-bold text-lg">
+                        {Math.round(card.opValue || 0).toLocaleString()} OP
+                      </p>
+                      <p className="text-slate-400 text-xs">
+                        {card.currency === 'usd' 
+                          ? `($${((card.opValue || 0) / 100).toFixed(2)} Cash Back)`
+                          : `(${Math.round(card.opValue / (card.opRate || 1)).toLocaleString()} Points)`
+                        }
+                      </p>
+                    </td>
+                    <td className="p-4">
+                      <p className="text-slate-300 text-sm">
+                        {card.redemptionRate || (card.currency === 'usd' 
+                          ? '$1.00 = 100 OP'
+                          : `1 Point = ${card.opRate?.toFixed(2) || '1.00'} OP`
+                        )}
+                      </p>
+                    </td>
+                    <td className="p-4">
+                      <p className="text-slate-300 text-sm truncate max-w-xs">
+                        {card.perks[0] || 'No perks listed'}
+                      </p>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 
@@ -164,105 +184,192 @@ export default function Dashboard() {
 
               {/* Modal Content */}
               <div className="p-6 space-y-6">
-                {/* Financials */}
+                {/* Section A: Financial Health */}
                 <div>
                   <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                     <DollarSign className="w-5 h-5 text-green-400" />
-                    Financial Details
+                    Financial Health
                   </h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  
+                  {/* Current Balance & Utilization */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="bg-slate-700/50 rounded-lg p-4">
-                      <p className="text-slate-400 text-sm">Annual Fee</p>
-                      <p className="text-white font-bold">${cardDetails.financials.annual_fee}</p>
+                      <p className="text-slate-400 text-sm">Current Balance Owed</p>
+                      <p className="text-white font-bold text-xl">${cardDetails.current_balance_owed?.toFixed(2) || '0.00'}</p>
                     </div>
                     <div className="bg-slate-700/50 rounded-lg p-4">
-                      <p className="text-slate-400 text-sm">Foreign Transaction Fee</p>
-                      <p className="text-white font-bold">{cardDetails.financials.foreign_transaction_fee_pct}%</p>
-                    </div>
-                    <div className="bg-slate-700/50 rounded-lg p-4">
-                      <p className="text-slate-400 text-sm">Standard APR</p>
-                      <p className="text-white font-bold">{cardDetails.financials.standard_apr}%</p>
-                    </div>
-                    <div className="bg-slate-700/50 rounded-lg p-4">
-                      <p className="text-slate-400 text-sm">Currency Type</p>
-                      <p className="text-white font-bold">{cardDetails.currency_type}</p>
+                      <p className="text-slate-400 text-sm">Credit Limit</p>
+                      <p className="text-white font-bold text-xl">${cardDetails.credit_limit?.toLocaleString() || 'N/A'}</p>
                     </div>
                   </div>
+
+                  {/* Credit Limit Utilization Bar */}
+                  {cardDetails.credit_limit && (
+                    <div className="bg-slate-700/50 rounded-lg p-4 mb-4">
+                      <div className="flex justify-between mb-2">
+                        <p className="text-slate-400 text-sm">Credit Limit Utilization</p>
+                        <p className="text-white font-bold text-sm">
+                          {((cardDetails.current_balance_owed || 0) / cardDetails.credit_limit * 100).toFixed(1)}%
+                        </p>
+                      </div>
+                      <div className="w-full bg-slate-600 rounded-full h-3">
+                        <div 
+                          className="bg-gradient-to-r from-purple-500 to-yellow-500 h-3 rounded-full transition-all"
+                          style={{ width: `${Math.min(((cardDetails.current_balance_owed || 0) / cardDetails.credit_limit * 100), 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-slate-400 text-xs mt-1">
+                        ${cardDetails.current_balance_owed?.toFixed(2) || '0.00'} / ${cardDetails.credit_limit?.toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Active Warnings - Intro APR Expiration */}
+                  {cardDetails.financials.promos?.intro_purchase_apr_expiration && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                      <div className="flex items-start gap-2">
+                        <span className="text-yellow-400 text-lg">⚠️</span>
+                        <div>
+                          <p className="text-yellow-300 font-semibold text-sm">0% APR Promo Expiring Soon</p>
+                          <p className="text-slate-300 text-xs mt-1">
+                            Expires: {new Date(cardDetails.financials.promos.intro_purchase_apr_expiration).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Rewards Structure */}
+                {/* Section B: Reward Engine */}
                 <div>
                   <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                     <Star className="w-5 h-5 text-yellow-400" />
-                    Rewards Structure
+                    Reward Engine
                   </h4>
-                  <div className="bg-slate-700/50 rounded-lg p-4">
-                    <p className="text-slate-400 text-sm mb-2">Base Multiplier</p>
-                    <p className="text-white font-bold text-2xl">{cardDetails.rewards_structure.base_multiplier}x</p>
+
+                  {/* Available Rewards */}
+                  <div className="bg-slate-700/50 rounded-lg p-4 mb-4">
+                    <p className="text-slate-400 text-sm mb-1">Available Rewards</p>
+                    <p className="text-white font-bold text-2xl">
+                      ${cardDetails.credit_token_balance?.toFixed(2) || '0.00'}
+                    </p>
+                    <p className="text-slate-400 text-xs mt-1">Synthetic OP token value</p>
                   </div>
 
-                  {cardDetails.rewards_structure.fixed_categories && cardDetails.rewards_structure.fixed_categories.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <p className="text-slate-400 text-sm">Bonus Categories</p>
-                      {cardDetails.rewards_structure.fixed_categories.map((cat: any, idx: number) => (
-                        <div key={idx} className="bg-slate-700/50 rounded-lg p-4 flex justify-between items-center">
+                  {/* Points Balance for Points Cards */}
+                  {cardDetails.points_balance && (
+                    <div className="bg-slate-700/50 rounded-lg p-4 mb-4">
+                      <p className="text-slate-400 text-sm mb-1">Points Balance</p>
+                      <p className="text-white font-bold text-2xl">
+                        {cardDetails.points_balance.toLocaleString()} pts
+                      </p>
+                      {cardDetails.points_value_cents && (
+                        <p className="text-slate-400 text-xs mt-1">
+                          Redeemable at {cardDetails.points_value_cents}¢/pt
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Unused Statement Credits */}
+                  {cardDetails.benefits_and_credits.statement_credits && cardDetails.benefits_and_credits.statement_credits.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-slate-400 text-sm mb-2">Unused Statement Credits</p>
+                      {cardDetails.benefits_and_credits.statement_credits.map((credit: any, idx: number) => (
+                        <div 
+                          key={idx} 
+                          className={`rounded-lg p-4 flex justify-between items-center ${
+                            credit.amount_redeemed === 0 
+                              ? 'bg-green-500/10 border border-green-500/30' 
+                              : 'bg-slate-700/50'
+                          }`}
+                        >
                           <div>
-                            <p className="text-white font-medium">{cat.category}</p>
-                            {cat.cap_amount_usd && (
-                              <p className="text-slate-400 text-xs">Cap: ${cat.cap_amount_usd.toLocaleString()} / {cat.cap_period}</p>
+                            <p className="text-white font-medium">{credit.name}</p>
+                            <p className="text-slate-400 text-xs">Resets: {credit.reset_period}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-green-400 font-bold">${credit.amount_usd}</p>
+                            {credit.amount_redeemed === 0 && (
+                              <p className="text-green-400 text-xs">Ready to Use</p>
                             )}
                           </div>
-                          <p className="text-green-400 font-bold text-xl">{cat.multiplier}x</p>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Statement Credits */}
-                {cardDetails.benefits_and_credits.statement_credits && cardDetails.benefits_and_credits.statement_credits.length > 0 && (
+                {/* Section C: Smart Cap Trackers */}
+                {cardDetails.rewards_structure.fixed_categories && cardDetails.rewards_structure.fixed_categories.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-semibold text-white mb-3">Statement Credits</h4>
-                    <div className="space-y-2">
-                      {cardDetails.benefits_and_credits.statement_credits.map((credit: any, idx: number) => (
-                        <div key={idx} className="bg-slate-700/50 rounded-lg p-4 flex justify-between items-center">
-                          <div>
-                            <p className="text-white font-medium">{credit.name}</p>
-                            <p className="text-slate-400 text-xs">Resets: {credit.reset_period}</p>
+                    <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-purple-400" />
+                      Smart Cap Trackers
+                    </h4>
+                    <div className="space-y-3">
+                      {cardDetails.rewards_structure.fixed_categories.map((cat: any, idx: number) => (
+                        <div key={idx} className="bg-slate-700/50 rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <div>
+                              <p className="text-white font-medium">{cat.category}</p>
+                              <p className="text-green-400 font-bold text-lg">{cat.multiplier}x Points</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-slate-400 text-xs">Progress</p>
+                              <p className="text-white font-bold text-sm">
+                                ${cat.current_spend_towards_cap?.toLocaleString() || '0'} / ${cat.cap_amount_usd?.toLocaleString() || '∞'}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-green-400 font-bold">${credit.amount_usd}</p>
+                          {cat.cap_amount_usd && (
+                            <>
+                              <div className="w-full bg-slate-600 rounded-full h-2 mb-2">
+                                <div 
+                                  className="bg-gradient-to-r from-purple-500 to-yellow-500 h-2 rounded-full transition-all"
+                                  style={{ 
+                                    width: `${Math.min(((cat.current_spend_towards_cap || 0) / cat.cap_amount_usd * 100), 100)}%` 
+                                  }}
+                                />
+                              </div>
+                              <p className="text-slate-400 text-xs">
+                                {cat.cap_period && `Resets: ${cat.cap_period}`}
+                              </p>
+                              {cat.current_spend_towards_cap >= cat.cap_amount_usd && (
+                                <div className="mt-2 bg-yellow-500/10 border border-yellow-500/30 rounded p-2">
+                                  <p className="text-yellow-300 text-xs">
+                                    ⚠️ Cap reached! Omni-Wallet will route future {cat.category.toLowerCase()} purchases to your next best card.
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Perks */}
-                <div>
-                  <h4 className="text-lg font-semibold text-white mb-3">Card Perks</h4>
-                  <div className="space-y-2">
-                    {cardDetails.benefits_and_credits.airline_perks && cardDetails.benefits_and_credits.airline_perks.length > 0 && (
-                      <div>
-                        <p className="text-slate-400 text-sm mb-2">Airline Perks</p>
-                        {cardDetails.benefits_and_credits.airline_perks.map((perk: string, idx: number) => (
-                          <div key={idx} className="bg-slate-700/50 rounded-lg p-3 text-white text-sm">
-                            {perk}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {cardDetails.benefits_and_credits.general_perks && cardDetails.benefits_and_credits.general_perks.length > 0 && (
-                      <div>
-                        <p className="text-slate-400 text-sm mb-2">General Perks</p>
-                        {cardDetails.benefits_and_credits.general_perks.map((perk: string, idx: number) => (
-                          <div key={idx} className="bg-slate-700/50 rounded-lg p-3 text-white text-sm">
-                            {perk}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                {/* Base Multiplier */}
+                <div className="bg-slate-700/50 rounded-lg p-4">
+                  <p className="text-slate-400 text-sm mb-1">Base Multiplier</p>
+                  <p className="text-white font-bold text-2xl">{cardDetails.rewards_structure.base_multiplier}x</p>
+                  <p className="text-slate-400 text-xs mt-1">On all other purchases</p>
                 </div>
+
+                {/* Card Perks */}
+                {cardDetails.benefits_and_credits.general_perks && cardDetails.benefits_and_credits.general_perks.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-white mb-3">Card Perks</h4>
+                    <div className="space-y-2">
+                      {cardDetails.benefits_and_credits.general_perks.map((perk: string, idx: number) => (
+                        <div key={idx} className="bg-slate-700/50 rounded-lg p-3 text-white text-sm">
+                          {perk}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

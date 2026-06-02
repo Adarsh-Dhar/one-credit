@@ -87,14 +87,14 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
     }
   }
 
-  // Calculate default balance based on currency type
+  // Calculate default balance based on currency type - use credit_token_balance (rewards) not current_balance_owed (debt)
   let defaultBalance = 0;
   if (currency_type === 'POINTS') defaultBalance = (fiatCard as any).points_balance || 30000;
   else if (currency_type === 'MILES') defaultBalance = 50000;
-  else defaultBalance = (fiatCard.current_balance_owed || 0) * -1 || 150;
+  else defaultBalance = (fiatCard as any).credit_token_balance || 150;
 
   // Calculate OP rate based on rewards
-  const opRate = currency_type === 'USD' ? 100 : (rewards_structure.base_multiplier || 1.5);
+  const opRate = currency_type === 'USD' ? 100 : ((fiatCard as any).points_value_cents || 1.0);
 
   // Combine perks
   const perks = [

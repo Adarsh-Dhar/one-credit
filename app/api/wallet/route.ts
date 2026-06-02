@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models/User';
-import { getCards, computeTotalOp } from '@/lib/cards';
+import { FiatCard } from '@/lib/models/FiatCard';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,46 +15,54 @@ export async function GET(request: Request) {
   await connectDB();
   let user = await User.findOne({ email }).lean() as any;
 
-  // Get cards from database
-  const CARDS = await getCards();
+  // Get fiat cards from database with actual balances
+  const fiatCards = await FiatCard.find({ user_id: 'usr_88374' }).lean();
 
   if (!user) {
-    // Auto-create demo user with all cards from database
-    const defaultCards: Record<string, { balance: number }> = {};
-    for (const card of CARDS) {
-      defaultCards[card.key] = { balance: card.defaultBalance };
-    }
+    // Auto-create demo user
     const created = await User.create({
       email,
-      portfolio: { cards: defaultCards },
+      portfolio: { cards: {} },
     });
     user = created.toObject();
   }
 
-  const cards = user.portfolio?.cards ?? {};
+  // Calculate total OP from credit_token_balance (rewards) not current_balance_owed (debt)
+  let totalOp = 0;
+  const cardDetails = fiatCards.map((card: any) => {
+    const creditTokenBalance = card.credit_token_balance || 0;
+    const pointsBalance = card.points_balance || 0;
+    const pointsValueCents = card.points_value_cents || 1.0;
+    
+    // OP value comes from rewards (credit_token_balance or points_balance), not debt
+    let opValue = 0;
+    if (card.currency_type === 'POINTS') {
+      opValue = pointsBalance * pointsValueCents;
+    } else {
+      opValue = creditTokenBalance;
+    }
+    
+    totalOp += opValue;
 
-  // Build flat balance map
-  const balances: Record<string, number> = {};
-  for (const card of CARDS) {
-    balances[card.key] = cards[card.key]?.balance ?? card.defaultBalance;
-  }
+    return {
+      key: card.card_id,
+      name: card.display_name,
+      issuer: card.network,
+      type: card.card_type,
+      color: 'from-slate-600 to-slate-800',
+      currency: card.currency_type.toLowerCase(),
+      balance: card.current_balance_owed || 0, // Debt (what you owe)
+      limit: card.credit_limit || 0,
+      opValue: opValue, // Rewards (what you can spend)
+      opRate: card.currency_type === 'USD' ? 100 : (pointsValueCents || 1.0),
+      redemptionRate: card.redemption_rate_display || (card.currency_type === 'USD' ? '$1.00 = 100 OP' : `1 Point = ${pointsValueCents || 1.0} OP`),
+      perks: [
+        ...(card.benefits_and_credits?.airline_perks || []),
+        ...(card.benefits_and_credits?.general_perks || []),
+      ],
+      annualFee: card.financials?.annual_fee || 0,
+    };
+  });
 
-  const totalOp = await computeTotalOp(balances);
-
-  // Return rich per-card data so the dashboard can display each card
-  const cardDetails = CARDS.map((card) => ({
-    key:      card.key,
-    name:     card.name,
-    issuer:   card.issuer,
-    type:     card.type,
-    color:    card.color,
-    currency: card.currency,
-    balance:  balances[card.key],
-    opValue:  balances[card.key] * card.opRate,
-    opRate:   card.opRate,
-    perks:    card.perks,
-    annualFee: card.annualFee,
-  }));
-
-  return NextResponse.json({ totalOp, cards: cardDetails, balances });
+  return NextResponse.json({ totalOp, cards: cardDetails });
 }
