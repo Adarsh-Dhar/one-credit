@@ -292,7 +292,7 @@ export function handleCardlyticsRequest(
 ): CardlyticsApiResponse {
   try {
     if (method === 'GET' && path === '/v2/offers') {
-      const params = body as { category?: OfferCategory; activeOnly?: string; cardNetwork?: string };
+      const params = body as { category?: OfferCategory; activeOnly?: string; cardNetwork?: string } || {};
       return {
         success: true,
         data: cardlyticsStore.listOffers({
