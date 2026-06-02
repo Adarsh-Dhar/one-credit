@@ -572,6 +572,22 @@ async def call_tool(name: str, arguments: dict) -> ToolResponse:
             result = await get_user_balances(arguments["userId"])
         elif name == "updateBalances":
             result = await update_balances(arguments["userId"], arguments["cardDebits"])
+        elif name == "sync_reward_networks":
+            result = await sync_reward_networks(arguments.get("source"))
+        elif name == "get_reward_offers":
+            result = await get_reward_offers(
+                layer=arguments.get("layer", "all"),
+                category=arguments.get("category"),
+                network=arguments.get("network"),
+                country=arguments.get("country"),
+                min_cashback=arguments.get("minCashback"),
+                min_epc=arguments.get("minEpc")
+            )
+        elif name == "get_best_offer_for_merchant":
+            result = await get_best_offer_for_merchant(
+                merchant_name=arguments["merchantName"],
+                card_networks=arguments.get("cardNetworks")
+            )
         else:
             result = {"error": f"Unknown tool: {name}"}
         
