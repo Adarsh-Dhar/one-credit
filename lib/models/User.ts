@@ -1,14 +1,4 @@
 import mongoose from 'mongoose';
-import { CARDS } from '@/lib/cards';
-
-// Build the cards sub-schema dynamically from CARDS constant
-// so adding a new card in cards.ts automatically adds it to the schema
-const cardsSchema: Record<string, unknown> = {};
-for (const card of CARDS) {
-  cardsSchema[card.key] = {
-    balance: { type: Number, default: card.defaultBalance },
-  };
-}
 
 const UserSchema = new mongoose.Schema(
   {

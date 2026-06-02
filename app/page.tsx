@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Sparkles, DollarSign, TrendingUp } from 'lucide-react';
+import { Sparkles, DollarSign, TrendingUp, X, Star } from 'lucide-react';
 import Link from 'next/link';
 import { CardDefinition } from '@/lib/cards';
 import { useSession } from 'next-auth/react';
@@ -13,6 +13,8 @@ export default function Dashboard() {
   const [wallet, setWallet] = useState(0);
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [cardDetails, setCardDetails] = useState<any>(null);
 
   useEffect(() => {
     const email = session?.user?.email || 'demo@omniwallet.com';
@@ -25,6 +27,23 @@ export default function Dashboard() {
       .catch(() => setWallet(150000))
       .finally(() => setLoading(false));
   }, [session]);
+
+  const handleCardClick = async (card: any) => {
+    setSelectedCard(card);
+    try {
+      const response = await fetch(`/api/fiat-cards?userId=usr_88374`);
+      const data = await response.json();
+      const fullCard = data.cards.find((c: any) => c.card_id === card.key);
+      setCardDetails(fullCard);
+    } catch (error) {
+      console.error('Error fetching card details:', error);
+    }
+  };
+
+  const closeCardDetails = () => {
+    setSelectedCard(null);
+    setCardDetails(null);
+  };
 
   const walletUSD = (wallet / 100).toFixed(2);
 
@@ -87,7 +106,8 @@ export default function Dashboard() {
             {cards.map((card) => (
               <div
                 key={card.key}
-                className={`bg-gradient-to-br ${card.color} rounded-xl p-5 text-white shadow-lg relative overflow-hidden`}
+                onClick={() => handleCardClick(card)}
+                className={`bg-gradient-to-br ${card.color} rounded-xl p-5 text-white shadow-lg relative overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200`}
               >
                 {/* Card shine effect */}
                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
@@ -123,6 +143,130 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
+
+        {/* Card Details Modal */}
+        {selectedCard && cardDetails && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-6 flex justify-between items-center">
+                <div>
+                  <h3 className="text-2xl font-bold text-white">{selectedCard.name}</h3>
+                  <p className="text-slate-400">{selectedCard.issuer}</p>
+                </div>
+                <button
+                  onClick={closeCardDetails}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-6">
+                {/* Financials */}
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-green-400" />
+                    Financial Details
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-700/50 rounded-lg p-4">
+                      <p className="text-slate-400 text-sm">Annual Fee</p>
+                      <p className="text-white font-bold">${cardDetails.financials.annual_fee}</p>
+                    </div>
+                    <div className="bg-slate-700/50 rounded-lg p-4">
+                      <p className="text-slate-400 text-sm">Foreign Transaction Fee</p>
+                      <p className="text-white font-bold">{cardDetails.financials.foreign_transaction_fee_pct}%</p>
+                    </div>
+                    <div className="bg-slate-700/50 rounded-lg p-4">
+                      <p className="text-slate-400 text-sm">Standard APR</p>
+                      <p className="text-white font-bold">{cardDetails.financials.standard_apr}%</p>
+                    </div>
+                    <div className="bg-slate-700/50 rounded-lg p-4">
+                      <p className="text-slate-400 text-sm">Currency Type</p>
+                      <p className="text-white font-bold">{cardDetails.currency_type}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rewards Structure */}
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-yellow-400" />
+                    Rewards Structure
+                  </h4>
+                  <div className="bg-slate-700/50 rounded-lg p-4">
+                    <p className="text-slate-400 text-sm mb-2">Base Multiplier</p>
+                    <p className="text-white font-bold text-2xl">{cardDetails.rewards_structure.base_multiplier}x</p>
+                  </div>
+
+                  {cardDetails.rewards_structure.fixed_categories && cardDetails.rewards_structure.fixed_categories.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-slate-400 text-sm">Bonus Categories</p>
+                      {cardDetails.rewards_structure.fixed_categories.map((cat: any, idx: number) => (
+                        <div key={idx} className="bg-slate-700/50 rounded-lg p-4 flex justify-between items-center">
+                          <div>
+                            <p className="text-white font-medium">{cat.category}</p>
+                            {cat.cap_amount_usd && (
+                              <p className="text-slate-400 text-xs">Cap: ${cat.cap_amount_usd.toLocaleString()} / {cat.cap_period}</p>
+                            )}
+                          </div>
+                          <p className="text-green-400 font-bold text-xl">{cat.multiplier}x</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Statement Credits */}
+                {cardDetails.benefits_and_credits.statement_credits && cardDetails.benefits_and_credits.statement_credits.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-white mb-3">Statement Credits</h4>
+                    <div className="space-y-2">
+                      {cardDetails.benefits_and_credits.statement_credits.map((credit: any, idx: number) => (
+                        <div key={idx} className="bg-slate-700/50 rounded-lg p-4 flex justify-between items-center">
+                          <div>
+                            <p className="text-white font-medium">{credit.name}</p>
+                            <p className="text-slate-400 text-xs">Resets: {credit.reset_period}</p>
+                          </div>
+                          <p className="text-green-400 font-bold">${credit.amount_usd}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Perks */}
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-3">Card Perks</h4>
+                  <div className="space-y-2">
+                    {cardDetails.benefits_and_credits.airline_perks && cardDetails.benefits_and_credits.airline_perks.length > 0 && (
+                      <div>
+                        <p className="text-slate-400 text-sm mb-2">Airline Perks</p>
+                        {cardDetails.benefits_and_credits.airline_perks.map((perk: string, idx: number) => (
+                          <div key={idx} className="bg-slate-700/50 rounded-lg p-3 text-white text-sm">
+                            {perk}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {cardDetails.benefits_and_credits.general_perks && cardDetails.benefits_and_credits.general_perks.length > 0 && (
+                      <div>
+                        <p className="text-slate-400 text-sm mb-2">General Perks</p>
+                        {cardDetails.benefits_and_credits.general_perks.map((perk: string, idx: number) => (
+                          <div key={idx} className="bg-slate-700/50 rounded-lg p-3 text-white text-sm">
+                            {perk}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Integration Status */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">

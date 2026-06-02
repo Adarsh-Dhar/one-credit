@@ -2,16 +2,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models/User';
-import { CARDS, computeTotalOp } from '@/lib/cards';
-
-// Build default balances from CARDS constant
-function defaultCards() {
-  const result: Record<string, { balance: number }> = {};
-  for (const card of CARDS) {
-    result[card.key] = { balance: card.defaultBalance };
-  }
-  return result;
-}
+import { getCards, computeTotalOp } from '@/lib/cards';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -24,24 +15,31 @@ export async function GET(request: Request) {
   await connectDB();
   let user = await User.findOne({ email }).lean() as any;
 
+  // Get cards from database
+  const CARDS = await getCards();
+
   if (!user) {
-    // Auto-create demo user with all 10 cards
+    // Auto-create demo user with all cards from database
+    const defaultCards: Record<string, { balance: number }> = {};
+    for (const card of CARDS) {
+      defaultCards[card.key] = { balance: card.defaultBalance };
+    }
     const created = await User.create({
       email,
-      portfolio: { cards: defaultCards() },
+      portfolio: { cards: defaultCards },
     });
     user = created.toObject();
   }
 
-  const cards = user.portfolio?.cards ?? defaultCards();
+  const cards = user.portfolio?.cards ?? {};
 
-  // Build flat balance map: { skyward: 60000, goldFork: 30000, ... }
+  // Build flat balance map
   const balances: Record<string, number> = {};
   for (const card of CARDS) {
     balances[card.key] = cards[card.key]?.balance ?? card.defaultBalance;
   }
 
-  const totalOp = computeTotalOp(balances);
+  const totalOp = await computeTotalOp(balances);
 
   // Return rich per-card data so the dashboard can display each card
   const cardDetails = CARDS.map((card) => ({

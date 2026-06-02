@@ -11,6 +11,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow wallet endpoint without auth for demo/testing
+  if (pathname.startsWith('/api/wallet')) {
+    return NextResponse.next();
+  }
+
+  // Allow fiat-cards endpoint without auth for demo/testing
+  if (pathname.startsWith('/api/fiat-cards')) {
+    return NextResponse.next();
+  }
+
   // Allow NextAuth API routes without token check
   if (pathname.startsWith('/api/auth')) {
     return NextResponse.next();
