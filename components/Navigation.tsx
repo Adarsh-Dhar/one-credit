@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, Settings, LogOut } from 'lucide-react';
+import { Menu, X, Settings, LogOut, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSession, signOut } from 'next-auth/react';
 
@@ -32,6 +32,11 @@ export function Navigation() {
             <Link href="/cards">
               <Button variant="ghost" className="text-slate-300 hover:text-white">
                 Cards
+              </Button>
+            </Link>
+            <Link href="/pay">
+              <Button variant="ghost" className="text-slate-300 hover:text-white">
+                Pay
               </Button>
             </Link>
             <Link href="/transactions">
@@ -78,6 +83,11 @@ export function Navigation() {
             <Link href="/cards">
               <Button variant="ghost" className="w-full justify-start text-slate-300">
                 Cards
+              </Button>
+            </Link>
+            <Link href="/pay">
+              <Button variant="ghost" className="w-full justify-start text-slate-300">
+                Pay
               </Button>
             </Link>
             <Link href="/transactions">

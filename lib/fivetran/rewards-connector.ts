@@ -16,6 +16,9 @@
 import { connectDB } from '@/lib/mongodb';
 import { RewardsOffer } from '@/lib/models/RewardsOffer';
 import { randomUUID } from 'crypto';
+import { cardlyticsStore } from '@/lib/mock-apis/cardlytics-banyan';
+import { networkOfferStore } from '@/lib/mock-apis/visa-mastercard';
+import { affiliateStore } from '@/lib/mock-apis/rakuten-impact';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -41,26 +44,6 @@ export interface RewardsSyncReport {
 }
 
 // ── Internal helpers ───────────────────────────────────────────────────────────
-
-function getBaseUrl(): string {
-  // In Next.js server context use the internal URL
-  return process.env.NEXTAUTH_URL || 'http://localhost:3000';
-}
-
-async function fetchMockApi(path: string, params?: Record<string, string>): Promise<any> {
-  const url = new URL(`${getBaseUrl()}${path}`);
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  }
-  const res = await fetch(url.toString(), {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    // next.js cache: no-store so every sync is fresh
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error(`Mock API ${path} responded ${res.status}`);
-  return res.json();
-}
 
 /** Deterministic offerId for the unified collection */
 function unifiedOfferId(source: string, rawId: string): string {
@@ -197,32 +180,24 @@ async function syncCardlyticsConnector(syncId: string): Promise<ConnectorSyncRes
   const start = Date.now();
   const connectorId = process.env.FIVETRAN_REWARDS_CONNECTOR_ID || 'local-cardlytics';
   try {
-    const data = await fetchMockApi('/api/rewards/mock/cardlytics');
-    const offers: any[] = data.data ?? [];
-    const docs = offers.map((o) => normalizeCardlyticsOffer(o, syncId));
+    // Call sync() directly — no HTTP round-trip, same module instance
+    cardlyticsStore.sync();
+    const offers = cardlyticsStore.listOffers();
+    const docs = offers.map((o) => normalizeCardlyticsOffer(o as any, syncId));
     const upserted = await bulkUpsertOffers(docs);
 
     return {
-      connectorId,
-      source: 'cardlytics',
-      syncId,
-      recordsFetched:  offers.length,
-      recordsUpserted: upserted,
-      status: 'success',
-      durationMs: Date.now() - start,
+      connectorId, source: 'cardlytics', syncId,
+      recordsFetched: offers.length, recordsUpserted: upserted,
+      status: 'success', durationMs: Date.now() - start,
       syncedAt: new Date().toISOString(),
     };
   } catch (error) {
     return {
-      connectorId,
-      source: 'cardlytics',
-      syncId,
-      recordsFetched: 0,
-      recordsUpserted: 0,
-      status: 'error',
-      error: String(error),
-      durationMs: Date.now() - start,
-      syncedAt: new Date().toISOString(),
+      connectorId, source: 'cardlytics', syncId,
+      recordsFetched: 0, recordsUpserted: 0,
+      status: 'error', error: String(error),
+      durationMs: Date.now() - start, syncedAt: new Date().toISOString(),
     };
   }
 }
@@ -231,32 +206,23 @@ async function syncNetworkConnector(syncId: string): Promise<ConnectorSyncResult
   const start = Date.now();
   const connectorId = process.env.FIVETRAN_REWARDS_CONNECTOR_ID || 'local-network';
   try {
-    const data = await fetchMockApi('/api/rewards/mock/network', { activeOnly: 'false' });
-    const offers: any[] = data.data ?? [];
-    const docs = offers.map((o) => normalizeNetworkOffer(o, syncId));
+    networkOfferStore.sync();
+    const offers = networkOfferStore.listOffers();
+    const docs = offers.map((o) => normalizeNetworkOffer(o as any, syncId));
     const upserted = await bulkUpsertOffers(docs as any);
 
     return {
-      connectorId,
-      source: 'network',
-      syncId,
-      recordsFetched:  offers.length,
-      recordsUpserted: upserted,
-      status: 'success',
-      durationMs: Date.now() - start,
+      connectorId, source: 'network', syncId,
+      recordsFetched: offers.length, recordsUpserted: upserted,
+      status: 'success', durationMs: Date.now() - start,
       syncedAt: new Date().toISOString(),
     };
   } catch (error) {
     return {
-      connectorId,
-      source: 'network',
-      syncId,
-      recordsFetched: 0,
-      recordsUpserted: 0,
-      status: 'error',
-      error: String(error),
-      durationMs: Date.now() - start,
-      syncedAt: new Date().toISOString(),
+      connectorId, source: 'network', syncId,
+      recordsFetched: 0, recordsUpserted: 0,
+      status: 'error', error: String(error),
+      durationMs: Date.now() - start, syncedAt: new Date().toISOString(),
     };
   }
 }
@@ -265,36 +231,23 @@ async function syncAffiliateConnector(syncId: string): Promise<ConnectorSyncResu
   const start = Date.now();
   const connectorId = process.env.FIVETRAN_REWARDS_CONNECTOR_ID || 'local-affiliate';
   try {
-    const data = await fetchMockApi('/api/rewards/mock/affiliate');
-    // Affiliate returns { rakuten: [...], impact: [...] }
-    const allDeals: any[] = [
-      ...(data.rakuten ?? []),
-      ...(data.impact ?? []),
-    ];
-    const docs = allDeals.map((d) => normalizeAffiliateOffer(d, syncId));
+    const result = affiliateStore.sync();
+    const allDeals = [...(result.rakuten ?? []), ...(result.impact ?? [])];
+    const docs = allDeals.map((d) => normalizeAffiliateOffer(d as any, syncId));
     const upserted = await bulkUpsertOffers(docs as any);
 
     return {
-      connectorId,
-      source: 'affiliate',
-      syncId,
-      recordsFetched:  allDeals.length,
-      recordsUpserted: upserted,
-      status: 'success',
-      durationMs: Date.now() - start,
+      connectorId, source: 'affiliate', syncId,
+      recordsFetched: allDeals.length, recordsUpserted: upserted,
+      status: 'success', durationMs: Date.now() - start,
       syncedAt: new Date().toISOString(),
     };
   } catch (error) {
     return {
-      connectorId,
-      source: 'affiliate',
-      syncId,
-      recordsFetched: 0,
-      recordsUpserted: 0,
-      status: 'error',
-      error: String(error),
-      durationMs: Date.now() - start,
-      syncedAt: new Date().toISOString(),
+      connectorId, source: 'affiliate', syncId,
+      recordsFetched: 0, recordsUpserted: 0,
+      status: 'error', error: String(error),
+      durationMs: Date.now() - start, syncedAt: new Date().toISOString(),
     };
   }
 }
