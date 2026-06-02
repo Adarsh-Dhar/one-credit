@@ -1,0 +1,191 @@
+// lib/models/FiatCard.ts
+//
+// Full Mongoose schema for a real-world (fiat) credit card entry.
+// Covers both USD cash-back cards (e.g. Blue Cash Preferred) and
+// points/miles cards (e.g. Ink Business Preferred).
+
+import mongoose, { Document, Model, Schema } from 'mongoose';
+
+// ─── Sub-document interfaces ──────────────────────────────────────────────────
+
+export interface IPromos {
+  intro_purchase_apr?: number;
+  intro_purchase_apr_expiration?: Date;
+  balance_transfer_fee_pct?: number;
+  intro_bt_apr?: number;
+  intro_bt_apr_expiration?: Date;
+}
+
+export interface IFinancials {
+  annual_fee: number;
+  foreign_transaction_fee_pct: number;
+  standard_apr: number;
+  promos?: IPromos;
+}
+
+export interface IFixedCategory {
+  category: string;
+  multiplier: number;
+  cap_amount_usd?: number | null;
+  cap_period?: string | null;          // e.g. "annual" | "anniversary_year"
+  current_spend_towards_cap?: number;
+  post_cap_multiplier?: number;
+}
+
+export interface IRotatingCategories {
+  is_active: boolean;
+  current_quarter?: string | null;
+  active_categories?: string[];
+  multiplier?: number | null;
+}
+
+export interface IRewardsStructure {
+  base_multiplier: number;
+  fixed_categories?: IFixedCategory[];
+  rotating_categories?: IRotatingCategories;
+}
+
+export interface IStatementCredit {
+  name: string;
+  amount_usd: number;
+  reset_period: string;               // e.g. "annual" | "monthly"
+  amount_redeemed?: number;
+}
+
+export interface IBenefitsAndCredits {
+  statement_credits?: IStatementCredit[];
+  airline_perks?: string[];
+  general_perks?: string[];
+}
+
+// ─── Top-level document interface ────────────────────────────────────────────
+
+export interface IFiatCard extends Document {
+  // Ownership
+  user_id: string;                     // references the User._id (stored as string)
+
+  // Card identity
+  card_id: string;                     // caller-supplied stable ID, e.g. "card_amex_bcp_01"
+  display_name: string;
+  card_type: 'personal' | 'business';
+  network: 'AMEX' | 'VISA' | 'MASTERCARD' | 'DISCOVER' | string;
+  currency_type: 'USD' | 'POINTS' | 'MILES' | string;
+
+  // Balances (only one will be relevant depending on currency_type)
+  current_balance_owed?: number;
+  credit_limit?: number;
+  points_balance?: number;
+
+  // Nested objects
+  financials: IFinancials;
+  rewards_structure: IRewardsStructure;
+  benefits_and_credits: IBenefitsAndCredits;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── Sub-schemas ──────────────────────────────────────────────────────────────
+
+const PromosSchema = new Schema<IPromos>(
+  {
+    intro_purchase_apr:             { type: Number },
+    intro_purchase_apr_expiration:  { type: Date },
+    balance_transfer_fee_pct:       { type: Number },
+    intro_bt_apr:                   { type: Number },
+    intro_bt_apr_expiration:        { type: Date },
+  },
+  { _id: false }
+);
+
+const FinancialsSchema = new Schema<IFinancials>(
+  {
+    annual_fee:                   { type: Number, required: true, default: 0 },
+    foreign_transaction_fee_pct:  { type: Number, required: true, default: 0 },
+    standard_apr:                 { type: Number, required: true },
+    promos:                       { type: PromosSchema, default: null },
+  },
+  { _id: false }
+);
+
+const FixedCategorySchema = new Schema<IFixedCategory>(
+  {
+    category:                   { type: String, required: true },
+    multiplier:                 { type: Number, required: true },
+    cap_amount_usd:             { type: Number, default: null },
+    cap_period:                 { type: String, default: null },
+    current_spend_towards_cap:  { type: Number, default: 0 },
+    post_cap_multiplier:        { type: Number, default: 1.0 },
+  },
+  { _id: false }
+);
+
+const RotatingCategoriesSchema = new Schema<IRotatingCategories>(
+  {
+    is_active:         { type: Boolean, required: true, default: false },
+    current_quarter:   { type: String, default: null },
+    active_categories: { type: [String], default: [] },
+    multiplier:        { type: Number, default: null },
+  },
+  { _id: false }
+);
+
+const RewardsStructureSchema = new Schema<IRewardsStructure>(
+  {
+    base_multiplier:     { type: Number, required: true, default: 1.0 },
+    fixed_categories:    { type: [FixedCategorySchema], default: [] },
+    rotating_categories: { type: RotatingCategoriesSchema, default: { is_active: false } },
+  },
+  { _id: false }
+);
+
+const StatementCreditSchema = new Schema<IStatementCredit>(
+  {
+    name:             { type: String, required: true },
+    amount_usd:       { type: Number, required: true },
+    reset_period:     { type: String, required: true },
+    amount_redeemed:  { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
+const BenefitsAndCreditsSchema = new Schema<IBenefitsAndCredits>(
+  {
+    statement_credits: { type: [StatementCreditSchema], default: [] },
+    airline_perks:     { type: [String], default: [] },
+    general_perks:     { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
+// ─── Root schema ──────────────────────────────────────────────────────────────
+
+const FiatCardSchema = new Schema<IFiatCard>(
+  {
+    user_id:      { type: String, required: true, index: true },
+
+    card_id:      { type: String, required: true },   // caller-supplied stable ID
+    display_name: { type: String, required: true },
+    card_type:    { type: String, enum: ['personal', 'business'], required: true },
+    network:      { type: String, required: true },
+    currency_type:{ type: String, required: true },   // 'USD' | 'POINTS' | 'MILES' …
+
+    // Balance fields — one or both may be present depending on currency_type
+    current_balance_owed: { type: Number, default: 0 },
+    credit_limit:         { type: Number },
+    points_balance:       { type: Number },
+
+    financials:            { type: FinancialsSchema,          required: true },
+    rewards_structure:     { type: RewardsStructureSchema,    required: true },
+    benefits_and_credits:  { type: BenefitsAndCreditsSchema,  required: true },
+  },
+  { timestamps: true }
+);
+
+// Compound index: one user should not have duplicate card_ids
+FiatCardSchema.index({ user_id: 1, card_id: 1 }, { unique: true });
+
+// ─── Model export ─────────────────────────────────────────────────────────────
+
+export const FiatCard: Model<IFiatCard> =
+  mongoose.models.FiatCard || mongoose.model<IFiatCard>('FiatCard', FiatCardSchema);
