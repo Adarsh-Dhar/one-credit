@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
   const { pathname } = request.nextUrl;
 
@@ -28,6 +28,11 @@ export async function middleware(request: NextRequest) {
 
   // Allow rewards mock APIs (called by the connector during sync)
   if (pathname.startsWith('/api/rewards/mock')) {
+    return NextResponse.next();
+  }
+
+  // Allow tools execute endpoint for monitoring scripts
+  if (pathname.startsWith('/api/tools/execute')) {
     return NextResponse.next();
   }
 

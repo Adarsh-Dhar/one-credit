@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { handleAffiliateRequest } from '@/lib/mock-apis/rakuten-impact';
+import { handleAffiliateRequest, affiliateStore } from '@/lib/mock-apis/rakuten-impact';
 
 export async function GET(request: NextRequest) {
   try {
     const query = Object.fromEntries(request.nextUrl.searchParams);
+    // Drift rates on every GET
+    affiliateStore.sync();
     const response = handleAffiliateRequest('GET', '/v2/publishers/offers', query);
     
     return NextResponse.json(response);

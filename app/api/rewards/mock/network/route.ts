@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { handleNetworkOfferRequest } from '@/lib/mock-apis/visa-mastercard';
+import { handleNetworkOfferRequest, networkOfferStore } from '@/lib/mock-apis/visa-mastercard';
 
 export async function GET(request: NextRequest) {
   try {
     const query = Object.fromEntries(request.nextUrl.searchParams);
+    // Drift rates on every GET
+    networkOfferStore.sync();
     const response = handleNetworkOfferRequest('GET', '/v2/offers', query);
     
     return NextResponse.json(response);

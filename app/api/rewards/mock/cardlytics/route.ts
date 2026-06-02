@@ -4,6 +4,8 @@ import { handleCardlyticsRequest } from '@/lib/mock-apis/cardlytics-banyan';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
+    // Trigger a sync cycle so rates drift on every GET
+    handleCardlyticsRequest('POST', '/v2/offers', {});
     const response = handleCardlyticsRequest('GET', '/v2/offers', searchParams);
     
     return NextResponse.json(response);
