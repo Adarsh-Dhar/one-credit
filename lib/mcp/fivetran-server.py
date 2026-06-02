@@ -419,6 +419,69 @@ async def update_balances(user_id: str, card_debits: Dict[str, Any]) -> Dict[str
     }
 
 
+async def sync_reward_networks(source: str | None = None) -> Dict[str, Any]:
+    """
+    Proxy to the Next.js Fivetran rewards connector.
+    Triggers a sync of Cardlytics, Visa/MC, and Rakuten/Impact mock APIs into MongoDB.
+    """
+    next_url = os.environ.get("NEXTAUTH_URL", "http://localhost:3000")
+    payload = {}
+    if source:
+        # map legacy single-source string to the array format the TS route expects
+        source_map = {
+            "cardlytics": "cardlytics",
+            "visa_mastercard": "network",
+            "affiliate": "affiliate",
+            "rewards": None,  # None = sync all
+        }
+        mapped = source_map.get(source)
+        if mapped:
+            payload["sources"] = [mapped]
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{next_url}/api/fivetran/rewards",
+                json=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def get_reward_offers(
+    layer: str = "all",
+    category: str | None = None,
+    network: str | None = None,
+    country: str | None = None,
+    min_cashback: float | None = None,
+    min_epc: float | None = None,
+) -> Dict[str, Any]:
+    """
+    Query active rewards offers from MongoDB via the Next.js offers API.
+    """
+    next_url = os.environ.get("NEXTAUTH_URL", "http://localhost:3000")
+    params: Dict[str, str] = {"layer": layer}
+    if category:    params["category"] = category
+    if network:     params["network"] = network
+    if country:     params["country"] = country
+    if min_cashback is not None: params["minCashback"] = str(min_cashback)
+    if min_epc is not None:      params["minEpc"] = str(min_epc)
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{next_url}/api/rewards/offers",
+                params=params,
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # Initialize MCP Server
 server = Server("omni-wallet-fivetran")
 

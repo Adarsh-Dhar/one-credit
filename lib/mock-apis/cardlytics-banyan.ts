@@ -270,7 +270,8 @@ class CardlyticsStore extends EventEmitter {
       offers = offers.filter(o => o.active);
     }
     if (filters?.cardNetwork) {
-      offers = offers.filter(o => o.cardNetworks.includes(filters.cardNetwork));
+      const network = filters.cardNetwork;
+      offers = offers.filter(o => o.cardNetworks.includes(network));
     }
 
     return offers;

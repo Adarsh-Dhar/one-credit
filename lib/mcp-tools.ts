@@ -65,6 +65,84 @@ export const MCPTools = [
       },
     },
   },
+
+  // ── New Rewards tools ────────────────────────────────────────────────────────
+
+  {
+    name: 'sync_rewards',
+    description:
+      '[REWARDS SYNC] Trigger a Fivetran sync for the rewards mock APIs (Cardlytics, Visa/Mastercard, Rakuten/Impact) and ingest the latest offers into MongoDB. Call this before querying offers if data might be stale.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sources: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['cardlytics', 'network', 'affiliate'],
+          },
+          description: 'Which reward sources to sync. Omit to sync all three.',
+        },
+      },
+    },
+  },
+
+  {
+    name: 'get_rewards_offers',
+    description:
+      '[REWARDS QUERY] Query active rewards offers from MongoDB (populated by Fivetran). Use to answer questions like "best cashback for dining", "Visa offers in UK", or "top affiliate deals with high EPC".',
+    parameters: {
+      type: 'object',
+      properties: {
+        source: {
+          type: 'string',
+          enum: ['cardlytics', 'network', 'affiliate'],
+          description: 'Filter by data source. Omit for all sources.',
+        },
+        category: {
+          type: 'string',
+          description: 'Offer category: travel, dining, grocery, shopping, entertainment, gas, pharmacy, beauty, finance, food, subscription, etc.',
+        },
+        minRewardRate: {
+          type: 'number',
+          description: 'Minimum reward/cashback rate (0.05 = 5%). For CPA deals, minimum dollar value.',
+        },
+        country: {
+          type: 'string',
+          description: 'ISO 3166-1 alpha-2 country code for geo-targeted network offers (e.g. "US", "GB").',
+        },
+        network: {
+          type: 'string',
+          description: 'Card network (VISA, MASTERCARD) or affiliate network (rakuten, impact).',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results to return (default 20, max 50).',
+        },
+        sortBy: {
+          type: 'string',
+          enum: ['rewardRate', 'lastSyncedAt'],
+          description: 'Sort order. Default: rewardRate descending.',
+        },
+      },
+    },
+  },
+
+  {
+    name: 'search_rewards_by_merchant',
+    description:
+      '[REWARDS SEARCH] Find all rewards offers for a specific merchant across all three sources (Cardlytics + Network + Affiliate). Useful for "what offers does Starbucks have?" or "find Best Buy deals".',
+    parameters: {
+      type: 'object',
+      properties: {
+        merchantName: {
+          type: 'string',
+          description: 'Merchant name to search (case-insensitive partial match).',
+        },
+      },
+      required: ['merchantName'],
+    },
+  },
 ];
 
 // ─── Tool executor (called by /api/tools/execute) ────────────────────────────
@@ -87,6 +165,15 @@ export const executeMCPTool = async (
       return await syncAfterRedemption(toolInput.sources as string[]);
     case 'get_sync_status':
       return await getSyncStatus(toolInput.source as string | undefined);
+
+    // New rewards tools
+    case 'sync_rewards':
+      return await syncRewards(toolInput.sources as Array<'cardlytics' | 'network' | 'affiliate'> | undefined);
+    case 'get_rewards_offers':
+      return await getRewardsOffers(toolInput as any);
+    case 'search_rewards_by_merchant':
+      return await searchRewardsByMerchant(toolInput.merchantName as string);
+
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -104,7 +191,8 @@ export const callGeminiWithTools = async (
 
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
-    tools: [{ functionDeclarations: tools }],
+    tools: [{ functionDeclarations: tools as any }],
+    systemInstruction: REWARDS_SYSTEM_PROMPT,
   });
 
   const chat = model.startChat();
@@ -131,6 +219,29 @@ export const callGeminiWithTools = async (
     toolCallsMade,
   };
 };
+
+// ─── System prompt ────────────────────────────────────────────────────────────
+
+const REWARDS_SYSTEM_PROMPT = `
+You are an intelligent rewards optimization agent for a multi-card wallet application.
+
+You have access to real-time rewards data from three sources ingested via Fivetran:
+1. Cardlytics / Banyan — cashback offers linked to card transactions
+2. Visa / Mastercard Network Offers — network-level discounts and promotions  
+3. Rakuten / Impact Affiliate Deals — affiliate commission programs
+
+WORKFLOW FOR REWARDS QUESTIONS:
+1. If the data might be stale (user hasn't synced recently), call sync_rewards first.
+2. Use get_rewards_offers to find the best matching offers for the user's spend category.
+3. Use search_rewards_by_merchant when looking up a specific merchant.
+4. Cross-reference results across all three sources before recommending.
+5. Always mention the rewardRate, merchantName, and source in your recommendation.
+
+WORKFLOW FOR SPEND OPTIMIZATION (unchanged):
+1. get_sync_status → 2. refresh_rates → 3. getUserBalances → 4. Reason over balances → 5. updateBalances → 6. sync_after_redemption
+
+Be specific: quote the actual cashback %, dollar amounts, and terms from the data.
+`.trim();
 
 // ─── Tool implementations ─────────────────────────────────────────────────────
 
@@ -234,4 +345,71 @@ async function getSyncStatus(source?: string) {
   });
   if (!res.ok) return { error: 'Status check failed' };
   return res.json();
+}
+
+// ─── New rewards tool implementations ────────────────────────────────────────
+
+async function syncRewards(
+  sources?: Array<'cardlytics' | 'network' | 'affiliate'>
+) {
+  const res = await fetch(`${process.env.NEXTAUTH_URL}/api/fivetran/rewards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sources: sources ?? ['cardlytics', 'network', 'affiliate'] }),
+    cache: 'no-store',
+  });
+  if (!res.ok) return { success: false, error: 'Rewards sync failed' };
+  return res.json();
+}
+
+async function getRewardsOffers(filters: {
+  source?: 'cardlytics' | 'network' | 'affiliate';
+  category?: string;
+  minRewardRate?: number;
+  country?: string;
+  network?: string;
+  limit?: number;
+  sortBy?: 'rewardRate' | 'lastSyncedAt';
+}) {
+  const { queryRewardsOffers } = await import('@/lib/fivetran/rewards-connector');
+  const offers = await queryRewardsOffers({
+    ...filters,
+    activeOnly: true,
+    limit: Math.min(filters.limit ?? 20, 50),
+  });
+
+  // Return a concise shape for Gemini to reason over
+  return {
+    count: offers.length,
+    offers: offers.map((o) => ({
+      offerId:      o.offerId,
+      source:       o.source,
+      merchantName: o.merchantName,
+      category:     o.category,
+      rewardType:   o.rewardType,
+      rewardRate:   o.rewardRate,
+      minSpend:     o.minSpend,
+      maxReward:    o.maxReward,
+      description:  o.description,
+      terms:        o.terms?.slice(0, 2),       // keep payload lean
+      promoCode:    o.affiliateData?.promoCode,
+      network:      o.networkData?.network ?? o.affiliateData?.network,
+      lastSyncedAt: o.lastSyncedAt,
+    })),
+  };
+}
+
+async function searchRewardsByMerchant(merchantName: string) {
+  const { queryRewardsOffers } = await import('@/lib/fivetran/rewards-connector');
+  const offers = await queryRewardsOffers({ merchantName, activeOnly: true, limit: 30 });
+
+  return {
+    merchantName,
+    count: offers.length,
+    bySource: {
+      cardlytics: offers.filter((o) => o.source === 'cardlytics'),
+      network:    offers.filter((o) => o.source === 'network'),
+      affiliate:  offers.filter((o) => o.source === 'affiliate'),
+    },
+  };
 }
