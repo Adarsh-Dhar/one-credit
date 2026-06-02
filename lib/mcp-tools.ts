@@ -26,19 +26,14 @@ export const MCPTools = [
   {
     name: 'updateBalances',
     description:
-      '[STAGE 5] Apply per-card raw debits after OP allocation. Converts OP amounts back to native units and writes to MongoDB.',
+      '[STAGE 5] Apply per-card raw debits after OP allocation. cardDebits is an object where keys are card keys and values are { debit: number } in native currency units.',
     parameters: {
       type: 'object',
       properties: {
         userId: { type: 'string' },
         cardDebits: {
           type: 'object',
-          description: 'Per-card debits in raw native units',
-          properties: {
-            clearCash: { type: 'object', properties: { cashDebit: { type: 'number' } } },
-            goldFork:  { type: 'object', properties: { pointsDebit: { type: 'number' } } },
-            skyward:   { type: 'object', properties: { milesDebit: { type: 'number' } } },
-          },
+          description: 'e.g. { "clearCash": { "debit": 1.50 }, "skyward": { "debit": 500 } }',
         },
       },
       required: ['userId', 'cardDebits'],
@@ -153,29 +148,36 @@ async function refreshRates() {
 // Stage 3: Real MongoDB read
 async function getUserBalances(userId: string) {
   await connectDB();
+  const { CARDS, computeTotalOp } = await import('@/lib/cards');
+
   const user = await User.findOne({
     $or: [{ _id: userId }, { email: userId }],
-  }).lean();
+  }).lean() as any;
 
   if (!user) return { error: 'User not found' };
 
-  const cards = (user as any).portfolio?.cards ?? {
-    skyward:   { miles: 60000 },
-    goldFork:  { points: 30000 },
-    clearCash: { cash: 150 },
-  };
+  const cards = user.portfolio?.cards ?? {};
+  const balances: Record<string, number> = {};
 
-  // OP conversion rates (pulled from MongoDB rates collection in production)
-  const rates = { skyward: 1.5, goldFork: 1.5, clearCash: 100 };
+  for (const card of CARDS) {
+    balances[card.key] = cards[card.key]?.balance ?? card.defaultBalance;
+  }
+
+  // Per-card breakdown for Gemini to reason over
+  const cardBreakdown = CARDS.map((card) => ({
+    key:      card.key,
+    name:     card.name,
+    type:     card.type,
+    balance:  balances[card.key],
+    opValue:  balances[card.key] * card.opRate,
+    opRate:   card.opRate,
+    currency: card.currency,
+    earnRates: card.earnRates,
+  }));
 
   return {
-    skyward:   { miles: cards.skyward.miles,     rateOp: rates.skyward },
-    goldFork:  { points: cards.goldFork.points,  rateOp: rates.goldFork },
-    clearCash: { cash: cards.clearCash.cash,     rateOp: rates.clearCash },
-    totalOp:
-      cards.skyward.miles * rates.skyward +
-      cards.goldFork.points * rates.goldFork +
-      cards.clearCash.cash * rates.clearCash,
+    cards:    cardBreakdown,
+    totalOp:  computeTotalOp(balances),
     lastSync: new Date().toISOString(),
   };
 }
@@ -183,24 +185,27 @@ async function getUserBalances(userId: string) {
 // Stage 5: Real MongoDB write
 async function updateBalances(userId: string, cardDebits: Record<string, unknown>) {
   await connectDB();
+  // cardDebits format: { skyward: { debit: 500 }, clearCash: { debit: 1.5 }, ... }
+  // where debit is in the card's native currency unit
 
-  const debits = cardDebits as {
-    clearCash?: { cashDebit: number };
-    goldFork?: { pointsDebit: number };
-    skyward?: { milesDebit: number };
-  };
-
-  const update: Record<string, number> = {};
-  if (debits.clearCash?.cashDebit)   update['portfolio.cards.clearCash.cash']     = -(debits.clearCash.cashDebit);
-  if (debits.goldFork?.pointsDebit)  update['portfolio.cards.goldFork.points']    = -(debits.goldFork.pointsDebit);
-  if (debits.skyward?.milesDebit)    update['portfolio.cards.skyward.miles']      = -(debits.skyward.milesDebit);
+  const inc: Record<string, number> = {};
+  for (const [cardKey, debitObj] of Object.entries(cardDebits)) {
+    const debit = (debitObj as { debit: number }).debit;
+    if (debit && debit > 0) {
+      inc[`portfolio.cards.${cardKey}.balance`] = -debit;
+    }
+  }
 
   await User.findOneAndUpdate(
     { $or: [{ _id: userId }, { email: userId }] },
-    { $inc: update, $set: { 'portfolio.lastSyncTime': new Date() } }
+    { $inc: inc, $set: { 'portfolio.lastSyncTime': new Date() } }
   );
 
-  return { success: true, debitsApplied: cardDebits, timestamp: new Date().toISOString() };
+  return {
+    success:       true,
+    debitsApplied: cardDebits,
+    timestamp:     new Date().toISOString(),
+  };
 }
 
 // Stage 6: Trigger Fivetran re-sync for ALL affected sources (array, not single string)

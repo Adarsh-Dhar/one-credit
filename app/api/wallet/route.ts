@@ -1,7 +1,17 @@
-// app/api/wallet/route.ts  (new file)
+// app/api/wallet/route.ts
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models/User';
+import { CARDS, computeTotalOp } from '@/lib/cards';
+
+// Build default balances from CARDS constant
+function defaultCards() {
+  const result: Record<string, { balance: number }> = {};
+  for (const card of CARDS) {
+    result[card.key] = { balance: card.defaultBalance };
+  }
+  return result;
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -12,28 +22,41 @@ export async function GET(request: Request) {
   }
 
   await connectDB();
-  const user = await User.findOne({ email }).lean();
+  let user = await User.findOne({ email }).lean() as any;
 
   if (!user) {
-    // Auto-create demo user on first load
-    const newUser = await User.create({
+    // Auto-create demo user with all 10 cards
+    const created = await User.create({
       email,
-      portfolio: {
-        cards: {
-          skyward:   { miles: 60000 },
-          goldFork:  { points: 30000 },
-          clearCash: { cash: 150 },
-        },
-      },
+      portfolio: { cards: defaultCards() },
     });
-    return NextResponse.json({ totalOp: 150000, cards: newUser.portfolio.cards });
+    user = created.toObject();
   }
 
-  const cards = (user as any).portfolio?.cards;
-  const totalOp =
-    (cards?.skyward?.miles ?? 0) * 1.5 +
-    (cards?.goldFork?.points ?? 0) * 1.5 +
-    (cards?.clearCash?.cash ?? 0) * 100;
+  const cards = user.portfolio?.cards ?? defaultCards();
 
-  return NextResponse.json({ totalOp, cards });
+  // Build flat balance map: { skyward: 60000, goldFork: 30000, ... }
+  const balances: Record<string, number> = {};
+  for (const card of CARDS) {
+    balances[card.key] = cards[card.key]?.balance ?? card.defaultBalance;
+  }
+
+  const totalOp = computeTotalOp(balances);
+
+  // Return rich per-card data so the dashboard can display each card
+  const cardDetails = CARDS.map((card) => ({
+    key:      card.key,
+    name:     card.name,
+    issuer:   card.issuer,
+    type:     card.type,
+    color:    card.color,
+    currency: card.currency,
+    balance:  balances[card.key],
+    opValue:  balances[card.key] * card.opRate,
+    opRate:   card.opRate,
+    perks:    card.perks,
+    annualFee: card.annualFee,
+  }));
+
+  return NextResponse.json({ totalOp, cards: cardDetails, balances });
 }

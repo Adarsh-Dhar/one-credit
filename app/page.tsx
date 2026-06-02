@@ -5,9 +5,11 @@ import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Sparkles, DollarSign, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import { CardDefinition } from '@/lib/cards';
 
 export default function Dashboard() {
   const [wallet, setWallet] = useState(0);
+  const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,6 +18,7 @@ export default function Dashboard() {
       .then((r) => r.json())
       .then((data) => {
         setWallet(data.totalOp ?? 150000);
+        setCards(data.cards ?? []);
       })
       .catch(() => setWallet(150000))
       .finally(() => setLoading(false));
@@ -72,6 +75,50 @@ export default function Dashboard() {
               USD Equivalent: <span className="font-bold text-yellow-300">${walletUSD}</span>
             </p>
             <p className="text-slate-400 text-xs mt-4">1 OP = $0.01 USD</p>
+          </div>
+        </section>
+
+        {/* Card Portfolio Grid */}
+        <section className="mb-16">
+          <h2 className="text-2xl font-bold text-white mb-6">Your Cards</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {cards.map((card) => (
+              <div
+                key={card.key}
+                className={`bg-gradient-to-br ${card.color} rounded-xl p-5 text-white shadow-lg relative overflow-hidden`}
+              >
+                {/* Card shine effect */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+
+                <div className="relative z-10">
+                  <p className="text-xs font-medium text-white/70 mb-1">{card.issuer}</p>
+                  <p className="text-base font-bold leading-tight mb-4">{card.name}</p>
+
+                  <p className="text-2xl font-bold">
+                    {card.currency === 'cash'
+                      ? `$${card.balance.toFixed(2)}` 
+                      : card.balance.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-white/70 mt-1">
+                    {card.currency === 'cash' ? 'cashback' : card.currency}
+                  </p>
+
+                  <div className="mt-4 pt-3 border-t border-white/20 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs text-white/60">OP Value</p>
+                      <p className="text-sm font-semibold">{Math.round(card.opValue).toLocaleString()} OP</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-white/60">Rate</p>
+                      <p className="text-sm font-semibold">{card.opRate}x</p>
+                    </div>
+                  </div>
+
+                  {/* Top perk */}
+                  <p className="mt-3 text-xs text-white/60 truncate">{card.perks[0]}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
