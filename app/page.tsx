@@ -6,14 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, DollarSign, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { CardDefinition } from '@/lib/cards';
+import { useSession } from 'next-auth/react';
 
 export default function Dashboard() {
+  const { data: session } = useSession();
   const [wallet, setWallet] = useState(0);
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const email = localStorage.getItem('userEmail') || 'demo@omniwallet.com';
+    const email = session?.user?.email || 'demo@omniwallet.com';
     fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())
       .then((data) => {
@@ -22,7 +24,7 @@ export default function Dashboard() {
       })
       .catch(() => setWallet(150000))
       .finally(() => setLoading(false));
-  }, []);
+  }, [session]);
 
   const walletUSD = (wallet / 100).toFixed(2);
 

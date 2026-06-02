@@ -14,6 +14,7 @@ const UserSchema = new mongoose.Schema(
   {
     email:  { type: String, required: true, unique: true },
     name:   String,
+    password: { type: String, select: false },
     settings: {
       preferredCurrency: { type: String, default: 'USD' },
       notifications:     { type: Boolean, default: true },

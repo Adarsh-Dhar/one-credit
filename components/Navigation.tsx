@@ -1,19 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, Settings } from 'lucide-react';
+import { Menu, X, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useSession, signOut } from 'next-auth/react';
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
-  const [email, setEmail] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    // Safe to access localStorage only after mount (client-side only)
-    const userEmail = localStorage.getItem('userEmail');
-    if (userEmail) setEmail(userEmail);
-  }, []);
+  const { data: session } = useSession();
 
   return (
     <nav className="bg-slate-900/50 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-50">
@@ -57,7 +52,17 @@ export function Navigation() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-400 hidden sm:inline">{email || 'Not logged in'}</span>
+            <span className="text-sm text-slate-400 hidden sm:inline">{session?.user?.email || 'Not logged in'}</span>
+            {session && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-slate-300 hover:text-white"
+                onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            )}
             <Link href="/settings">
               <Button variant="ghost" size="icon" className="text-slate-300 hover:text-white">
                 <Settings className="w-5 h-5" />
