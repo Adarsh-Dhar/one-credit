@@ -21,6 +21,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow internal Fivetran rewards sync (server-to-server, no user token)
+  if (pathname.startsWith('/api/fivetran/rewards')) {
+    return NextResponse.next();
+  }
+
+  // Allow rewards mock APIs (called by the connector during sync)
+  if (pathname.startsWith('/api/rewards/mock')) {
+    return NextResponse.next();
+  }
+
   // Allow NextAuth API routes without token check
   if (pathname.startsWith('/api/auth')) {
     return NextResponse.next();
