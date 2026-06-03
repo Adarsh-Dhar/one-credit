@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "OneCredit - AI Credit Card Optimizer",
+  "version": "1.0.0",
+  "description": "Get AI-powered credit card recommendations while shopping - detects products and shows which card costs the least in OP tokens",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "webRequest",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.amazon.com/*",
+    "https://www.walmart.com/*",
+    "https://www.bestbuy.com/*",
+    "https://www.target.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.amazon.com/*",
+        "https://www.walmart.com/*",
+        "https://www.bestbuy.com/*",
+        "https://www.target.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "OneCredit Transaction Portal"
+  },
+  "icons": {
+    "16": "images/icon-16x16.png",
+    "48": "images/icon-48x48.png",
+    "128": "images/icon-128x128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*"],
+      "matches": ["https://www.amazon.com/*", "https://www.walmart.com/*", "https://www.bestbuy.com/*", "https://www.target.com/*"]
+    }
+  ]
+}

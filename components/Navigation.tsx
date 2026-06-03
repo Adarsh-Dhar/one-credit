@@ -39,6 +39,12 @@ export function Navigation() {
                 Pay
               </Button>
             </Link>
+            <Link href="/extension">
+              <Button variant="ghost" className="text-slate-300 hover:text-white">
+                <CreditCard className="w-4 h-4 mr-2" />
+                Extension
+              </Button>
+            </Link>
           </div>
 
           <div className="flex items-center gap-2">
@@ -83,6 +89,12 @@ export function Navigation() {
             <Link href="/pay">
               <Button variant="ghost" className="w-full justify-start text-slate-300">
                 Pay
+              </Button>
+            </Link>
+            <Link href="/extension">
+              <Button variant="ghost" className="w-full justify-start text-slate-300">
+                <CreditCard className="w-4 h-4 mr-2" />
+                Extension
               </Button>
             </Link>
           </div>
