@@ -27,6 +27,23 @@ export const PERK_VALUES = {
   elite_status_nights: 0,        // indirect — not per-transaction
 } as const;
 
+export const TRANSFER_CPP: Record<string, { min: number; max: number }> = {
+  chase_ur:   { min: 1.0, max: 2.1 },   // max: Hyatt
+  amex_mr:    { min: 0.6, max: 1.8 },   // max: Air France / Virgin Atlantic
+  cap1_miles: { min: 1.0, max: 1.7 },   // max: Turkish / Avianca
+  citi_ty:    { min: 1.0, max: 1.7 },   // max: Turkish Airlines
+  hilton:     { min: 0.4, max: 0.6 },
+  marriott:   { min: 0.7, max: 0.9 },
+};
+
+const PERK_TRIGGERS: Record<string, { keyword: string; category: string; value: number }[]> = {
+  'Global Entry credit':    [{ keyword: 'global entry', category: 'travel', value: PERK_VALUES.global_entry_credit }],
+  'TSA PreCheck credit':    [{ keyword: 'tsa precheck', category: 'travel', value: PERK_VALUES.global_entry_credit }],
+  'Priority Pass lounges':  [{ keyword: 'lounge', category: 'travel', value: PERK_VALUES.lounge_visit }],
+  'Priority Pass Select':   [{ keyword: 'lounge', category: 'travel', value: PERK_VALUES.lounge_visit }],
+  'Free night award':       [{ keyword: 'hotel', category: 'hotel', value: PERK_VALUES.free_night_cert }],
+};
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface TotalValueResult {
@@ -55,6 +72,11 @@ export interface TotalValueResult {
   earnedOp_min: number;
   earnedOp_max: number;
 
+  // Type 6 — experiential perks (display only, not in totalUsd)
+  perkOp: number;
+  perkUsd: number;
+  perkName: string | null;
+
   // Totals
   totalOp: number;
   totalUsd: number;
@@ -70,6 +92,7 @@ export interface CardForConversion {
     cppMax: number;
     name: string;
   };
+  perks?: string[];            // experiential perks from card data
   statementCredits?: Array<{
     name: string;
     amount_usd: number;
@@ -126,6 +149,11 @@ export function computeTotalValue(
     // Type 5 — transfer range (only for POINTS cards)
     earnedOp_min: 0,
     earnedOp_max: 0,
+
+    // Type 6 — experiential perks (display only, not in totalUsd)
+    perkOp: 0,
+    perkUsd: 0,
+    perkName: null,
 
     // Totals
     totalOp: 0,
@@ -217,6 +245,22 @@ export function computeTotalValue(
   result.protectionUsd = protUsd;
   result.protectionOp = protUsd * OP_PER_USD;
   if (protUsd > 0) result.confidence = 'estimated';
+
+  // ── TYPE 6: Experiential perks ───────────────────────────────────
+  // Check if any perk triggers based on category and add amortized value (display only)
+  for (const perk of card.perks ?? []) {
+    const triggers = PERK_TRIGGERS[perk];
+    if (!triggers) continue;
+
+    for (const trigger of triggers) {
+      if (categoryKey.includes(trigger.keyword) || trigger.category === categoryKey) {
+        result.perkUsd += trigger.value;
+        result.perkName = perk;
+        break; // only one perk fires per transaction
+      }
+    }
+  }
+  result.perkOp = result.perkUsd * OP_PER_USD;
 
   // ── TOTALS ──────────────────────────────────────────────────────
   // Portal OP: base if no portal, additivePortal stacks, issuer portal shown separately

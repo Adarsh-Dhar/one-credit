@@ -694,7 +694,12 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
     creditFired: { name: string, amount: number } | null;
     portalBonus: { name: string, url: string, multiplier: number } | null;
     protectionValue: number;
+    protectionLabels: string[];
+    transferCppMin: number | null;
     transferCppMax: number | null;
+    baseOp: number;
+    portalOp: number;
+    confidence: 'direct' | 'derived' | 'estimated';
   };
 
   const cardRows: CardRow[] = allCards
@@ -708,36 +713,24 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
       // Use computeTotalValue utility for all benefit calculations
       const totalValueResult = computeTotalValue(card, amount, categoryKey);
 
-      // Statement credit matching logic (for display)
-      let creditFired = null;
-      const statementCredits = card.statementCredits || [];
-      for (const credit of statementCredits) {
-        if (credit.merchant_categories?.includes(categoryKey) && (credit.amount_redeemed || 0) < credit.amount_usd) {
-          const remaining = credit.amount_usd - (credit.amount_redeemed || 0);
-          creditFired = { name: credit.name, amount: Math.min(remaining, amount) };
-          break;
-        }
+      // Pull credit/portal data from totalValueResult (no duplicate matching logic)
+      const creditFired = totalValueResult.creditName
+        ? { name: totalValueResult.creditName, amount: totalValueResult.creditUsd }
+        : null;
+
+      const portalBonus = totalValueResult.portalName
+        ? { name: totalValueResult.portalName, url: '', multiplier: 0 } // URL not available from computeTotalValue
+        : null;
+
+      // If portal fired, re-compute earnedOp with portal rate (for display)
+      if (totalValueResult.portalName && totalValueResult.portalOp > 0) {
+        cashReward = totalValueResult.portalUsd;
+        earnedOp = totalValueResult.portalOp;
       }
 
-      // Portal bonus detection logic (for display)
-      let portalBonus = null;
-      const portalBonuses = card.portalBonuses || [];
-      for (const bonus of portalBonuses) {
-        if (bonus.categories?.includes(categoryKey)) {
-          portalBonus = { name: bonus.portal_name, url: bonus.portal_url, multiplier: bonus.bonus_multiplier };
-          // Re-compute earnedOp with portal multiplier applied
-          if (bonus.bonus_type === 'multiplier') {
-            cashReward = amount * (earnRate / 100) * bonus.bonus_multiplier;
-            earnedOp = card.currency === 'usd'
-              ? cashReward * 100
-              : cashReward * (card.opRate ?? 100);
-          }
-          break;
-        }
-      }
-
-      // Transfer partner cpp max
+      // Transfer partner cpp range
       const transferPartners = card.transferPartners || [];
+      const transferCppMin = transferPartners.length > 0 ? Math.min(...transferPartners.map((p: any) => p.cpp_min)) : null;
       const transferCppMax = transferPartners.length > 0 ? Math.max(...transferPartners.map((p: any) => p.cpp_max)) : null;
 
       return {
@@ -752,7 +745,12 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
         creditFired,
         portalBonus,
         protectionValue: totalValueResult.protectionUsd,
+        protectionLabels: totalValueResult.protectionLabels,
+        transferCppMin,
         transferCppMax,
+        baseOp: totalValueResult.baseOp,
+        portalOp: totalValueResult.portalOp,
+        confidence: totalValueResult.confidence,
       };
     })
     .sort((a, b) => b.totalValue - a.totalValue); // sort by total value
@@ -928,14 +926,14 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
                           rel="noopener noreferrer"
                           className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
                         >
-                          ↗ {row.portalBonus.multiplier}x via {row.portalBonus.name}
+                          ↗ {row.portalOp > row.baseOp ? `${row.baseOp} → ${row.portalOp} OP` : `${row.portalBonus.multiplier}x`} via {row.portalBonus.name}
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
                       {row.protectionValue > 0 && (
                         <span className="text-[10px] bg-slate-500/20 text-slate-400 px-2 py-0.5 rounded-full flex items-center gap-1">
                           <Shield className="w-3 h-3" />
-                          🛡 Protection value
+                          🛡 ~${row.protectionValue.toFixed(2)} est. · {row.protectionLabels.join(' + ')}
                         </span>
                       )}
                     </div>
@@ -957,7 +955,7 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
                       )}
                       {row.currency === 'points' && row.transferCppMax && (
                         <span className="text-[10px] text-purple-400">
-                          Best at {row.transferCppMax}¢/pt
+                          {row.transferCppMin}–{row.transferCppMax}¢/pt
                         </span>
                       )}
                     </div>

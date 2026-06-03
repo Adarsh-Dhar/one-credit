@@ -326,7 +326,15 @@ async function getUserBalances(userId: string) {
       opRate:   card.opRate,
       currency: card.currency,
       earnRates: card.earnRates,
-      statementCredits: benefits.statement_credits || [],
+      statementCredits: (benefits.statement_credits || []).filter((c: any) =>
+        c.merchant_categories?.includes('travel') || // Default to showing travel credits
+        c.merchant_categories?.includes('dining') ||
+        c.merchant_categories?.includes('groceries') ||
+        c.merchant_categories?.includes('shopping') ||
+        c.merchant_categories?.includes('gas') ||
+        c.merchant_categories?.includes('streaming') ||
+        c.merchant_categories?.includes('pharmacy')
+      ),
       portalBonuses: benefits.portal_bonuses || [],
       protections: benefits.purchase_protections || null,
     };

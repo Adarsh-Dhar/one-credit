@@ -14,6 +14,7 @@ export interface CardDefinition {
   currency: string;       // what it earns — "miles", "points", "cash", etc.
   defaultBalance: number; // starting balance for demo users
   opRate: number;         // how many OP per 1 unit of currency
+  pointsProgramKey?: string; // key for TRANSFER_CPP lookup (e.g., 'chase_ur', 'amex_mr')
   // Earn multipliers per category (e.g. 3 = 3x points per $1 spent, 0.06 = 6% cash back)
   earnRates: {
     flights: number;
@@ -42,6 +43,19 @@ const typeToColor: Record<string, string> = {
   business: 'from-slate-600 to-slate-800',
   student: 'from-pink-500 to-rose-700',
 };
+
+// Map points program names to TRANSFER_CPP lookup keys
+function mapProgramName(programName: string | null | undefined): string | undefined {
+  if (!programName) return undefined;
+  const lower = programName.toLowerCase();
+  if (lower.includes('ultimate rewards')) return 'chase_ur';
+  if (lower.includes('membership rewards')) return 'amex_mr';
+  if (lower.includes('venture rewards')) return 'cap1_miles';
+  if (lower.includes('thankyou')) return 'citi_ty';
+  if (lower.includes('hilton honors')) return 'hilton';
+  if (lower.includes('marriott bonvoy')) return 'marriott';
+  return undefined;
+}
 
 // Transform FiatCard to CardDefinition
 function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
@@ -112,6 +126,7 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
     currency: currency_type.toLowerCase(),
     defaultBalance,
     opRate,
+    pointsProgramKey: mapProgramName(fiatCard.points_program_name),
     earnRates,
     annualFee: financials.annual_fee,
     perks,
