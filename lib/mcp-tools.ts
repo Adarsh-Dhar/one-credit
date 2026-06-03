@@ -241,9 +241,13 @@ WORKFLOW FOR SPEND OPTIMIZATION (unchanged):
 1. get_sync_status → 2. refresh_rates → 3. getUserBalances → 4. Reason over balances → 5. updateBalances → 6. sync_after_redemption
 
 OP CALCULATION FORMULA (mandatory for all spend recommendations):
-Step 1 — Native reward: nativeReward = spendAmount × card.earnRates[category]
+CRITICAL: card.earnRates[category] is stored as a whole number percentage (e.g., 3 = 3%, NOT 0.03).
+Step 1 — Native reward (cash value): nativeReward = spendAmount × (card.earnRates[category] / 100)
+  Example: $25 spend at 3% earnRate → $25 × (3 / 100) = $0.75 cash reward
 Step 2 — Convert to OP: earnedOp = nativeReward × card.opRate
-Never use a flat multiplier. Always derive from the card's actual earnRate and opRate.
+  Example: $0.75 × 100 opRate = 75 OP (correct)
+  WRONG: $25 × 3 = $75 × 100 = 7,500 OP (100× error)
+VALIDATION CHECK: Before responding, verify your math. A $25 purchase at 3% must yield ~75 OP, NEVER 7500 OP.
 
 Be specific: quote the actual cashback %, dollar amounts, and terms from the data.
 `.trim();

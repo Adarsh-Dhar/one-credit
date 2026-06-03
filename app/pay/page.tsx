@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plane, ShoppingCart, Utensils, Fuel, Tv, Pill,
   ShoppingBag, Zap, CheckCircle2, XCircle,
-  CreditCard, ArrowRight, Sparkles
+  CreditCard, ArrowRight, Sparkles, Trophy, TrendingDown
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -133,6 +133,11 @@ export default function PayPage() {
         User wants to spend $${amount} at ${selectedMerchant?.name} (${selectedCategory?.label} category).
         User ID: ${userId}
         
+        OP MATH RULE: card.earnRates[category] is a whole number (e.g., 3 = 3%, NOT 0.03).
+        CORRECT: $${amount} × (earnRate / 100) × opRate = OP earned
+        Example: $${amount} at 3% → $${amount} × 0.03 = $${(parseFloat(amount) * 0.03).toFixed(2)} × 100 = ${Math.round(parseFloat(amount) * 0.03 * 100)} OP
+        WRONG: $${amount} × 3 = $${parseFloat(amount) * 3} × 100 = ${Math.round(parseFloat(amount) * 3 * 100)} OP (100× error)
+        
         1. Call sync_rewards to get fresh offer data
         2. Call get_rewards_offers for category "${selectedCategory?.id}"
         3. Call search_rewards_by_merchant for "${selectedMerchant?.name}"
@@ -167,7 +172,7 @@ export default function PayPage() {
       } catch {
         // Fallback if Gemini doesn't return clean JSON - use two-step formula
         const categoryKey = CATEGORY_TO_EARN_KEY[selectedCategory?.id ?? ''] ?? 'general';
-        
+
         // Find the card with the highest earn rate for this category
         const bestCard = cards.reduce((best, current) => {
           const bestRate = best?.earnRates?.[categoryKey as keyof typeof best.earnRates] ?? 1.0;
@@ -176,14 +181,15 @@ export default function PayPage() {
         }, cards[0]);
 
         const earnRate = bestCard?.earnRates?.[categoryKey as keyof typeof bestCard.earnRates] ?? 1.0;
-        const nativeReward = parseFloat(amount) * earnRate;
-        const earnedOp = nativeReward * (bestCard?.opRate ?? 150);
+        // earnRate is a whole number (e.g., 3 = 3%), so divide by 100 to get decimal
+        const cashReward = parseFloat(amount) * (earnRate / 100);
+        const earnedOp = cashReward * 100;
 
         rec = {
           bestCard:   bestCard?.name ?? 'Your best card',
           bestCardKey: bestCard?.key ?? '',
           earnedOp,
-          nativeReward,
+          nativeReward: cashReward,
           rewardRate: earnRate / 100,
           reasoning:  'Best available rewards for this category.',
           offerFound: false,
@@ -443,42 +449,17 @@ export default function PayPage() {
             </motion.div>
           )}
 
-          {/* ── STEP 6: Success ── */}
+          {/* ── STEP 6: Success — Arbitrage Receipt ── */}
           {step === 'success' && (
-            <motion.div key="success"
-              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-              className="text-center py-12">
-              <motion.div
-                initial={{ scale: 0 }} animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="w-14 h-14 text-green-400" />
-              </motion.div>
-
-              <h2 className="text-3xl font-bold text-white mb-2">Payment Confirmed</h2>
-              <p className="text-slate-400 mb-6">{selectedMerchant?.name} · ${parseFloat(amount).toFixed(2)}</p>
-
-              <div className="bg-slate-800 border border-green-500/30 rounded-2xl p-5 mb-6 text-left">
-                <div className="flex justify-between mb-3">
-                  <span className="text-slate-400">OP Earned</span>
-                  <span className="text-purple-400 font-bold">+{recommendation?.earnedOp.toLocaleString()} OP</span>
-                </div>
-                <div className="flex justify-between mb-3">
-                  <span className="text-slate-400">Card used</span>
-                  <span className="text-white">{recommendation?.bestCard}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Tx Hash</span>
-                  <span className="text-slate-500 text-xs font-mono">{txHash}</span>
-                </div>
-              </div>
-
-              <button onClick={reset}
-                className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 text-white
-                  font-bold py-4 rounded-xl hover:opacity-90 transition-all">
-                Make Another Payment
-              </button>
-            </motion.div>
+            <ArbitrageReceipt
+              merchant={selectedMerchant?.name ?? ''}
+              amount={parseFloat(amount)}
+              recommendation={recommendation}
+              txHash={txHash}
+              onReset={reset}
+              allCards={cards}
+              categoryKey={CATEGORY_TO_EARN_KEY[selectedCategory?.id ?? ''] ?? 'general'}
+            />
           )}
 
           {/* ── STEP 7: Failed ── */}
@@ -655,5 +636,278 @@ function AITerminal({ merchant, category, userId, cardCount }: {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── ArbitrageReceipt Component ────────────────────────────────────────────
+interface ArbitrageReceiptProps {
+  merchant: string;
+  amount: number;
+  recommendation: GeminiRecommendation | null;
+  txHash: string;
+  onReset: () => void;
+  allCards: any[];
+  categoryKey: string;
+}
+
+function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, allCards, categoryKey }: ArbitrageReceiptProps) {
+  const confettiRef = useRef<HTMLDivElement>(null);
+
+  // Standard cost = what you'd pay with no optimization (no rewards, full price)
+  const standardCost = amount;
+  // earnedOp ÷ 100 = USD value (since 100 OP = $1.00)
+  const rewardsCashValue = recommendation ? (recommendation.earnedOp / 100) : 0;
+  const savedAmount = Math.min(rewardsCashValue, standardCost);
+  const optimizedCost = Math.max(0, standardCost - savedAmount);
+  const savedPercent = standardCost > 0 ? ((savedAmount / standardCost) * 100).toFixed(1) : '0';
+  const bigSave = savedAmount >= 50;
+
+  // ── Build per-card comparison rows ────────────────────────────────────
+  type CardRow = {
+    key: string;
+    name: string;
+    earnRate: number;      // whole-number % (e.g. 3 = 3%)
+    cashReward: number;    // USD
+    earnedOp: number;
+    isWinner: boolean;
+    currency: string;
+  };
+
+  const cardRows: CardRow[] = allCards
+    .map((card) => {
+      const earnRate = card.earnRates?.[categoryKey] ?? card.earnRates?.general ?? 1;
+      const cashReward = amount * (earnRate / 100);
+      const earnedOp = card.currency === 'usd'
+        ? cashReward * 100
+        : cashReward * (card.opRate ?? 100);
+      return {
+        key: card.key,
+        name: card.name,
+        earnRate,
+        cashReward,
+        earnedOp,
+        isWinner: card.key === recommendation?.bestCardKey,
+        currency: card.currency,
+      };
+    })
+    .sort((a, b) => b.earnedOp - a.earnedOp); // best first
+
+  useEffect(() => {
+    // Dynamically load canvas-confetti only when savings >= $50
+    if (!bigSave) return;
+    import('canvas-confetti').then((confettiModule) => {
+      const confetti = confettiModule.default;
+      const end = Date.now() + 2200;
+      const colors = ['#a855f7', '#eab308', '#22c55e', '#3b82f6', '#f97316'];
+      const frame = () => {
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 },
+          colors,
+        });
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 },
+          colors,
+        });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
+    }).catch(() => {
+      // canvas-confetti not installed — skip silently
+    });
+  }, [bigSave]);
+
+  return (
+    <motion.div
+      key="arbitrage-receipt"
+      initial={{ opacity: 0, y: 40, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 180, damping: 20 }}
+      ref={confettiRef}
+      className="relative"
+    >
+      {/* Glowing receipt card */}
+      <div className="relative bg-gradient-to-b from-slate-800 to-slate-900 border border-green-500/40 rounded-3xl overflow-hidden shadow-2xl shadow-green-500/10">
+
+        {/* Top glow bar */}
+        <div className="h-1 w-full bg-gradient-to-r from-purple-500 via-green-400 to-yellow-400" />
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 text-center border-b border-slate-700/60">
+          <motion.div
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.1 }}
+            className="w-16 h-16 bg-green-500/15 border border-green-500/30 rounded-2xl flex items-center justify-center mx-auto mb-3"
+          >
+            <CheckCircle2 className="w-9 h-9 text-green-400" />
+          </motion.div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Payment Confirmed</h2>
+          <p className="text-slate-400 text-sm mt-1">{merchant} · <span className="text-white font-medium">${amount.toFixed(2)}</span></p>
+        </div>
+
+        {/* Savings section */}
+        <div className="px-6 py-5 border-b border-slate-700/60">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-slate-400 text-sm">Standard Cost</span>
+            <span className="text-slate-500 line-through text-base">${standardCost.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-slate-300 text-sm font-medium">Optimized Cost</span>
+            <motion.span
+              initial={{ scale: 0.7, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.35, type: 'spring', stiffness: 200 }}
+              className="text-2xl font-bold text-green-400"
+            >
+              ${optimizedCost.toFixed(2)}
+            </motion.span>
+          </div>
+
+          {/* Badge */}
+          {savedAmount > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className={`flex items-center gap-2 rounded-xl p-3 ${
+                bigSave
+                  ? 'bg-gradient-to-r from-yellow-500/20 to-amber-500/10 border border-yellow-500/30'
+                  : 'bg-green-500/10 border border-green-500/20'
+              }`}
+            >
+              <Trophy className={`w-5 h-5 flex-shrink-0 ${bigSave ? 'text-yellow-400' : 'text-green-400'}`} />
+              <p className={`text-sm font-semibold ${bigSave ? 'text-yellow-300' : 'text-green-300'}`}>
+                {recommendation?.bestCard ?? 'AI'} saved you{' '}
+                <span className="font-extrabold">${savedAmount.toFixed(2)}</span>{' '}
+                ({savedPercent}%) by routing through your rewards!
+              </p>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ── Card comparison table ── */}
+        {cardRows.length > 1 && (
+          <div className="px-6 py-4 border-b border-slate-700/60">
+            <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider flex items-center gap-1.5">
+              <span>All cards compared</span>
+              <span className="text-slate-600">— this category</span>
+            </p>
+            <div className="space-y-2">
+              {cardRows.map((row, i) => {
+                const pct = cardRows[0].earnedOp > 0 ? row.earnedOp / cardRows[0].earnedOp : 0;
+                return (
+                  <motion.div
+                    key={row.key}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 + i * 0.07 }}
+                    className={`rounded-xl p-3 border ${
+                      row.isWinner
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : 'bg-slate-800/60 border-slate-700/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {row.isWinner && (
+                          <span className="text-[10px] font-bold bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            USED
+                          </span>
+                        )}
+                        <span className={`text-sm truncate ${row.isWinner ? 'text-white font-semibold' : 'text-slate-300'}`}>
+                          {row.name}
+                        </span>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className={`text-sm font-bold ${row.isWinner ? 'text-green-400' : 'text-slate-400'}`}>
+                          +{row.earnedOp % 1 === 0 ? row.earnedOp.toFixed(0) : row.earnedOp.toFixed(1)} OP
+                        </span>
+                        <span className="text-slate-500 text-xs ml-1.5">${row.cashReward.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="h-1 bg-slate-700/60 rounded-full overflow-hidden">
+                      <motion.div
+                        className={`h-full rounded-full ${row.isWinner ? 'bg-green-400' : 'bg-slate-500'}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct * 100}%` }}
+                        transition={{ delay: 0.5 + i * 0.07, duration: 0.6, ease: 'easeOut' }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[10px] text-slate-600">{row.earnRate}% back</span>
+                      {!row.isWinner && cardRows[0].isWinner && (
+                        <span className="text-[10px] text-slate-600">
+                          -{((cardRows[0].earnedOp - row.earnedOp) / 100).toFixed(2)} vs best
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Receipt line items */}
+        <div className="px-6 py-4 space-y-3 border-b border-slate-700/60">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-400">OP Earned</span>
+            <span className="text-purple-400 font-bold">+{recommendation?.earnedOp.toLocaleString()} OP</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-400">Reward Rate</span>
+            <span className="text-white">{((recommendation?.rewardRate ?? 0) * 100).toFixed(1)}%</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-400">Card Used</span>
+            <span className="text-white truncate max-w-[180px] text-right">{recommendation?.bestCard}</span>
+          </div>
+          {recommendation?.offerFound && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">Offer Source</span>
+              <span className="text-cyan-400 capitalize">{recommendation.offerSource}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Tx hash */}
+        <div className="px-6 py-3 border-b border-slate-700/60">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-slate-500">Tx Hash</span>
+            <span className="text-slate-500 font-mono">{txHash}</span>
+          </div>
+        </div>
+
+        {/* Reasoning */}
+        {recommendation?.reasoning && (
+          <div className="px-6 py-3 border-b border-slate-700/60">
+            <div className="flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+              <p className="text-slate-400 text-xs leading-relaxed italic">{recommendation.reasoning}</p>
+            </div>
+          </div>
+        )}
+
+        {/* CTA */}
+        <div className="px-6 py-5">
+          <motion.button
+            onClick={onReset}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold py-4 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-purple-500/25"
+          >
+            Make Another Payment
+          </motion.button>
+        </div>
+      </div>
+    </motion.div>
   );
 }
