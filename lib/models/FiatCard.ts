@@ -99,6 +99,13 @@ export interface IFiatCard extends Document {
   network: 'AMEX' | 'VISA' | 'MASTERCARD' | 'DISCOVER' | string;
   currency_type: 'USD' | 'POINTS' | 'MILES' | string;
 
+  // Card design/marketing information
+  card_image_url?: string;            // URL to card image
+  card_description?: string;          // Marketing description
+  pros?: string[];                    // Card pros
+  cons?: string[];                    // Card cons
+  features?: string[];                // Key features list
+
   // Balances (only one will be relevant depending on currency_type)
   current_balance_owed?: number;
   credit_limit?: number;
@@ -238,6 +245,13 @@ const FiatCardSchema = new Schema<IFiatCard>(
     card_type:    { type: String, enum: ['personal', 'business'], required: true },
     network:      { type: String, required: true },
     currency_type:{ type: String, required: true },   // 'USD' | 'POINTS' | 'MILES' …
+
+    // Card design/marketing information
+    card_image_url:       { type: String, default: null },
+    card_description:     { type: String, default: null },
+    pros:                 { type: [String], default: [] },
+    cons:                 { type: [String], default: [] },
+    features:             { type: [String], default: [] },
 
     // Balance fields — one or both may be present depending on currency_type
     current_balance_owed: { type: Number, default: 0 },

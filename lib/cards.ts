@@ -15,6 +15,12 @@ export interface CardDefinition {
   defaultBalance: number; // starting balance for demo users
   opRate: number;         // how many OP per 1 unit of currency
   pointsProgramKey?: string; // key for TRANSFER_CPP lookup (e.g., 'chase_ur', 'amex_mr')
+  // Card design/marketing information
+  cardImageUrl?: string;
+  cardDescription?: string;
+  pros?: string[];
+  cons?: string[];
+  features?: string[];
   // Earn multipliers per category (e.g. 3 = 3x points per $1 spent, 0.06 = 6% cash back)
   earnRates: {
     flights: number;
@@ -127,6 +133,11 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
     defaultBalance,
     opRate,
     pointsProgramKey: mapProgramName(fiatCard.points_program_name),
+    cardImageUrl: fiatCard.card_image_url,
+    cardDescription: fiatCard.card_description,
+    pros: fiatCard.pros,
+    cons: fiatCard.cons,
+    features: fiatCard.features,
     earnRates,
     annualFee: financials.annual_fee,
     perks,

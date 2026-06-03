@@ -24,6 +24,32 @@ const cards = [
     redemption_rate_display: '1 Point = 1.0-2.0 cents',
     points_value_cents: 150,
     points_program_name: 'Membership Rewards',
+    card_image_url: null,
+    card_description: 'The American Express Platinum Card is a premium travel card with extensive perks including airport lounge access, travel credits, and flexible point transfers to multiple airline and hotel partners.',
+    pros: [
+      'Excellent travel perks with lounge access',
+      'Flexible point transfers to multiple partners',
+      'Generous travel credits offset annual fee',
+      'No foreign transaction fees',
+      'Premium travel insurance benefits'
+    ],
+    cons: [
+      'High annual fee of $695',
+      'Requires high spending to maximize value',
+      'Limited acceptance at some merchants'
+    ],
+    features: [
+      '5x points on flights booked with Amex Travel',
+      '5x points on prepaid hotels booked with Amex Travel',
+      '4x points on restaurants worldwide',
+      'Airport lounge access with Priority Pass',
+      '$200 airline fee credit per year',
+      '$200 Uber Cash credit per year',
+      '$100 Saks Fifth Avenue credit per year',
+      '$100 Equinox credit per year',
+      'Global Entry/TSA PreCheck credit',
+      'No foreign transaction fees'
+    ],
     financials: {
       annual_fee: 695,
       foreign_transaction_fee_pct: 0,
@@ -81,6 +107,31 @@ const cards = [
     redemption_rate_display: '1 Point = 1.0-2.0 cents',
     points_value_cents: 120,
     points_program_name: 'Membership Rewards',
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/American_Express_Gold_Card.jpg/320px-American_Express_Gold_Card.jpg',
+    card_description: 'The American Express Gold Card is an excellent dining and grocery rewards card with 4x points on U.S. supermarkets and restaurants, plus flexible point transfers to multiple travel partners.',
+    pros: [
+      '4x points on U.S. supermarkets (up to $25,000 per year)',
+      '4x points on restaurants worldwide',
+      '3x points on flights booked directly with airlines',
+      'Flexible point transfers to multiple partners',
+      'Dining and Uber credits offset annual fee'
+    ],
+    cons: [
+      'Annual fee of $250',
+      'Grocery bonus capped at $25,000 per year',
+      'No lounge access compared to Platinum'
+    ],
+    features: [
+      '4x points on U.S. supermarkets (up to $25,000 per year)',
+      '4x points on restaurants worldwide',
+      '3x points on flights booked directly with airlines',
+      '1x points on all other purchases',
+      'Points transfer to 18+ airline and hotel partners',
+      '$120 dining credit per year',
+      '$120 Uber Cash credit per year',
+      'No foreign transaction fees',
+      'Purchase protection'
+    ],
     financials: {
       annual_fee: 250,
       foreign_transaction_fee_pct: 0,
@@ -134,6 +185,30 @@ const cards = [
     redemption_rate_display: '1 Point = 1.25 cents',
     points_value_cents: 125,
     points_program_name: 'Ultimate Rewards',
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Chase_Sapphire_Preferred_Card.jpg/320px-Chase_Sapphire_Preferred_Card.jpg',
+    card_description: 'The Chase Sapphire Preferred is a mid-tier travel rewards card with a generous sign-up bonus, flexible point transfers, and excellent travel protections at a reasonable annual fee.',
+    pros: [
+      'Generous sign-up bonus worth significant value',
+      'Flexible point transfers to multiple travel partners',
+      'Reasonable annual fee for the benefits offered',
+      'Excellent travel purchase protections',
+      'No foreign transaction fees'
+    ],
+    cons: [
+      'Lower earn rate on non-bonus categories',
+      'No lounge access compared to premium cards',
+      'Points transfer to some partners at less than 1:1 ratio'
+    ],
+    features: [
+      '3x points on dining',
+      '3x points on online grocery purchases (excluding Target, Walmart, wholesale clubs)',
+      '2x points on travel',
+      '1x points on all other purchases',
+      'Points transfer to 14+ airline and hotel partners',
+      'Travel protections including trip delay insurance',
+      'No foreign transaction fees',
+      'Primary rental car insurance'
+    ],
     financials: {
       annual_fee: 95,
       foreign_transaction_fee_pct: 0,
@@ -185,6 +260,35 @@ const cards = [
     redemption_rate_display: '1 Point = 1.5 cents',
     points_value_cents: 150,
     points_program_name: 'Ultimate Rewards',
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Chase_Sapphire_Reserve_Card.jpg/320px-Chase_Sapphire_Reserve_Card.jpg',
+    card_description: 'The Chase Sapphire Reserve is a premium travel card with extensive perks including Priority Pass lounge access, substantial travel credits, and excellent point transfer options for frequent travelers.',
+    pros: [
+      'Priority Pass lounge access with unlimited visits',
+      '$300 annual travel credit',
+      '$60 Lyft credit and $60 DoorDash credit',
+      'Excellent point transfer partners',
+      'Premium travel insurance protections'
+    ],
+    cons: [
+      'High annual fee of $550',
+      'Requires significant spending to maximize value',
+      'Metal card can be heavy in wallet'
+    ],
+    features: [
+      '3x points on dining',
+      '3x points on travel',
+      '3x points on flights booked directly with airlines',
+      '3x points on hotels booked directly with hotels',
+      '1x points on all other purchases',
+      'Points transfer to 14+ airline and hotel partners',
+      'Priority Pass Select lounge access',
+      '$300 annual travel credit',
+      '$60 Lyft credit per year',
+      '$60 DoorDash credit per year',
+      'Global Entry/TSA PreCheck credit',
+      'No foreign transaction fees',
+      'Primary rental car insurance'
+    ],
     financials: {
       annual_fee: 550,
       foreign_transaction_fee_pct: 0,
@@ -241,6 +345,28 @@ const cards = [
     redemption_rate_display: '1 Point = 1.0-1.5 cents',
     points_value_cents: 100,
     points_program_name: 'Ultimate Rewards',
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Chase_Freedom_Unlimited_Card.jpg/320px-Chase_Freedom_Unlimited_Card.jpg',
+    card_description: 'The Chase Freedom Unlimited offers a flat 1.5% cash back on all purchases with no annual fee, making it an excellent everyday spending card that pairs well with other Chase Ultimate Rewards cards.',
+    pros: [
+      'No annual fee',
+      '1.5% cash back on all purchases',
+      'Pairs well with premium Chase cards for bonus categories',
+      'No rotating categories to track',
+      'Purchase protections included'
+    ],
+    cons: [
+      'Foreign transaction fee of 3%',
+      'No bonus categories for higher earning',
+      'Requires pairing with premium cards to maximize value'
+    ],
+    features: [
+      '1.5% cash back on all purchases',
+      '3% cash back on drugstore purchases (up to $6,000 per year)',
+      'No annual fee',
+      'Purchase protections',
+      'Extended warranty',
+      'Pairs with Chase Sapphire cards for bonus travel redemptions'
+    ],
     financials: {
       annual_fee: 0,
       foreign_transaction_fee_pct: 3,
@@ -283,6 +409,31 @@ const cards = [
     redemption_rate_display: '1 Point = 1.25 cents',
     points_value_cents: 125,
     points_program_name: 'Ultimate Rewards',
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Chase_Ink_Business_Preferred_Card.jpg/320px-Chase_Ink_Business_Preferred_Card.jpg',
+    card_description: 'The Ink Business Preferred is a premium business rewards card with 3x points on travel, shipping, and advertising, plus flexible point transfers to multiple travel partners.',
+    pros: [
+      '3x points on travel, shipping, and advertising',
+      'Flexible point transfers to multiple partners',
+      'Generous sign-up bonus worth significant value',
+      'Purchase protections included',
+      'No foreign transaction fees'
+    ],
+    cons: [
+      'Annual fee of $95',
+      'Foreign transaction fee of 3%',
+      'Requires business to qualify'
+    ],
+    features: [
+      '3x points on shipping purchases',
+      '3x points on advertising purchases',
+      '3x points on travel (flights, hotels)',
+      '1x points on all other purchases',
+      'Points transfer to 14+ airline and hotel partners',
+      'Purchase protections',
+      'Extended warranty',
+      'No foreign transaction fees',
+      'Employee cards at no cost'
+    ],
     financials: {
       annual_fee: 95,
       foreign_transaction_fee_pct: 3,
@@ -334,6 +485,27 @@ const cards = [
     redemption_rate_display: '$1.00 = 100 OP',
     points_value_cents: 100,
     points_program_name: null,
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Wells_Fargo_Active_Cash_Card.jpg/320px-Wells_Fargo_Active_Cash_Card.jpg',
+    card_description: 'The Wells Fargo Active Cash Card offers a flat 2% cash back on all purchases with no annual fee, making it an excellent everyday spending card with cell phone protection.',
+    pros: [
+      '2% cash back on all purchases',
+      'No annual fee',
+      'Cell phone protection included',
+      'No rotating categories to track',
+      'Simple rewards structure'
+    ],
+    cons: [
+      'Foreign transaction fee of 3%',
+      'No sign-up bonus',
+      'No additional perks or benefits'
+    ],
+    features: [
+      '2% cash back on all purchases',
+      'No annual fee',
+      'Cell phone protection (up to $600, $25 deductible)',
+      'Purchase protection',
+      'Extended warranty'
+    ],
     financials: {
       annual_fee: 0,
       foreign_transaction_fee_pct: 3,
@@ -373,6 +545,32 @@ const cards = [
     redemption_rate_display: '1 Mile = 1.0-1.5 cents',
     points_value_cents: 125,
     points_program_name: 'Venture Rewards',
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Capital_One_Venture_X_Card.jpg/320px-Capital_One_Venture_X_Card.jpg',
+    card_description: 'The Capital One Venture X is a premium travel rewards card with excellent earn rates on travel, substantial travel credits, and Priority Pass lounge access for frequent travelers.',
+    pros: [
+      '2x miles on all purchases (5x on travel)',
+      '$300 annual travel credit',
+      'Priority Pass lounge access',
+      'No foreign transaction fees',
+      'Flexible mile redemption options'
+    ],
+    cons: [
+      'High annual fee of $395',
+      'Requires travel spending to maximize value',
+      'Limited transfer partners compared to Chase'
+    ],
+    features: [
+      '2x miles on all purchases',
+      '5x miles on flights, hotels, and rental cars booked through Capital One Travel',
+      'Miles transfer to 15+ airline and hotel partners',
+      'Priority Pass lounge access',
+      '$300 annual travel credit',
+      'Up to $100 credit for Global Entry or TSA PreCheck',
+      'No foreign transaction fees',
+      'Travel protections including trip delay insurance',
+      'Cell phone protection',
+      'Extended warranty'
+    ],
     financials: {
       annual_fee: 395,
       foreign_transaction_fee_pct: 0,
@@ -425,6 +623,26 @@ const cards = [
     redemption_rate_display: '$1.00 = 100 OP',
     points_value_cents: 100,
     points_program_name: null,
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Citi_Double_Cash_Card.jpg/320px-Citi_Double_Cash_Card.jpg',
+    card_description: 'The Citi Double Cash Card offers a simple and effective 2% cash back on all purchases - 1% when you buy and 1% when you pay, with no annual fee.',
+    pros: [
+      'Simple 2% cash back on all purchases',
+      'No annual fee',
+      'No categories to track or activate',
+      'Unlimited cash back earnings'
+    ],
+    cons: [
+      'Foreign transaction fee of 3%',
+      'No sign-up bonus',
+      'No additional perks or benefits'
+    ],
+    features: [
+      '2% cash back on all purchases (1% when you buy, 1% when you pay)',
+      'No annual fee',
+      'No foreign transaction fees',
+      'Unlimited cash back earnings',
+      'Cash back can be redeemed for statement credits, checks, or direct deposit'
+    ],
     financials: {
       annual_fee: 0,
       foreign_transaction_fee_pct: 3,
@@ -464,6 +682,30 @@ const cards = [
     redemption_rate_display: '$1.00 = 100 OP',
     points_value_cents: 100,
     points_program_name: null,
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Discover_it_Card.jpg/320px-Discover_it_Card.jpg',
+    card_description: 'The Discover it Card offers 5% cash back on rotating categories each quarter and 1% on all other purchases, with no annual fee and a Cashback Match in the first year.',
+    pros: [
+      '5% cash back on rotating categories',
+      'Cashback Match doubles first-year rewards',
+      'No annual fee',
+      'No foreign transaction fees',
+      'Free FICO credit score'
+    ],
+    cons: [
+      'Rotating categories require activation',
+      'Categories may not match your spending',
+      'Lower base earn rate of 1%'
+    ],
+    features: [
+      '5% cash back on rotating quarterly categories (up to $1,500 per quarter)',
+      '1% cash back on all other purchases',
+      'Cashback Match in first year (doubles all rewards)',
+      'No annual fee',
+      'No foreign transaction fees',
+      'Free FICO credit score',
+      'Purchase protection',
+      'Return protection'
+    ],
     financials: {
       annual_fee: 0,
       foreign_transaction_fee_pct: 3,
@@ -513,6 +755,30 @@ const cards = [
     redemption_rate_display: '1 Point = 0.5-0.6 cents',
     points_value_cents: 55,
     points_program_name: 'Hilton Honors',
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Hilton_Honors_Surpass_Card.jpg/320px-Hilton_Honors_Surpass_Card.jpg',
+    card_description: 'The Hilton Honors Surpass Card offers excellent Hilton hotel rewards with 12x points on Hilton purchases, free night awards, and automatic Gold status for frequent travelers.',
+    pros: [
+      '12x points on Hilton purchases',
+      'Free night award each card anniversary',
+      'Automatic Hilton Gold status',
+      'Priority Pass lounge access',
+      'No foreign transaction fees'
+    ],
+    cons: [
+      'Annual fee of $95',
+      'Points only valuable for Hilton stays',
+      'Limited transfer options'
+    ],
+    features: [
+      '12x points on Hilton purchases',
+      '7x points on flights, hotels, restaurants, groceries, gas',
+      '3x points on all other purchases',
+      'Free night award each anniversary',
+      'Automatic Hilton Gold status',
+      'Priority Pass lounge access',
+      '$250 Hilton resort credit per year',
+      'No foreign transaction fees'
+    ],
     financials: {
       annual_fee: 95,
       foreign_transaction_fee_pct: 0,
@@ -560,6 +826,29 @@ const cards = [
     redemption_rate_display: '1 Point = 0.8-1.2 cents',
     points_value_cents: 90,
     points_program_name: 'Marriott Bonvoy',
+    card_image_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Marriott_Bonvoy_Boundless_Card.jpg/320px-Marriott_Bonvoy_Boundless_Card.jpg',
+    card_description: 'The Marriott Bonvoy Boundless Card offers excellent Marriott hotel rewards with 6x points on travel, free night awards, and automatic Silver status for frequent travelers.',
+    pros: [
+      '6x points on Marriott purchases',
+      'Free night award each card anniversary',
+      'Automatic Marriott Silver status',
+      'No foreign transaction fees',
+      'Good value for Marriott loyalists'
+    ],
+    cons: [
+      'Annual fee of $95',
+      'Points only valuable for Marriott stays',
+      'Limited transfer options'
+    ],
+    features: [
+      '6x points on Marriott purchases',
+      '4x points on restaurants and groceries',
+      '2x points on all other purchases',
+      'Free night award each anniversary',
+      'Automatic Marriott Silver status',
+      'No foreign transaction fees',
+      'Purchase protection'
+    ],
     financials: {
       annual_fee: 95,
       foreign_transaction_fee_pct: 0,

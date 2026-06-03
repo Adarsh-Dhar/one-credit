@@ -4,6 +4,29 @@ import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models/User';
 import { FiatCard } from '@/lib/models/FiatCard';
 
+function getCardColor(cardType: string, network: string): string {
+  const typeColors: Record<string, string> = {
+    travel: 'from-blue-600 to-purple-600',
+    dining: 'from-orange-500 to-red-600',
+    cashback: 'from-green-500 to-emerald-600',
+    fuel: 'from-yellow-500 to-orange-600',
+    shopping: 'from-pink-500 to-rose-600',
+    crypto: 'from-violet-500 to-purple-600',
+    general: 'from-slate-500 to-slate-700',
+    business: 'from-indigo-600 to-blue-700',
+    student: 'from-cyan-500 to-blue-600',
+  };
+
+  const networkColors: Record<string, string> = {
+    AMEX: 'from-blue-500 to-blue-700',
+    VISA: 'from-blue-600 to-indigo-700',
+    MASTERCARD: 'from-orange-500 to-red-600',
+    DISCOVER: 'from-orange-400 to-orange-600',
+  };
+
+  return typeColors[cardType] || networkColors[network] || 'from-slate-600 to-slate-800';
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const email = searchParams.get('email');
@@ -77,7 +100,7 @@ export async function GET(request: Request) {
       name: card.display_name,
       issuer: card.network,
       type: card.card_type,
-      color: 'from-slate-600 to-slate-800',
+      color: getCardColor(card.card_type, card.network),
       currency: card.currency_type.toLowerCase(),
       balance: card.current_balance_owed || 0, // Debt (what you owe)
       limit: card.credit_limit || 0,
@@ -95,6 +118,11 @@ export async function GET(request: Request) {
         ...(card.benefits_and_credits?.general_perks || []),
       ],
       annualFee: card.financials?.annual_fee || 0,
+      cardImageUrl: card.card_image_url,
+      cardDescription: card.card_description,
+      pros: card.pros,
+      cons: card.cons,
+      features: card.features,
     };
   });
 
