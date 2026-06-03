@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, CreditCard, Sparkles, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
@@ -248,6 +248,111 @@ export default function CardsPage() {
                               <SpendingRing key={i} cap={cap} />
                             ))}
                           </div>
+                        </div>
+                      )}
+
+                      {/* ── Card Benefits ─────────────────────────── */}
+                      {(card.statementCredits?.length > 0 || card.portalBonuses?.length > 0 || card.protections) && (
+                        <div className="border-t border-slate-600/60 pt-4 mt-2">
+                          <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">
+                            Card Benefits
+                          </p>
+
+                          {/* Statement Credits */}
+                          {card.statementCredits?.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs text-slate-400 mb-2">Statement Credits</p>
+                              {card.statementCredits.map((credit: any, idx: number) => {
+                                const used = credit.amount_redeemed || 0;
+                                const remaining = credit.amount_usd - used;
+                                const pct = Math.min(used / credit.amount_usd, 1);
+                                return (
+                                  <div key={idx} className="mb-2">
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="text-xs text-white">{credit.name}</span>
+                                      <span className="text-xs text-slate-400">${used.toFixed(0)} / ${credit.amount_usd.toFixed(0)}</span>
+                                    </div>
+                                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                      <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${pct * 100}%` }}
+                                        transition={{ duration: 0.8, delay: 0.3 }}
+                                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                                      />
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">{credit.reset_period} reset • ${remaining.toFixed(0)} remaining</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Portal Bonuses */}
+                          {card.portalBonuses?.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs text-slate-400 mb-2">Portal Bonuses</p>
+                              <div className="flex flex-wrap gap-2">
+                                {card.portalBonuses.map((bonus: any, idx: number) => (
+                                  <a
+                                    key={idx}
+                                    href={bonus.portal_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs bg-slate-700 hover:bg-slate-600 text-purple-300 px-2 py-1 rounded-md transition-colors"
+                                  >
+                                    {bonus.portal_name}
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span className="text-slate-400">({bonus.bonus_multiplier}x)</span>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Purchase Protections */}
+                          {card.protections && (
+                            <div>
+                              <p className="text-xs text-slate-400 mb-2">Purchase Protections</p>
+                              <div className="flex flex-wrap gap-2">
+                                {card.protections.extended_warranty && (
+                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                    <Shield className="w-3 h-3" />
+                                    <span>Extended Warranty</span>
+                                  </div>
+                                )}
+                                {card.protections.purchase_protection_days > 0 && (
+                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                    <Shield className="w-3 h-3" />
+                                    <span>{card.protections.purchase_protection_days}d Protection</span>
+                                  </div>
+                                )}
+                                {card.protections.return_protection_days > 0 && (
+                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                    <Shield className="w-3 h-3" />
+                                    <span>{card.protections.return_protection_days}d Return</span>
+                                  </div>
+                                )}
+                                {card.protections.cell_phone_protection && (
+                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                    <Shield className="w-3 h-3" />
+                                    <span>Cell Phone</span>
+                                  </div>
+                                )}
+                                {card.protections.trip_cancellation && (
+                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                    <Shield className="w-3 h-3" />
+                                    <span>Trip Cancellation</span>
+                                  </div>
+                                )}
+                                {card.protections.primary_rental_cdw && (
+                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                    <Shield className="w-3 h-3" />
+                                    <span>Rental CDW</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 

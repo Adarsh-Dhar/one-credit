@@ -50,10 +50,38 @@ export interface IStatementCredit {
   amount_usd: number;
   reset_period: string;               // e.g. "annual" | "monthly"
   amount_redeemed?: number;
+  merchant_categories?: string[];    // e.g. ["streaming", "entertainment"]
+}
+
+export interface IPortalBonus {
+  portal_name: string;
+  portal_url: string;
+  categories: string[];
+  bonus_multiplier: number;
+  bonus_type: 'multiplier' | 'flat_pct';
+}
+
+export interface IPurchaseProtections {
+  extended_warranty: boolean;
+  purchase_protection_days: number;
+  return_protection_days: number;
+  cell_phone_protection: boolean;
+  trip_cancellation: boolean;
+  primary_rental_cdw: boolean;
+}
+
+export interface ITransferPartner {
+  program: string;
+  ratio: string;
+  cpp_min: number;
+  cpp_max: number;
 }
 
 export interface IBenefitsAndCredits {
   statement_credits?: IStatementCredit[];
+  portal_bonuses?: IPortalBonus[];
+  purchase_protections?: IPurchaseProtections;
+  transfer_partners?: ITransferPartner[];
   airline_perks?: string[];
   general_perks?: string[];
 }
@@ -77,6 +105,8 @@ export interface IFiatCard extends Document {
   points_balance?: number;
   credit_token_balance?: number;
   redemption_rate_display?: string;
+  points_value_cents?: number;
+  points_program_name?: string;
 
   // Nested objects
   financials: IFinancials;
@@ -143,19 +173,56 @@ const RewardsStructureSchema = new Schema<IRewardsStructure>(
 
 const StatementCreditSchema = new Schema<IStatementCredit>(
   {
-    name:             { type: String, required: true },
-    amount_usd:       { type: Number, required: true },
-    reset_period:     { type: String, required: true },
-    amount_redeemed:  { type: Number, default: 0 },
+    name:               { type: String, required: true },
+    amount_usd:         { type: Number, required: true },
+    reset_period:       { type: String, required: true },
+    amount_redeemed:    { type: Number, default: 0 },
+    merchant_categories:{ type: [String], default: [] },
+  },
+  { _id: false }
+);
+
+const PortalBonusSchema = new Schema<IPortalBonus>(
+  {
+    portal_name:       { type: String, required: true },
+    portal_url:        { type: String, required: true },
+    categories:        { type: [String], required: true },
+    bonus_multiplier:  { type: Number, required: true },
+    bonus_type:        { type: String, enum: ['multiplier', 'flat_pct'], required: true },
+  },
+  { _id: false }
+);
+
+const PurchaseProtectionsSchema = new Schema<IPurchaseProtections>(
+  {
+    extended_warranty:       { type: Boolean, default: false },
+    purchase_protection_days:{ type: Number, default: 0 },
+    return_protection_days:  { type: Number, default: 0 },
+    cell_phone_protection:   { type: Boolean, default: false },
+    trip_cancellation:       { type: Boolean, default: false },
+    primary_rental_cdw:      { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const TransferPartnerSchema = new Schema<ITransferPartner>(
+  {
+    program:  { type: String, required: true },
+    ratio:    { type: String, required: true },
+    cpp_min:  { type: Number, required: true },
+    cpp_max:  { type: Number, required: true },
   },
   { _id: false }
 );
 
 const BenefitsAndCreditsSchema = new Schema<IBenefitsAndCredits>(
   {
-    statement_credits: { type: [StatementCreditSchema], default: [] },
-    airline_perks:     { type: [String], default: [] },
-    general_perks:     { type: [String], default: [] },
+    statement_credits:    { type: [StatementCreditSchema], default: [] },
+    portal_bonuses:      { type: [PortalBonusSchema], default: [] },
+    purchase_protections:{ type: PurchaseProtectionsSchema, default: null },
+    transfer_partners:   { type: [TransferPartnerSchema], default: [] },
+    airline_perks:        { type: [String], default: [] },
+    general_perks:        { type: [String], default: [] },
   },
   { _id: false }
 );
@@ -178,6 +245,8 @@ const FiatCardSchema = new Schema<IFiatCard>(
     points_balance:       { type: Number },
     credit_token_balance: { type: Number, default: 0 },
     redemption_rate_display: { type: String, default: '' },
+    points_value_cents:   { type: Number },
+    points_program_name:  { type: String },
 
     financials:            { type: FinancialsSchema,          required: true },
     rewards_structure:     { type: RewardsStructureSchema,    required: true },

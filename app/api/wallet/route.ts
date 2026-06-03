@@ -53,8 +53,24 @@ export async function GET(request: Request) {
       groceries: rewardsStructure.fixed_categories?.find((c: any) => c.category.includes('grocer'))?.multiplier ?? rewardsStructure.base_multiplier,
       fuel: rewardsStructure.fixed_categories?.find((c: any) => c.category.includes('gas'))?.multiplier ?? rewardsStructure.base_multiplier,
       shopping: rewardsStructure.fixed_categories?.find((c: any) => c.category.includes('shop'))?.multiplier ?? rewardsStructure.base_multiplier,
+      pharmacy: rewardsStructure.fixed_categories?.find((c: any) => c.category.includes('pharmacy') || c.category.includes('drug'))?.multiplier ?? rewardsStructure.base_multiplier,
+      electronics: rewardsStructure.fixed_categories?.find((c: any) => c.category.includes('electronic') || c.category.includes('tech'))?.multiplier ?? rewardsStructure.base_multiplier,
+      streaming: rewardsStructure.fixed_categories?.find((c: any) => c.category.includes('streaming') || c.category.includes('entertainment'))?.multiplier ?? rewardsStructure.base_multiplier,
       general: rewardsStructure.base_multiplier,
     };
+
+    // Build points program info for POINTS-type cards
+    let pointsProgram = null;
+    if (card.currency_type === 'POINTS' || card.currency_type === 'MILES') {
+      const transferPartners = card.benefits_and_credits?.transfer_partners || [];
+      const cppMin = transferPartners.length > 0 ? Math.min(...transferPartners.map((p: any) => p.cpp_min)) : pointsValueCents;
+      const cppMax = transferPartners.length > 0 ? Math.max(...transferPartners.map((p: any) => p.cpp_max)) : pointsValueCents;
+      pointsProgram = {
+        name: card.points_program_name || 'Unknown',
+        cppMin,
+        cppMax,
+      };
+    }
 
     return {
       key: card.card_id,
@@ -69,6 +85,11 @@ export async function GET(request: Request) {
       opRate: card.currency_type === 'USD' ? 100 : (pointsValueCents || 1.0),
       earnRates,
       redemptionRate: card.redemption_rate_display || (card.currency_type === 'USD' ? '$1.00 = 100 OP' : `1 Point = ${pointsValueCents || 1.0} OP`),
+      statementCredits: card.benefits_and_credits?.statement_credits || [],
+      portalBonuses: card.benefits_and_credits?.portal_bonuses || [],
+      protections: card.benefits_and_credits?.purchase_protections || null,
+      transferPartners: card.benefits_and_credits?.transfer_partners || [],
+      pointsProgram,
       perks: [
         ...(card.benefits_and_credits?.airline_perks || []),
         ...(card.benefits_and_credits?.general_perks || []),

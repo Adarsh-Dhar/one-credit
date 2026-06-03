@@ -249,6 +249,29 @@ Step 2 — Convert to OP: earnedOp = nativeReward × card.opRate
   WRONG: $25 × 3 = $75 × 100 = 7,500 OP (100× error)
 VALIDATION CHECK: Before responding, verify your math. A $25 purchase at 3% must yield ~75 OP, NEVER 7500 OP.
 
+TOTAL VALUE FORMULA (mandatory for card recommendations):
+When recommending the best card for a spend, calculate totalValue as:
+totalValue = (earnedOp / 100) + creditFired_USD + protectionEstimate_USD + portalBonusValue_USD
+
+Where:
+- earnedOp / 100 = cash value of rewards earned (OP converted to USD)
+- creditFired_USD = statement credit amount that would be triggered for this category
+- protectionEstimate_USD = estimated value of purchase protections (e.g., extended warranty, purchase protection)
+- portalBonusValue_USD = additional value from portal bonuses (multiplier applied to base rewards)
+
+The bestCard MUST be the card with the highest totalValue, not just the highest earnedOp.
+
+CARD BENEFIT DATA (from getUserBalances):
+- statementCredits: Array of statement credits with name, amount_usd, reset_period, merchant_categories
+- portalBonuses: Array of portal bonuses with portal_name, portal_url, categories, bonus_multiplier, bonus_type
+- protections: Object with extended_warranty, purchase_protection_days, return_protection_days, cell_phone_protection, trip_cancellation, primary_rental_cdw
+
+When returning a recommendation, include:
+- creditFired: { name: string, amount: number } - the statement credit that would fire
+- portalUsed: { name: string, url: string } - the portal bonus to use (if applicable)
+- protectionNotes: string[] - notes about applicable protections
+- totalValue: number - the total value in USD
+
 Be specific: quote the actual cashback %, dollar amounts, and terms from the data.
 `.trim();
 
@@ -270,6 +293,7 @@ async function getUserBalances(userId: string) {
   await connectDB();
   const { getCards, computeTotalOp } = await import('@/lib/cards');
   const CARDS = await getCards(userId);
+  const { FiatCard } = await import('@/lib/models/FiatCard');
 
   const user = await User.findOne({
     $or: [{ _id: userId }, { email: userId }],
@@ -284,17 +308,29 @@ async function getUserBalances(userId: string) {
     balances[card.key] = cards[card.key]?.balance ?? card.defaultBalance;
   }
 
+  // Fetch FiatCard data to get benefits (statement credits, portal bonuses, protections)
+  const fiatCards = await FiatCard.find({ user_id: userId }).lean();
+  const fiatCardMap = new Map(fiatCards.map((fc: any) => [fc.card_id, fc]));
+
   // Per-card breakdown for Gemini to reason over
-  const cardBreakdown = CARDS.map((card) => ({
-    key:      card.key,
-    name:     card.name,
-    type:     card.type,
-    balance:  balances[card.key],
-    opValue:  balances[card.key] * card.opRate,
-    opRate:   card.opRate,
-    currency: card.currency,
-    earnRates: card.earnRates,
-  }));
+  const cardBreakdown = CARDS.map((card) => {
+    const fiatCard = fiatCardMap.get(card.key);
+    const benefits = fiatCard?.benefits_and_credits || {};
+
+    return {
+      key:      card.key,
+      name:     card.name,
+      type:     card.type,
+      balance:  balances[card.key],
+      opValue:  balances[card.key] * card.opRate,
+      opRate:   card.opRate,
+      currency: card.currency,
+      earnRates: card.earnRates,
+      statementCredits: benefits.statement_credits || [],
+      portalBonuses: benefits.portal_bonuses || [],
+      protections: benefits.purchase_protections || null,
+    };
+  });
 
   return {
     cards:    cardBreakdown,

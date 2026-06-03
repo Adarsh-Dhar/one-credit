@@ -7,8 +7,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plane, ShoppingCart, Utensils, Fuel, Tv, Pill,
   ShoppingBag, Zap, CheckCircle2, XCircle,
-  CreditCard, ArrowRight, Sparkles, Trophy, TrendingDown
+  CreditCard, ArrowRight, Sparkles, Trophy, TrendingDown,
+  Shield, ExternalLink, Receipt
 } from 'lucide-react';
+import { computeTotalValue } from '@/lib/op-conversion';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Merchant {
@@ -26,6 +28,10 @@ interface GeminiRecommendation {
   reasoning: string;
   offerFound: boolean;
   offerSource?: string;
+  creditFired?: { name: string; amount: number };
+  portalUsed?: { name: string; url: string };
+  protectionNotes?: string[];
+  totalValue?: number;
 }
 
 // ── Data ───────────────────────────────────────────────────────────────────
@@ -35,9 +41,9 @@ const CATEGORY_TO_EARN_KEY: Record<string, string> = {
   grocery:       'groceries',
   shopping:      'shopping',
   gas:           'fuel',
-  entertainment: 'general',
-  pharmacy:      'general',
-  subscription:  'general',
+  entertainment: 'streaming',
+  pharmacy:      'pharmacy',
+  subscription:  'streaming',
 };
 
 const CATEGORIES = [
@@ -132,18 +138,23 @@ export default function PayPage() {
       const prompt = `
         User wants to spend $${amount} at ${selectedMerchant?.name} (${selectedCategory?.label} category).
         User ID: ${userId}
-        
+
         OP MATH RULE: card.earnRates[category] is a whole number (e.g., 3 = 3%, NOT 0.03).
         CORRECT: $${amount} × (earnRate / 100) × opRate = OP earned
         Example: $${amount} at 3% → $${amount} × 0.03 = $${(parseFloat(amount) * 0.03).toFixed(2)} × 100 = ${Math.round(parseFloat(amount) * 0.03 * 100)} OP
         WRONG: $${amount} × 3 = $${parseFloat(amount) * 3} × 100 = ${Math.round(parseFloat(amount) * 3 * 100)} OP (100× error)
-        
+
         1. Call sync_rewards to get fresh offer data
         2. Call get_rewards_offers for category "${selectedCategory?.id}"
         3. Call search_rewards_by_merchant for "${selectedMerchant?.name}"
         4. Call getUserBalances for userId "${userId}"
-        5. Recommend the single best card to use
-        
+        5. For each card, analyze:
+           - Statement credits that match this category (check merchant_categories)
+           - Portal bonuses that apply to this category
+           - Purchase protections that are relevant (extended warranty, purchase protection, cell phone protection, etc.)
+        6. Calculate totalValue = (earnedOp / 100) + creditFired_USD + protectionEstimate_USD + portalBonusValue_USD
+        7. Recommend the card with the HIGHEST totalValue (not just highest earnedOp)
+
         Respond ONLY as JSON (no markdown):
         {
           "bestCard": "display name of card",
@@ -151,9 +162,13 @@ export default function PayPage() {
           "earnedOp": <number of OP earned>,
           "nativeReward": <native currency earned (miles, points, cash)>,
           "rewardRate": <rate as decimal e.g. 0.05>,
-          "reasoning": "one sentence why",
+          "reasoning": "one sentence why this card has the highest total value",
           "offerFound": true/false,
-          "offerSource": "cardlytics|network|affiliate|none"
+          "offerSource": "cardlytics|network|affiliate|none",
+          "creditFired": { "name": "statement credit name", "amount": <USD amount> },
+          "portalUsed": { "name": "portal name", "url": "portal URL" },
+          "protectionNotes": ["protection note 1", "protection note 2"],
+          "totalValue": <total value in USD>
         }
       `;
 
@@ -194,6 +209,10 @@ export default function PayPage() {
           reasoning:  'Best available rewards for this category.',
           offerFound: false,
           offerSource: 'none',
+          creditFired: undefined,
+          portalUsed: undefined,
+          protectionNotes: undefined,
+          totalValue: undefined,
         };
       }
       setRec(rec);
@@ -671,26 +690,75 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
     earnedOp: number;
     isWinner: boolean;
     currency: string;
+    totalValue: number;    // USD total value including credits, portal bonuses, protections
+    creditFired: { name: string, amount: number } | null;
+    portalBonus: { name: string, url: string, multiplier: number } | null;
+    protectionValue: number;
+    transferCppMax: number | null;
   };
 
   const cardRows: CardRow[] = allCards
     .map((card) => {
       const earnRate = card.earnRates?.[categoryKey] ?? card.earnRates?.general ?? 1;
-      const cashReward = amount * (earnRate / 100);
-      const earnedOp = card.currency === 'usd'
+      let cashReward = amount * (earnRate / 100);
+      let earnedOp = card.currency === 'usd'
         ? cashReward * 100
         : cashReward * (card.opRate ?? 100);
+
+      // Use computeTotalValue utility for all benefit calculations
+      const totalValueResult = computeTotalValue(card, amount, categoryKey);
+
+      // Statement credit matching logic (for display)
+      let creditFired = null;
+      const statementCredits = card.statementCredits || [];
+      for (const credit of statementCredits) {
+        if (credit.merchant_categories?.includes(categoryKey) && (credit.amount_redeemed || 0) < credit.amount_usd) {
+          const remaining = credit.amount_usd - (credit.amount_redeemed || 0);
+          creditFired = { name: credit.name, amount: Math.min(remaining, amount) };
+          break;
+        }
+      }
+
+      // Portal bonus detection logic (for display)
+      let portalBonus = null;
+      const portalBonuses = card.portalBonuses || [];
+      for (const bonus of portalBonuses) {
+        if (bonus.categories?.includes(categoryKey)) {
+          portalBonus = { name: bonus.portal_name, url: bonus.portal_url, multiplier: bonus.bonus_multiplier };
+          // Re-compute earnedOp with portal multiplier applied
+          if (bonus.bonus_type === 'multiplier') {
+            cashReward = amount * (earnRate / 100) * bonus.bonus_multiplier;
+            earnedOp = card.currency === 'usd'
+              ? cashReward * 100
+              : cashReward * (card.opRate ?? 100);
+          }
+          break;
+        }
+      }
+
+      // Transfer partner cpp max
+      const transferPartners = card.transferPartners || [];
+      const transferCppMax = transferPartners.length > 0 ? Math.max(...transferPartners.map((p: any) => p.cpp_max)) : null;
+
       return {
         key: card.key,
         name: card.name,
         earnRate,
         cashReward,
         earnedOp,
-        isWinner: card.key === recommendation?.bestCardKey,
+        isWinner: false, // Will be set after sorting
         currency: card.currency,
+        totalValue: totalValueResult.totalUsd,
+        creditFired,
+        portalBonus,
+        protectionValue: totalValueResult.protectionUsd,
+        transferCppMax,
       };
     })
-    .sort((a, b) => b.earnedOp - a.earnedOp); // best first
+    .sort((a, b) => b.totalValue - a.totalValue); // sort by total value
+
+  // Set winner as first row after sorting
+  cardRows[0].isWinner = true;
 
   useEffect(() => {
     // Dynamically load canvas-confetti only when savings >= $50
@@ -795,13 +863,24 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
         {/* ── Card comparison table ── */}
         {cardRows.length > 1 && (
           <div className="px-6 py-4 border-b border-slate-700/60">
+            {/* Better option found banner */}
+            {cardRows[0].key !== recommendation?.bestCardKey && (
+              <div className="mb-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <TrendingDown className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-yellow-300 text-xs leading-relaxed">
+                    ⚠ Better option found: {cardRows[0].name} offers ${cardRows[0].totalValue.toFixed(2)} total value vs {recommendation?.bestCard}. The AI missed a statement credit or portal bonus.
+                  </p>
+                </div>
+              </div>
+            )}
             <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider flex items-center gap-1.5">
               <span>All cards compared</span>
               <span className="text-slate-600">— this category</span>
             </p>
             <div className="space-y-2">
               {cardRows.map((row, i) => {
-                const pct = cardRows[0].earnedOp > 0 ? row.earnedOp / cardRows[0].earnedOp : 0;
+                const pct = cardRows[0].totalValue > 0 ? row.totalValue / cardRows[0].totalValue : 0;
                 return (
                   <motion.div
                     key={row.key}
@@ -827,10 +906,38 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
                       </div>
                       <div className="text-right flex-shrink-0 ml-2">
                         <span className={`text-sm font-bold ${row.isWinner ? 'text-green-400' : 'text-slate-400'}`}>
+                          ${row.totalValue.toFixed(2)}
+                        </span>
+                        <span className="text-slate-500 text-xs ml-1.5">
                           +{row.earnedOp % 1 === 0 ? row.earnedOp.toFixed(0) : row.earnedOp.toFixed(1)} OP
                         </span>
-                        <span className="text-slate-500 text-xs ml-1.5">${row.cashReward.toFixed(2)}</span>
                       </div>
+                    </div>
+                    {/* Badges row */}
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {row.creditFired && (
+                        <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Receipt className="w-3 h-3" />
+                          +${row.creditFired.amount.toFixed(2)} {row.creditFired.name} fires
+                        </span>
+                      )}
+                      {row.portalBonus && (
+                        <a
+                          href={row.portalBonus.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
+                        >
+                          ↗ {row.portalBonus.multiplier}x via {row.portalBonus.name}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {row.protectionValue > 0 && (
+                        <span className="text-[10px] bg-slate-500/20 text-slate-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Shield className="w-3 h-3" />
+                          🛡 Protection value
+                        </span>
+                      )}
                     </div>
                     {/* Progress bar */}
                     <div className="h-1 bg-slate-700/60 rounded-full overflow-hidden">
@@ -845,7 +952,12 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
                       <span className="text-[10px] text-slate-600">{row.earnRate}% back</span>
                       {!row.isWinner && cardRows[0].isWinner && (
                         <span className="text-[10px] text-slate-600">
-                          -{((cardRows[0].earnedOp - row.earnedOp) / 100).toFixed(2)} vs best
+                          -${(cardRows[0].totalValue - row.totalValue).toFixed(2)} vs best
+                        </span>
+                      )}
+                      {row.currency === 'points' && row.transferCppMax && (
+                        <span className="text-[10px] text-purple-400">
+                          Best at {row.transferCppMax}¢/pt
                         </span>
                       )}
                     </div>
