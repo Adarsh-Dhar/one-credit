@@ -32,7 +32,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadSettings() {
   chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
     // Account
-    document.getElementById('accountEmail').value = settings.accountEmail || '';
+    if (!settings.accountEmail) {
+      // Try to load from local (set by web app session bridge)
+      chrome.storage.local.get(['userEmail'], (local) => {
+        if (local.userEmail) {
+          document.getElementById('accountEmail').value = local.userEmail
+        }
+      })
+    } else {
+      document.getElementById('accountEmail').value = settings.accountEmail
+    }
 
     // Sites
     Object.keys(settings.enabledSites).forEach((site) => {
@@ -79,7 +88,13 @@ function saveSettings() {
   };
 
   chrome.storage.sync.set(settings, () => {
-    showStatus('Settings saved successfully!', 'success');
+    // Also mirror email to local storage so the popup can read it immediately
+    chrome.storage.local.set({
+      userEmail: settings.accountEmail,
+      userName: '',
+    }, () => {
+      showStatus('Settings saved successfully!', 'success');
+    })
   });
 }
 

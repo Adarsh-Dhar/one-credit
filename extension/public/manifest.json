@@ -12,6 +12,8 @@
   ],
   "host_permissions": [
     "https://www.amazon.com/*",
+    "https://amazon.in/*",
+    "https://www.amazon.in/*",
     "https://www.walmart.com/*",
     "https://www.bestbuy.com/*",
     "https://www.target.com/*",
@@ -27,12 +29,22 @@
     {
       "matches": [
         "https://www.amazon.com/*",
+        "https://amazon.in/*",
+        "https://www.amazon.in/*",
         "https://www.walmart.com/*",
         "https://www.bestbuy.com/*",
         "https://www.target.com/*",
         "https://www.ebay.com/*"
       ],
       "js": ["js/content.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://onecredit.app/*",
+        "http://localhost:3000/*"
+      ],
+      "js": ["js/content-app.js"],
       "run_at": "document_end"
     }
   ],
@@ -49,11 +61,21 @@
       "resources": ["js/*.js", "css/*.css"],
       "matches": [
         "https://www.amazon.com/*",
+        "https://amazon.in/*",
+        "https://www.amazon.in/*",
         "https://www.walmart.com/*",
         "https://www.bestbuy.com/*",
         "https://www.target.com/*",
-        "https://www.ebay.com/*"
+        "https://www.ebay.com/*",
+        "https://onecredit.app/*",
+        "http://localhost:3000/*"
       ]
     }
-  ]
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://onecredit.app/*",
+      "http://localhost:3000/*"
+    ]
+  }
 }

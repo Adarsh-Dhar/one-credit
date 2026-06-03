@@ -28,6 +28,8 @@ export interface Message {
     | 'CARD_SELECTED'
     | 'GET_STATUS'
     | 'PRODUCT_DETECTED_UPDATE'
+    | 'SET_USER_SESSION'
+    | 'GET_USER_SESSION'
   data?: any
   product?: Product
   userId?: string

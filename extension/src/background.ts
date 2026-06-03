@@ -13,7 +13,7 @@ chrome.runtime.onMessage.addListener(
 
         // Store the product data
         chrome.storage.local.set({
-          lastProduct: request.data,
+          lastDetectedProduct: request.data,
           lastProductTime: Date.now(),
         })
 
@@ -91,14 +91,32 @@ chrome.runtime.onMessage.addListener(
 
       case 'GET_STATUS': {
         // Get extension status
-        chrome.storage.local.get(['lastProduct', 'selectedCard'], (result) => {
+        chrome.storage.local.get(['lastDetectedProduct', 'selectedCard'], (result) => {
           sendResponse({
             success: true,
             status: {
-              hasProduct: !!result.lastProduct,
+              hasProduct: !!result.lastDetectedProduct,
               selectedCard: result.selectedCard,
             },
           })
+        })
+        return true
+      }
+
+      case 'SET_USER_SESSION': {
+        chrome.storage.local.set({
+          userEmail: request.data?.email,
+          userId: request.data?.userId,
+          userName: request.data?.name,
+        }, () => {
+          sendResponse({ success: true })
+        })
+        return true
+      }
+
+      case 'GET_USER_SESSION': {
+        chrome.storage.local.get(['userEmail', 'userId', 'userName'], (result) => {
+          sendResponse({ success: true, data: result })
         })
         return true
       }

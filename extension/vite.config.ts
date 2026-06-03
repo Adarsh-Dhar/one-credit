@@ -24,6 +24,9 @@ export default defineConfig({
             let content = readFileSync(srcPath, 'utf-8')
             // Rewrite script reference
             content = content.replace(/<script type="module" src="\/src\/pages\/[^\/]+\/main\.tsx"><\/script>/, `<script type="module" src="/${script}"></script>`)
+            // Add CSS link before closing head tag
+            const cssName = script.replace('js/', 'css/').replace('.js', '.css')
+            content = content.replace('</head>', `    <link rel="stylesheet" href="/${cssName}" />\n  </head>`)
             writeFileSync(destPath, content)
           }
         })
@@ -49,6 +52,7 @@ export default defineConfig({
         options: path.resolve(__dirname, 'src/pages/options/index.html'),
         background: path.resolve(__dirname, 'src/background.ts'),
         content: path.resolve(__dirname, 'src/content.ts'),
+        'content-app': path.resolve(__dirname, 'src/content-app.ts'),
       },
       output: {
         entryFileNames: 'js/[name].js',
