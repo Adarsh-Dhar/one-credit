@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Sparkles, DollarSign, TrendingUp, X, Star } from 'lucide-react';
@@ -104,20 +104,16 @@ export default function Dashboard() {
         <section className="mb-16">
           <h2 className="text-2xl font-bold text-white mb-6">Your Linked Cards</h2>
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 animate-pulse">
-                  <div className="h-4 bg-slate-700 rounded w-3/4 mb-4" />
-                  <div className="h-3 bg-slate-700 rounded w-1/2 mb-2" />
-                  <div className="h-3 bg-slate-700 rounded w-1/3" />
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[1,2,3].map(i => (
+                <div key={i} className="h-48 rounded-2xl bg-slate-800/60 animate-pulse" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {cards.map((card) => {
-                const maxOp = Math.max(...cards.map(c => c.opValue || 0));
-                const isTopCard = card.opValue === maxOp;
+                const maxOp = Math.max(...cards.map(c => c.opValue ?? 0));
+                const isTopCard = card.opValue === maxOp && maxOp > 0;
                 return (
                   <TiltCard
                     key={card.key}
@@ -428,131 +424,144 @@ export default function Dashboard() {
   );
 }
 
-function TiltCard({ card, isTopCard, onClick }: {
-  card: any;
-  isTopCard: boolean;
-  onClick: () => void;
-}) {
+// ── TiltCard ────────────────────────────────────────────────────────────────
+
+const CARD_COLORS: Record<string, { from: string; via: string; to: string; badge: string }> = {
+  travel:   { from: '#3b82f6', via: '#4f46e5', to: '#6366f1', badge: 'bg-blue-500/20 text-blue-300' },
+  dining:   { from: '#f97316', via: '#ef4444', to: '#dc2626', badge: 'bg-orange-500/20 text-orange-300' },
+  cashback: { from: '#10b981', via: '#14b8a6', to: '#0ea5e9', badge: 'bg-emerald-500/20 text-emerald-300' },
+  fuel:     { from: '#f59e0b', via: '#f97316', to: '#ef4444', badge: 'bg-amber-500/20 text-amber-300' },
+  shopping: { from: '#8b5cf6', via: '#7c3aed', to: '#6d28d9', badge: 'bg-violet-500/20 text-violet-300' },
+  crypto:   { from: '#eab308', via: '#ca8a04', to: '#b45309', badge: 'bg-yellow-500/20 text-yellow-300' },
+  business: { from: '#475569', via: '#334155', to: '#1e293b', badge: 'bg-slate-500/20 text-slate-300' },
+  student:  { from: '#ec4899', via: '#f43f5e', to: '#e11d48', badge: 'bg-pink-500/20 text-pink-300' },
+  general:  { from: '#06b6d4', via: '#0ea5e9', to: '#3b82f6', badge: 'bg-cyan-500/20 text-cyan-300' },
+};
+
+function TiltCard({ card, isTopCard, onClick }: { card: any; isTopCard: boolean; onClick: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 
-  const mouseX = useSpring(x, { stiffness: 300, damping: 30 });
-  const mouseY = useSpring(y, { stiffness: 300, damping: 30 });
+  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [12, -12]), { stiffness: 300, damping: 30 });
+  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-12, 12]), { stiffness: 300, damping: 30 });
 
-  const rotateX = useTransform(mouseY, [-0.5, 0.5], [15, -15]);
-  const rotateY = useTransform(mouseX, [-0.5, 0.5], [-15, 15]);
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    x.set((e.clientX - rect.left) / rect.width - 0.5);
+    y.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
 
-  const shineX = useTransform(mouseX, [-0.5, 0.5], ['50%', '0%']);
-  const shineY = useTransform(mouseY, [-0.5, 0.5], ['50%', '0%']);
-
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const mouseXVal = (e.clientX - rect.left) / width - 0.5;
-    const mouseYVal = (e.clientY - rect.top) / height - 0.5;
-    x.set(mouseXVal);
-    y.set(mouseYVal);
-  }
-
-  function handleMouseLeave() {
+  const handleMouseLeave = () => {
     x.set(0);
     y.set(0);
-  }
+  };
 
-  // Get top 3 earn rates
-  const earnRates = card.earnRates ? Object.entries(card.earnRates)
+  const cardType = card.type ?? 'general';
+  const colors = CARD_COLORS[cardType] ?? CARD_COLORS.general;
+  const opValue = Math.round(card.opValue ?? 0);
+  const earnRateEntries = Object.entries(card.earnRates ?? {})
+    .filter(([k, v]) => k !== 'general' && (v as number) > 1)
     .sort(([, a], [, b]) => (b as number) - (a as number))
-    .slice(0, 3) : [];
+    .slice(0, 3);
 
   return (
-    <motion.div
-      style={{
-        rotateX,
-        rotateY,
-        transformStyle: 'preserve-3d',
-      }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onClick={onClick}
-      className="relative cursor-pointer"
-    >
-      {/* Gradient border for top card */}
-      {isTopCard && (
-        <div
-          className="absolute inset-0 rounded-xl blur-md opacity-70"
-          style={{
-            background: 'linear-gradient(45deg, #8b5cf6, #ec4899, #f59e0b, #8b5cf6)',
-            backgroundSize: '300% 300%',
-            animation: 'gradientShift 3s ease infinite',
-          }}
-        />
-      )}
-
-      {/* Card content */}
-      <motion.div
-        className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 overflow-hidden"
-        style={{
-          transformStyle: 'preserve-3d',
-          transform: 'translateZ(20px)',
-        }}
-      >
-        {/* Specular highlight */}
-        <motion.div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle at var(--shine-x) var(--shine-y), rgba(255,255,255,0.15) 0%, transparent 50%)',
-            '--shine-x': shineX,
-            '--shine-y': shineY,
-          } as any}
-        />
-
-        {/* TOP OP badge */}
+    <div style={{ perspective: '900px' }} className="w-full">
+      {/* Pulsing gradient border ring for top-OP card */}
+      <div className="relative">
         {isTopCard && (
-          <div className="absolute top-3 right-3 bg-gradient-to-r from-purple-600 to-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-            TOP OP
-          </div>
+          <div
+            className="absolute -inset-[2px] rounded-2xl opacity-90 z-0"
+            style={{
+              background: `linear-gradient(135deg, ${colors.from}, ${colors.via}, ${colors.to}, ${colors.from})`,
+              backgroundSize: '300% 300%',
+              animation: 'gradientShift 3s ease infinite',
+            }}
+          />
         )}
 
-        {/* Card info */}
-        <div className="relative z-10">
-          <p className="text-slate-400 text-xs mb-1">{card.issuer}</p>
-          <p className="text-white font-bold text-lg mb-4">{card.name}</p>
+        <motion.div
+          ref={ref}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          onClick={onClick}
+          style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
+          className="relative z-10 cursor-pointer rounded-2xl overflow-hidden"
+        >
+          {/* Card face */}
+          <div
+            className="relative h-48 p-5 flex flex-col justify-between"
+            style={{
+              background: `linear-gradient(135deg, ${colors.from}cc, ${colors.via}99, ${colors.to}cc)`,
+            }}
+          >
+            {/* Specular highlight layer — tracks opposite to tilt */}
+            <motion.div
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{
+                background: useTransform(
+                  [x, y],
+                  ([lx, ly]: number[]) =>
+                    `radial-gradient(circle at ${((-lx + 0.5) * 100).toFixed(1)}% ${((-ly + 0.5) * 100).toFixed(1)}%, rgba(255,255,255,0.18) 0%, transparent 60%)`
+                ),
+              }}
+            />
 
-          <div className="mb-4">
-            <p className="text-slate-500 text-xs">OP Balance</p>
-            <p className="text-purple-300 font-bold text-2xl">
-              {Math.round(card.opValue || 0).toLocaleString()} OP
+            {/* Top row */}
+            <div className="flex justify-between items-start relative z-10">
+              <div>
+                <p className="text-white/60 text-[10px] uppercase tracking-widest font-medium">{card.issuer}</p>
+                <p className="text-white font-bold text-sm leading-tight mt-0.5 max-w-[160px]">{card.name}</p>
+              </div>
+              {isTopCard && (
+                <span className="bg-yellow-400/20 backdrop-blur-sm border border-yellow-400/30 text-yellow-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  TOP OP
+                </span>
+              )}
+            </div>
+
+            {/* OP Balance */}
+            <div className="relative z-10">
+              <p className="text-white/50 text-[10px] uppercase tracking-wider mb-0.5">OP Balance</p>
+              <p className="text-white font-bold text-2xl tracking-tight">
+                {opValue.toLocaleString()} <span className="text-white/50 text-base font-normal">OP</span>
+              </p>
+              {/* Earn rate chips */}
+              {earnRateEntries.length > 0 && (
+                <div className="flex gap-1 mt-2 flex-wrap">
+                  {earnRateEntries.map(([cat, rate]) => (
+                    <span
+                      key={cat}
+                      className="bg-black/25 backdrop-blur-sm text-white/80 text-[9px] px-1.5 py-0.5 rounded-full capitalize"
+                    >
+                      {cat} {rate as number}×
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card bottom strip */}
+          <div className="bg-slate-900/95 border-t border-white/5 px-5 py-3 flex justify-between items-center">
+            <p className="text-slate-400 text-xs truncate max-w-[180px]">
+              {card.perks?.[0] ?? 'No perks listed'}
+            </p>
+            <p className="text-slate-500 text-xs shrink-0 ml-2">
+              {card.currency?.toUpperCase() ?? 'USD'}
             </p>
           </div>
+        </motion.div>
+      </div>
 
-          {/* Earn rate chips */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {earnRates.map(([category, rate]) => (
-              <span
-                key={category as string}
-                className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded"
-              >
-                {category as string} {rate as number}×
-              </span>
-            ))}
-          </div>
-
-          {/* Primary perk */}
-          <div className="text-slate-400 text-xs border-t border-slate-700 pt-3">
-            {card.perks?.[0] || 'No perks listed'}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Inline keyframes for gradient animation */}
-      <style jsx>{`
+      {/* Keyframe injection */}
+      <style>{`
         @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
+          0%, 100% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
         }
       `}</style>
-    </motion.div>
+    </div>
   );
 }

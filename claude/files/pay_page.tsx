@@ -369,10 +369,14 @@ export default function PayPage() {
           {/* ── STEP 4: Analyzing ── */}
           {step === 'analyzing' && (
             <motion.div key="analyzing"
-              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <div className="flex items-center gap-3 mb-5">
+                <Sparkles className="w-5 h-5 text-yellow-400 animate-pulse" />
+                <h2 className="text-xl font-bold text-white">Gemini is thinking...</h2>
+              </div>
               <AITerminal
-                merchant={selectedMerchant?.name || ''}
-                category={selectedCategory?.label || ''}
+                merchant={selectedMerchant?.name ?? ''}
+                category={selectedCategory?.id ?? ''}
                 userId={userId}
                 cardCount={cards.length}
               />
@@ -531,11 +535,11 @@ function TokenFlowAnimation({
     <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-5">
       <div className="flex items-center justify-between gap-4">
 
-        {/* From: Card */}
-        <div className="flex-1 relative">
-          {/* Winner glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-500 to-yellow-500 rounded-xl animate-pulse opacity-60 blur-sm" />
-          <div className="relative bg-slate-800 rounded-xl p-4 text-center border border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.6)]">
+        {/* From: Card — winner glow */}
+        <div className="relative flex-1">
+          {/* Animated gradient border ring */}
+          <div className="absolute -inset-[2px] rounded-xl bg-gradient-to-r from-purple-500 via-yellow-400 to-purple-500 opacity-80 blur-[1px] animate-pulse" />
+          <div className="relative bg-slate-800 rounded-xl p-4 text-center border border-transparent">
             <CreditCard className="w-8 h-8 text-purple-400 mx-auto mb-2" />
             <p className="text-white text-xs font-medium leading-tight">{fromCard}</p>
             <p className="text-slate-500 text-xs mt-1">-${amount.toFixed(2)}</p>
@@ -552,7 +556,7 @@ function TokenFlowAnimation({
         </div>
 
         {/* To: Merchant */}
-        <div className="flex-1 bg-slate-800 rounded-xl p-4 text-center border border-green-500/40 opacity-80">
+        <div className="flex-1 bg-slate-800 rounded-xl p-4 text-center border border-green-500/40">
           <span className="text-4xl block mb-1">{toMerchant.logo}</span>
           <p className="text-white text-xs font-medium leading-tight">{toMerchant.name}</p>
           <p className="text-slate-500 text-xs mt-1">${amount.toFixed(2)}</p>
@@ -590,69 +594,107 @@ function TokenParticles() {
   );
 }
 
+// ── AI Terminal ─────────────────────────────────────────────────────────────
+
+interface TerminalLine {
+  text: string;
+  type: 'prompt' | 'info' | 'success' | 'highlight' | 'rule';
+  delay: number;
+}
+
+function buildTerminalLines(merchant: string, category: string, userId: string, cardCount: number): TerminalLine[] {
+  const shortUser = userId.length > 22 ? userId.slice(0, 22) + '…' : userId;
+  const count = cardCount > 0 ? cardCount : 4;
+  return [
+    { text: '> Initializing Gemini 2.5 Flash agent...', type: 'prompt', delay: 0 },
+    { text: '> Connecting to MongoDB cluster...', type: 'prompt', delay: 420 },
+    { text: `  ✓ Connected. User: ${shortUser}`, type: 'success', delay: 820 },
+    { text: `> Fetching wallet state from MongoDB...`, type: 'prompt', delay: 1100 },
+    { text: `  ✓ Found ${count} linked cards. Earn rates loaded.`, type: 'success', delay: 1500 },
+    { text: '> Triggering Fivetran sync: cardlytics, network, affiliate...', type: 'prompt', delay: 1850 },
+    { text: '  ✓ Fivetran sync confirmed. 0 ms lag.', type: 'success', delay: 2350 },
+    { text: `> Querying rewards offers for category: "${category}"...`, type: 'prompt', delay: 2700 },
+    { text: `> Searching merchant database for "${merchant}"...`, type: 'prompt', delay: 3050 },
+    { text: '  ✓ Found active offers across Cardlytics + affiliate sources.', type: 'success', delay: 3500 },
+    { text: '> Applying ruleset:', type: 'prompt', delay: 3800 },
+    { text: '  RULE  Do not route personal spend to business cards.', type: 'rule', delay: 4050 },
+    { text: '  RULE  Prefer cards with active statement credits first.', type: 'rule', delay: 4250 },
+    { text: `> Scoring ${count} cards by OP/$ yield for ${category}...`, type: 'prompt', delay: 4550 },
+    { text: '> Optimizing for maximum OP return...', type: 'prompt', delay: 4900 },
+    { text: '  ✓ Recommendation locked.', type: 'highlight', delay: 5300 },
+  ];
+}
+
 function AITerminal({ merchant, category, userId, cardCount }: {
   merchant: string;
   category: string;
   userId: string;
   cardCount: number;
 }) {
-  const [lines, setLines] = useState<string[]>([]);
-  const terminalRef = useRef<HTMLDivElement>(null);
+  const [visibleLines, setVisibleLines] = useState<TerminalLine[]>([]);
+  const [cursorVisible, setCursorVisible] = useState(true);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const lines = buildTerminalLines(merchant, category, userId, cardCount);
 
   useEffect(() => {
-    const terminalLines = [
-      { text: '> Initializing Gemini 2.5 Flash agent...', delay: 0 },
-      { text: '> Connecting to MongoDB cluster...', delay: 400 },
-      { text: `> Fetching wallet state for ${userId}...`, delay: 800 },
-      { text: `> Found ${cardCount} linked cards. Loading earn rates...`, delay: 1200 },
-      { text: '> Triggering Fivetran sync: cardlytics, network, affiliate...', delay: 1600 },
-      { text: '> Fivetran sync confirmed. 0ms lag.', delay: 2000 },
-      { text: `> Querying rewards offers for "${category}"...`, delay: 2400 },
-      { text: `> Searching merchant database for "${merchant}"...`, delay: 2800 },
-      { text: '> Found 3 active offers across 2 sources.', delay: 3200 },
-      { text: '<span class="text-cyan-400">RULE: Exclude business cards from personal spend.</span>', delay: 3600 },
-      { text: `> Scoring cards by OP/$ yield for ${category.toLowerCase()} category...`, delay: 4000 },
-      { text: '> Optimizing for maximum OP return...', delay: 4400 },
-      { text: '<span class="text-yellow-400">Recommendation locked.</span>', delay: 4800 },
-    ];
-
-    terminalLines.forEach(({ text, delay }) => {
-      setTimeout(() => {
-        setLines(prev => [...prev, text]);
-        if (terminalRef.current) {
-          terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-        }
-      }, delay);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    lines.forEach((line, i) => {
+      timers.push(setTimeout(() => {
+        setVisibleLines(prev => [...prev, line]);
+      }, line.delay));
     });
-  }, [merchant, category, userId, cardCount]);
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [visibleLines]);
+
+  // Blinking cursor
+  useEffect(() => {
+    const id = setInterval(() => setCursorVisible(v => !v), 530);
+    return () => clearInterval(id);
+  }, []);
+
+  const colorFor = (type: TerminalLine['type']) => {
+    switch (type) {
+      case 'prompt':    return 'text-green-400';
+      case 'success':   return 'text-emerald-300';
+      case 'highlight': return 'text-yellow-300 font-semibold';
+      case 'rule':      return 'text-cyan-400';
+      case 'info':      return 'text-slate-400';
+    }
+  };
 
   return (
-    <div className="bg-black rounded-xl overflow-hidden border border-slate-700 shadow-2xl">
-      {/* Terminal title bar */}
-      <div className="bg-slate-800 px-4 py-2 flex items-center gap-2">
-        <div className="w-3 h-3 rounded-full bg-red-500" />
-        <div className="w-3 h-3 rounded-full bg-yellow-500" />
-        <div className="w-3 h-3 rounded-full bg-green-500" />
-        <span className="text-slate-400 text-xs ml-2">gemini-agent — zsh</span>
+    <div className="rounded-xl overflow-hidden border border-slate-700 shadow-2xl shadow-black/50">
+      {/* Title bar */}
+      <div className="bg-slate-800 border-b border-slate-700 px-4 py-2.5 flex items-center gap-2">
+        <div className="w-3 h-3 rounded-full bg-red-500/80" />
+        <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+        <div className="w-3 h-3 rounded-full bg-green-500/80" />
+        <span className="ml-3 text-slate-400 text-xs font-mono">gemini-agent — omni-wallet</span>
+        <span className="ml-auto text-slate-600 text-xs font-mono">2.5 flash</span>
       </div>
 
-      {/* Terminal content */}
-      <div
-        ref={terminalRef}
-        className="bg-black p-4 font-mono text-sm h-80 overflow-y-auto"
-        style={{ scrollBehavior: 'smooth' }}
-      >
-        {lines.map((line, i) => (
-          <div
+      {/* Terminal body */}
+      <div className="bg-[#0a0e14] px-5 py-4 font-mono text-sm min-h-[260px] max-h-[340px] overflow-y-auto space-y-1 scrollbar-thin">
+        {visibleLines.map((line, i) => (
+          <motion.div
             key={i}
-            className="mb-1"
-            dangerouslySetInnerHTML={{ __html: line }}
-          />
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.15 }}
+            className={colorFor(line.type)}
+          >
+            {line.text}
+          </motion.div>
         ))}
-        <div className="flex items-center gap-2">
-          <span className="text-green-400">❯</span>
-          <span className="w-2 h-4 bg-green-400 animate-pulse" />
+        <div className="flex items-center gap-1 text-green-400">
+          <span>{'>'}</span>
+          <span className={`w-2 h-4 bg-green-400 inline-block ml-0.5 ${cursorVisible ? 'opacity-100' : 'opacity-0'}`} />
         </div>
+        <div ref={bottomRef} />
       </div>
     </div>
   );
