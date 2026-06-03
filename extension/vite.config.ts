@@ -2,11 +2,37 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import fs from 'fs'
+import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'copy-html-files',
+      writeBundle() {
+        // Copy HTML files to root of dist and rewrite script references
+        const htmlFiles = [
+          { src: 'src/pages/popup/index.html', dest: 'dist/popup.html', script: 'js/popup.js' },
+          { src: 'src/pages/sidepanel/index.html', dest: 'dist/sidepanel.html', script: 'js/sidepanel.js' },
+          { src: 'src/pages/options/index.html', dest: 'dist/options.html', script: 'js/options.js' },
+        ]
+
+        htmlFiles.forEach(({ src, dest, script }) => {
+          const srcPath = path.resolve(__dirname, src)
+          const destPath = path.resolve(__dirname, dest)
+          if (existsSync(srcPath)) {
+            let content = readFileSync(srcPath, 'utf-8')
+            // Rewrite script reference
+            content = content.replace(/<script type="module" src="\/src\/pages\/[^\/]+\/main\.tsx"><\/script>/, `<script type="module" src="/${script}"></script>`)
+            writeFileSync(destPath, content)
+          }
+        })
+      },
+    },
+  ],
   build: {
     outDir: 'dist',
+    emptyOutDir: true,
     minify: 'terser',
     rollupOptions: {
       input: {

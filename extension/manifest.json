@@ -16,7 +16,7 @@
     "https://www.target.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "js/background.js"
   },
   "content_scripts": [
     {
@@ -26,7 +26,7 @@
         "https://www.bestbuy.com/*",
         "https://www.target.com/*"
       ],
-      "js": ["content.js"],
+      "js": ["js/content.js"],
       "run_at": "document_end"
     }
   ],
@@ -37,11 +37,7 @@
     "default_popup": "popup.html",
     "default_title": "OneCredit Transaction Portal"
   },
-  "icons": {
-    "16": "images/icon-16x16.png",
-    "48": "images/icon-48x48.png",
-    "128": "images/icon-128x128.png"
-  },
+  "options_page": "options.html",
   "web_accessible_resources": [
     {
       "resources": ["images/*"],
