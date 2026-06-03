@@ -19,7 +19,7 @@ const mockCards = [
     name: 'Chase Sapphire Reserve',
     issuer: 'Chase',
     currency: 'UR Points',
-    color: 'from-slate-700 to-slate-900',
+    color: 'from-purple-600 to-purple-800',
     balance: 87400,
     earnRate: 1,
     rewardsEarned: 1999,
@@ -37,7 +37,7 @@ const mockCards = [
     name: 'Amex Gold Card',
     issuer: 'American Express',
     currency: 'MR Points',
-    color: 'from-yellow-500 to-amber-600',
+    color: 'from-yellow-500 to-yellow-600',
     balance: 42000,
     earnRate: 1,
     rewardsEarned: 1999,
@@ -55,7 +55,7 @@ const mockCards = [
     name: 'Citi Double Cash',
     issuer: 'Citi',
     currency: 'Cash Back',
-    color: 'from-blue-500 to-blue-700',
+    color: 'from-slate-600 to-slate-700',
     balance: 284.5,
     earnRate: 2,
     rewardsEarned: 39.98,
@@ -73,7 +73,7 @@ const mockCards = [
     name: 'Apple Card',
     issuer: 'Goldman Sachs',
     currency: 'Daily Cash',
-    color: 'from-gray-200 to-gray-400',
+    color: 'from-slate-500 to-slate-600',
     balance: 12.3,
     earnRate: 3,
     rewardsEarned: 19.99,
@@ -117,7 +117,7 @@ export default function OneCreditTxPortal() {
             whileHover={{ width: 120 }}
           >
             <motion.div
-              className="w-10 h-20 bg-gradient-to-b from-indigo-600 to-purple-700 rounded-l-2xl shadow-lg shadow-indigo-500/30 flex items-center justify-center cursor-pointer hover:w-32 transition-all duration-300 group"
+              className="w-10 h-20 bg-gradient-to-b from-purple-600 to-yellow-500 rounded-l-2xl shadow-lg shadow-purple-500/30 flex items-center justify-center cursor-pointer hover:w-32 transition-all duration-300 group"
               whileHover={{ x: -10 }}
             >
               <div className="flex items-center gap-2">
@@ -142,7 +142,7 @@ export default function OneCreditTxPortal() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 380, opacity: 0 }}
             transition={{ duration: 0.35 }}
-            className="fixed right-4 top-1/2 -translate-y-1/2 pointer-events-auto z-[9999] bg-slate-800/95 border border-slate-700 rounded-2xl p-4 w-72 backdrop-blur-sm shadow-2xl"
+            className="fixed right-4 top-1/2 -translate-y-1/2 pointer-events-auto z-[9999] bg-slate-800/95 border border-purple-500/30 rounded-2xl p-4 w-72 backdrop-blur-sm shadow-2xl shadow-purple-500/10"
           >
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-2">
@@ -172,7 +172,7 @@ export default function OneCreditTxPortal() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setStep('calculating')}
-                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white py-2 px-4 rounded-lg font-medium text-sm transition-all shadow-lg shadow-indigo-500/20"
+                className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white py-2 px-4 rounded-lg font-medium text-sm transition-all shadow-lg shadow-purple-500/20"
               >
                 Analyze with AI →
               </motion.button>
@@ -219,7 +219,7 @@ export default function OneCreditTxPortal() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-4 left-4 bg-slate-900/90 border border-slate-700 rounded-lg p-3 z-[10000] flex gap-2 flex-wrap max-w-xs backdrop-blur-sm"
+          className="fixed bottom-4 left-4 bg-slate-900/90 border border-purple-500/30 rounded-lg p-3 z-[10000] flex gap-2 flex-wrap max-w-xs backdrop-blur-sm"
         >
           {['idle', 'detected', 'calculating', 'results', 'confirmed'].map((s) => (
             <button
@@ -227,7 +227,7 @@ export default function OneCreditTxPortal() {
               onClick={() => handleDevStateClick(s)}
               className={`text-xs px-2 py-1 rounded transition-colors ${
                 step === s
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-gradient-to-r from-purple-600 to-yellow-500 text-white'
                   : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
               }`}
             >
@@ -270,10 +270,10 @@ function CalculatingState({ product, onComplete }: any) {
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 380, opacity: 0 }}
       transition={{ duration: 0.35 }}
-      className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-slate-700 pointer-events-auto z-[9999] overflow-y-auto"
+      className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-purple-500/30 pointer-events-auto z-[9999] overflow-y-auto"
     >
       {/* Header */}
-      <div className="sticky top-0 bg-gradient-to-r from-indigo-600/10 to-purple-700/10 border-b border-slate-700 p-6 backdrop-blur-sm">
+      <div className="sticky top-0 bg-gradient-to-r from-purple-600/10 to-yellow-500/10 border-b border-purple-500/30 p-6 backdrop-blur-sm">
         <div className="flex items-center gap-3 mb-4">
           <span className="text-white text-lg">✦</span>
           <div>
@@ -284,7 +284,7 @@ function CalculatingState({ product, onComplete }: any) {
       </div>
 
       {/* Product Summary */}
-      <div className="p-6 border-b border-slate-700">
+      <div className="p-6 border-b border-purple-500/30">
         <div className="flex gap-3">
           <div className="text-3xl">💻</div>
           <div>
@@ -323,7 +323,7 @@ function CalculatingState({ product, onComplete }: any) {
                   <motion.span
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity }}
-                    className="text-indigo-400"
+                    className="text-purple-400"
                   >
                     ⟳
                   </motion.span>
@@ -368,10 +368,10 @@ function ResultsState({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 380, opacity: 0 }}
       transition={{ duration: 0.35 }}
-      className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-slate-700 pointer-events-auto z-[9999] overflow-hidden flex flex-col"
+      className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-purple-500/30 pointer-events-auto z-[9999] overflow-hidden flex flex-col"
     >
       {/* Header */}
-      <div className="flex justify-between items-center p-6 border-b border-slate-700">
+      <div className="flex justify-between items-center p-6 border-b border-purple-500/30">
         <div className="flex items-center gap-2">
           <span className="text-white text-lg">✦</span>
           <span className="text-white font-semibold text-sm">OneCredit</span>
@@ -386,7 +386,7 @@ function ResultsState({
 
       {/* Product Chip */}
       <div className="px-6 pt-4 pb-2">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2 text-xs text-slate-300">
+        <div className="bg-slate-800/50 border border-purple-500/20 rounded-lg px-3 py-2 flex items-center gap-2 text-xs text-slate-300">
           <span>🛒</span>
           <span>{product.name}</span>
           <span>·</span>
@@ -423,19 +423,19 @@ function ResultsState({
       </div>
 
       {/* Footer CTA */}
-      <div className="border-t border-slate-700 p-6 space-y-3">
+      <div className="border-t border-purple-500/30 p-6 space-y-3">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => onSelectCard('chase-sapphire')}
-          className="w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white py-3 px-4 rounded-xl font-semibold text-sm transition-all shadow-lg"
+          className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white py-3 px-4 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-purple-500/20"
         >
           Use Chase Sapphire Reserve →
         </motion.button>
         <p className="text-xs text-slate-400 text-center">
           Tap to highlight this card at checkout
         </p>
-        <button className="w-full text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors">
+        <button className="w-full text-purple-400 hover:text-purple-300 text-xs font-medium transition-colors">
           Recalculate
         </button>
       </div>
@@ -452,7 +452,7 @@ function CardRow({ card, isExpanded, onToggle, onSelect }: any) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: card.rank * 0.1 }}
-      className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden hover:border-slate-600 transition-colors"
+      className="bg-slate-800/50 border border-purple-500/20 rounded-lg overflow-hidden hover:border-purple-500/40 transition-colors"
     >
       <motion.button
         onClick={onToggle}
@@ -500,7 +500,7 @@ function CardRow({ card, isExpanded, onToggle, onSelect }: any) {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="border-t border-slate-700 px-4 py-3 bg-slate-900/50 space-y-3 text-sm"
+            className="border-t border-purple-500/20 px-4 py-3 bg-slate-900/50 space-y-3 text-sm"
           >
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -534,7 +534,7 @@ function CardRow({ card, isExpanded, onToggle, onSelect }: any) {
 
             <div className="bg-slate-800/50 rounded p-2">
               <p className="text-slate-400 text-xs mb-1">Best Alternative</p>
-              <p className="text-indigo-300 text-xs font-medium">
+              <p className="text-purple-300 text-xs font-medium">
                 {card.bestAlternativeUse}
               </p>
             </div>
@@ -561,7 +561,7 @@ function ConfirmedState({ card, savings, onDone }: any) {
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 380, opacity: 0 }}
       transition={{ duration: 0.35 }}
-      className="fixed right-0 top-0 h-full w-96 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-900 border-l border-slate-700 pointer-events-auto z-[9999] flex flex-col items-center justify-center"
+      className="fixed right-0 top-0 h-full w-96 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-900 border-l border-purple-500/30 pointer-events-auto z-[9999] flex flex-col items-center justify-center"
     >
       {/* Animated Checkmark */}
       <motion.svg
@@ -609,7 +609,7 @@ function ConfirmedState({ card, savings, onDone }: any) {
           {card?.name} highlighted at checkout
         </p>
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 my-6">
+        <div className="bg-slate-800/50 border border-purple-500/20 rounded-lg p-4 my-6">
           <p className="text-slate-400 text-xs mb-1">OP Savings</p>
           <p className="text-2xl font-bold text-emerald-400">{savings.toLocaleString()} OP</p>
           <p className="text-slate-400 text-xs mt-1">vs worst option</p>
@@ -619,7 +619,7 @@ function ConfirmedState({ card, savings, onDone }: any) {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={onDone}
-          className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white py-3 px-4 rounded-lg font-semibold text-sm transition-all mx-6"
+          className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white py-3 px-4 rounded-lg font-semibold text-sm transition-all mx-6"
         >
           Done
         </motion.button>
