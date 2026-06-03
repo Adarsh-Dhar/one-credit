@@ -30,6 +30,14 @@ export default defineConfig({
       },
     },
   ],
+  resolve: {
+    alias: {
+      'tw-animate-css': 'tw-animate-css',
+    },
+  },
+  css: {
+    postcss: path.resolve(__dirname, 'postcss.config.js'),
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

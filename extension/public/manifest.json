@@ -7,7 +7,8 @@
     "storage",
     "activeTab",
     "scripting",
-    "webRequest"
+    "webRequest",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://www.amazon.com/*",
@@ -16,6 +17,9 @@
     "https://www.target.com/*",
     "https://www.ebay.com/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; font-src https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; script-src 'self';"
+  },
   "background": {
     "service_worker": "js/background.js"
   },
