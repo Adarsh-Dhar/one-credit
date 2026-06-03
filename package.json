@@ -44,6 +44,7 @@
     "@radix-ui/react-tooltip": "1.2.8",
     "@testing-library/user-event": "^14.6.1",
     "@vercel/analytics": "1.6.1",
+    "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.4",
@@ -68,7 +69,8 @@
     "recharts": "2.15.0",
     "sonner": "^1.7.1",
     "tailwind-merge": "^3.3.1",
-    "vaul": "^1.1.2"
+    "vaul": "^1.1.2",
+    "vite": "^8.0.16"
   },
   "devDependencies": {
     "@google-cloud/vertexai": "^1.12.0",
