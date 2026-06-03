@@ -18,7 +18,7 @@ while true; do
   # Query rewards offers via tools API
   response=$(curl -sL -w "\n%{http_code}" -X POST http://localhost:3000/api/tools/execute \
     -H "Content-Type: application/json" \
-    -d '{"toolName": "get_rewards_offers", "toolInput": {"category": "dining"}}')
+    -d '{"toolName": "get_rewards_offers", "toolInput": {}}')
 
   # Extract HTTP code (last line) and body (everything except last line)
   http_code=$(echo "$response" | tail -n1)
