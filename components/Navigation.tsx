@@ -39,11 +39,6 @@ export function Navigation() {
                 Pay
               </Button>
             </Link>
-            <Link href="/transactions">
-              <Button variant="ghost" className="text-slate-300 hover:text-white">
-                Transactions
-              </Button>
-            </Link>
           </div>
 
           <div className="flex items-center gap-2">
@@ -88,11 +83,6 @@ export function Navigation() {
             <Link href="/pay">
               <Button variant="ghost" className="w-full justify-start text-slate-300">
                 Pay
-              </Button>
-            </Link>
-            <Link href="/transactions">
-              <Button variant="ghost" className="w-full justify-start text-slate-300">
-                Transactions
               </Button>
             </Link>
           </div>

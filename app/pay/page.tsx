@@ -21,6 +21,7 @@ interface GeminiRecommendation {
   bestCard: string;
   bestCardKey: string;
   earnedOp: number;
+  nativeReward: number;
   rewardRate: number;
   reasoning: string;
   offerFound: boolean;
@@ -28,6 +29,17 @@ interface GeminiRecommendation {
 }
 
 // ── Data ───────────────────────────────────────────────────────────────────
+const CATEGORY_TO_EARN_KEY: Record<string, string> = {
+  travel:        'flights',
+  dining:        'dining',
+  grocery:       'groceries',
+  shopping:      'shopping',
+  gas:           'fuel',
+  entertainment: 'general',
+  pharmacy:      'general',
+  subscription:  'general',
+};
+
 const CATEGORIES = [
   { id: 'travel',        label: 'Travel',       icon: Plane,       color: 'from-blue-500 to-indigo-600' },
   { id: 'dining',        label: 'Dining',       icon: Utensils,    color: 'from-orange-500 to-red-600' },
@@ -132,6 +144,7 @@ export default function PayPage() {
           "bestCard": "display name of card",
           "bestCardKey": "card key from balances",
           "earnedOp": <number of OP earned>,
+          "nativeReward": <native currency earned (miles, points, cash)>,
           "rewardRate": <rate as decimal e.g. 0.05>,
           "reasoning": "one sentence why",
           "offerFound": true/false,
@@ -152,12 +165,26 @@ export default function PayPage() {
         const clean = data.response.replace(/```json|```/g, '').trim();
         rec = JSON.parse(clean);
       } catch {
-        // Fallback if Gemini doesn't return clean JSON
+        // Fallback if Gemini doesn't return clean JSON - use two-step formula
+        const categoryKey = CATEGORY_TO_EARN_KEY[selectedCategory?.id ?? ''] ?? 'general';
+        
+        // Find the card with the highest earn rate for this category
+        const bestCard = cards.reduce((best, current) => {
+          const bestRate = best?.earnRates?.[categoryKey as keyof typeof best.earnRates] ?? 1.0;
+          const currentRate = current?.earnRates?.[categoryKey as keyof typeof current.earnRates] ?? 1.0;
+          return currentRate > bestRate ? current : best;
+        }, cards[0]);
+
+        const earnRate = bestCard?.earnRates?.[categoryKey as keyof typeof bestCard.earnRates] ?? 1.0;
+        const nativeReward = parseFloat(amount) * earnRate;
+        const earnedOp = nativeReward * (bestCard?.opRate ?? 150);
+
         rec = {
-          bestCard:   cards[0]?.name ?? 'Your best card',
-          bestCardKey: cards[0]?.key ?? '',
-          earnedOp:   Math.floor(parseFloat(amount) * 150),
-          rewardRate: 0.05,
+          bestCard:   bestCard?.name ?? 'Your best card',
+          bestCardKey: bestCard?.key ?? '',
+          earnedOp,
+          nativeReward,
+          rewardRate: earnRate / 100,
           reasoning:  'Best available rewards for this category.',
           offerFound: false,
           offerSource: 'none',
@@ -178,7 +205,7 @@ export default function PayPage() {
     await new Promise(r => setTimeout(r, 2200));
 
     try {
-      // Debit the card
+      // Debit the card (use nativeReward, not earnedOp)
       await fetch('/api/tools/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,7 +214,7 @@ export default function PayPage() {
           toolInput: {
             userId,
             cardDebits: {
-              [recommendation.bestCardKey]: { debit: recommendation.earnedOp },
+              [recommendation.bestCardKey]: { debit: recommendation.nativeReward },
             },
           },
         }),

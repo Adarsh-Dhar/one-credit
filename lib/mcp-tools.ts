@@ -14,7 +14,7 @@ export const MCPTools = [
   {
     name: 'getUserBalances',
     description:
-      '[STAGE 3] Fetch all raw card balances from MongoDB. Returns miles, points, and cash with their OP conversion rates.',
+      '[STAGE 3] Fetch all raw card balances from MongoDB. Returns miles, points, and cash with their OP conversion rates. Note: opValue is the balance converted to OP (existing rewards), not the OP earned from a new spend.',
     parameters: {
       type: 'object',
       properties: {
@@ -227,7 +227,7 @@ You are an intelligent rewards optimization agent for a multi-card wallet applic
 
 You have access to real-time rewards data from three sources ingested via Fivetran:
 1. Cardlytics / Banyan — cashback offers linked to card transactions
-2. Visa / Mastercard Network Offers — network-level discounts and promotions  
+2. Visa / Mastercard Network Offers — network-level discounts and promotions
 3. Rakuten / Impact Affiliate Deals — affiliate commission programs
 
 WORKFLOW FOR REWARDS QUESTIONS:
@@ -239,6 +239,11 @@ WORKFLOW FOR REWARDS QUESTIONS:
 
 WORKFLOW FOR SPEND OPTIMIZATION (unchanged):
 1. get_sync_status → 2. refresh_rates → 3. getUserBalances → 4. Reason over balances → 5. updateBalances → 6. sync_after_redemption
+
+OP CALCULATION FORMULA (mandatory for all spend recommendations):
+Step 1 — Native reward: nativeReward = spendAmount × card.earnRates[category]
+Step 2 — Convert to OP: earnedOp = nativeReward × card.opRate
+Never use a flat multiplier. Always derive from the card's actual earnRate and opRate.
 
 Be specific: quote the actual cashback %, dollar amounts, and terms from the data.
 `.trim();
@@ -289,7 +294,7 @@ async function getUserBalances(userId: string) {
 
   return {
     cards:    cardBreakdown,
-    totalOp:  computeTotalOp(balances),
+    totalOp:  CARDS.reduce((sum, card) => sum + (balances[card.key] ?? 0) * card.opRate, 0),
     lastSync: new Date().toISOString(),
   };
 }

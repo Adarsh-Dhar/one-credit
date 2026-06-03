@@ -14,7 +14,7 @@ export interface CardDefinition {
   currency: string;       // what it earns — "miles", "points", "cash", etc.
   defaultBalance: number; // starting balance for demo users
   opRate: number;         // how many OP per 1 unit of currency
-  // Earn rates per category (OP per $1 spent)
+  // Earn multipliers per category (e.g. 3 = 3x points per $1 spent, 0.06 = 6% cash back)
   earnRates: {
     flights: number;
     hotel: number;
@@ -143,8 +143,7 @@ export async function getCard(key: CardKey, userId: string = 'usr_88374'): Promi
   }
 }
 
-// Helper: compute totalOp from a balances object
-export async function computeTotalOp(balances: Record<string, number>, userId: string = 'usr_88374'): Promise<number> {
-  const cards = await getCards(userId);
+// Helper: compute totalOp from a balances object (sync version - cards already passed in)
+export function computeTotalOp(balances: Record<string, number>, cards: CardDefinition[]): number {
   return cards.reduce((sum, card) => sum + (balances[card.key] ?? 0) * card.opRate, 0);
 }
