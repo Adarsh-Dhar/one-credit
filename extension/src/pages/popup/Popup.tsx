@@ -20,27 +20,50 @@ export function Popup() {
   const [calculating, setCalculating] = useState(false)
 
   useEffect(() => {
-    // Read session + product from local storage
-    chrome.storage.local.get(
-      ['userEmail', 'userName', 'userId', 'lastDetectedProduct'],
-      (result) => {
-        if (result.userEmail) setSession({ userEmail: result.userEmail as string, userName: result.userName as string | undefined, userId: result.userId as string | undefined })
-        if (result.lastDetectedProduct) setProduct(result.lastDetectedProduct as DetectedProduct)
-      }
-    )
+    // Try to fetch session from web app API first
+    fetch('http://localhost:3000/api/auth/session')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user?.email) {
+          setSession({
+            userEmail: data.user.email,
+            userName: data.user.name,
+            userId: data.user.id,
+          })
+          // Store in local storage for persistence
+          chrome.storage.local.set({
+            userEmail: data.user.email,
+            userName: data.user.name,
+            userId: data.user.id,
+          })
+        }
+      })
+      .catch(() => {
+        // Fallback: read local storage (set by session bridge or background)
+        chrome.storage.local.get(
+          ['userEmail', 'userName', 'userId', 'lastDetectedProduct'],
+          (local) => {
+            if (local.userEmail) {
+              setSession({
+                userEmail: local.userEmail as string,
+                userName: local.userName as string | undefined,
+                userId: local.userId as string | undefined,
+              })
+            } else {
+              // Fallback: check sync storage (set manually via options page)
+              chrome.storage.sync.get(['accountEmail'], (sync) => {
+                if (sync.accountEmail) {
+                  setSession({ userEmail: sync.accountEmail as string })
+                }
+              })
+            }
+            if (local.lastDetectedProduct) setProduct(local.lastDetectedProduct as DetectedProduct)
+          }
+        )
+      })
 
-    // Also check chrome.storage.sync (options page saves accountEmail there)
-    chrome.storage.sync.get(['accountEmail'], (result) => {
-      if (result.accountEmail && !session.userEmail) {
-        setSession({ userEmail: result.accountEmail as string })
-      }
-    })
-
-    // Listen for live product updates while popup is open
     const listener = (msg: any) => {
-      if (msg.type === 'PRODUCT_DETECTED_UPDATE' && msg.data) {
-        setProduct(msg.data)
-      }
+      if (msg.type === 'PRODUCT_DETECTED_UPDATE' && msg.data) setProduct(msg.data)
     }
     chrome.runtime.onMessage.addListener(listener)
     return () => chrome.runtime.onMessage.removeListener(listener)
@@ -99,7 +122,7 @@ export function Popup() {
           <User className="w-4 h-4 text-slate-500" />
           <p className="text-xs text-slate-500">
             Not connected —{' '}
-            <a href="https://onecredit.app/auth/signin" target="blank" rel="noopener noreferrer" className="text-purple-400 underline">
+            <a href="http://localhost:3000/auth/signin" target="blank" rel="noopener noreferrer" className="text-purple-400 underline">
               sign in
             </a>
             {' or '}
@@ -176,11 +199,11 @@ export function Popup() {
 
         {/* Footer Links */}
         <div className="pt-4 border-t border-slate-700 space-y-2">
-          <a href="https://onecredit.app" target="_blank" rel="noopener noreferrer"
+          <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-between text-xs text-slate-400 hover:text-slate-300 transition-colors py-2">
             <span>Visit OneCredit</span><ExternalLink className="w-3 h-3" />
           </a>
-          <a href="https://onecredit.app/help" target="_blank" rel="noopener noreferrer"
+          <a href="http://localhost:3000/help" target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-between text-xs text-slate-400 hover:text-slate-300 transition-colors py-2">
             <span>Help & Support</span><ExternalLink className="w-3 h-3" />
           </a>

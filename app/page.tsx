@@ -7,10 +7,12 @@ import { Sparkles, DollarSign, TrendingUp, X, Star } from 'lucide-react';
 import Link from 'next/link';
 import { CardDefinition } from '@/lib/cards';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 
 export default function Dashboard() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [wallet, setWallet] = useState(0);
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +20,13 @@ export default function Dashboard() {
   const [cardDetails, setCardDetails] = useState<any>(null);
 
   useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    if (status === 'loading') return;
     const email = session?.user?.email || 'demo@omniwallet.com';
     fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())
@@ -27,7 +36,7 @@ export default function Dashboard() {
       })
       .catch(() => setWallet(150000))
       .finally(() => setLoading(false));
-  }, [session]);
+  }, [session, status]);
 
   const handleCardClick = async (card: any) => {
     setSelectedCard(card);

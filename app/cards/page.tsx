@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 
 // ── Spending-cap config per card (issuer/category) ─────────────────────────
@@ -143,12 +144,20 @@ function SpendingRing({ cap }: RingProps) {
 
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function CardsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    if (status === 'loading') return;
     const email = session?.user?.email || 'demo@omniwallet.com';
     fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())
@@ -157,7 +166,7 @@ export default function CardsPage() {
       })
       .catch(() => setCards([]))
       .finally(() => setLoading(false));
-  }, [session]);
+  }, [session, status]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

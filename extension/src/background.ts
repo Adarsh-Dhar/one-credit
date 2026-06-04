@@ -4,7 +4,7 @@ import type { Message, MessageResponse } from '@/types'
 // Listen for messages from content scripts and popup
 chrome.runtime.onMessage.addListener(
   (request: Message, sender: chrome.runtime.MessageSender, sendResponse: (response?: MessageResponse) => void) => {
-    console.log('[OneCredit] Received message:', request.type, 'from', sender.url)
+    console.log('[OneCredit] Received message:', request.type, 'from', sender.url || 'internal')
 
     switch (request.type) {
       case 'PRODUCT_DETECTED': {
@@ -104,11 +104,13 @@ chrome.runtime.onMessage.addListener(
       }
 
       case 'SET_USER_SESSION': {
+        console.log('[OneCredit] Received SET_USER_SESSION:', request.data)
         chrome.storage.local.set({
           userEmail: request.data?.email,
           userId: request.data?.userId,
           userName: request.data?.name,
         }, () => {
+          console.log('[OneCredit] Stored user session in chrome.storage.local')
           sendResponse({ success: true })
         })
         return true
@@ -123,6 +125,31 @@ chrome.runtime.onMessage.addListener(
 
       default:
         sendResponse({ success: false, error: 'Unknown message type' })
+    }
+  }
+)
+
+// Listen for messages from external web app (localhost:3000, onecredit.app)
+chrome.runtime.onMessageExternal.addListener(
+  (request: Message, sender: chrome.runtime.MessageSender, sendResponse: (response?: MessageResponse) => void) => {
+    console.log('[OneCredit] Received external message:', request.type, 'from', sender.url)
+
+    switch (request.type) {
+      case 'SET_USER_SESSION': {
+        console.log('[OneCredit] Received SET_USER_SESSION from external:', request.data)
+        chrome.storage.local.set({
+          userEmail: request.data?.email,
+          userId: request.data?.userId,
+          userName: request.data?.name,
+        }, () => {
+          console.log('[OneCredit] Stored user session in chrome.storage.local')
+          sendResponse({ success: true })
+        })
+        return true
+      }
+
+      default:
+        sendResponse({ success: false, error: 'Unknown external message type' })
     }
   }
 )

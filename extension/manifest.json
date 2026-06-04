@@ -10,11 +10,18 @@
     "storage"
   ],
   "host_permissions": [
+    "http://localhost:3000/*",
     "https://www.amazon.com/*",
     "https://www.walmart.com/*",
     "https://www.bestbuy.com/*",
     "https://www.target.com/*"
   ],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:3000/*",
+      "https://onecredit.app/*"
+    ]
+  },
   "background": {
     "service_worker": "js/background.js"
   },

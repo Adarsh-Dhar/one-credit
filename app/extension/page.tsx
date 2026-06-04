@@ -1,9 +1,19 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import OneCreditTxPortal from '@/components/OneCreditTxPortal';
 
 export default function ExtensionTestPage() {
+  const { status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [status, router]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
