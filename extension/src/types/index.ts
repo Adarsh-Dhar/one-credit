@@ -3,6 +3,7 @@
 export interface Product {
   name: string
   price: number
+  originalPrice?: number | null
   url: string
   category: string
   source: 'amazon' | 'walmart' | 'bestbuy' | 'target' | 'ebay'
@@ -30,6 +31,7 @@ export interface Message {
     | 'PRODUCT_DETECTED_UPDATE'
     | 'SET_USER_SESSION'
     | 'GET_USER_SESSION'
+    | 'GET_SESSION'
   data?: any
   product?: Product
   userId?: string

@@ -7,17 +7,42 @@ function detectProduct(): Product | null {
   let product: Partial<Product> | null = null
 
   // Amazon detection
-  if (url.includes('amazon.com')) {
-    const priceElement = document.querySelector('[data-a-price-whole]')
-    const titleElement = document.querySelector('h1 span')
-    const price = priceElement?.textContent?.replace(/[^0-9.]/g, '')
-    const title = titleElement?.textContent
+  if (url.includes('amazon.com') || url.includes('amazon.in')) {
+    const titleElement = document.querySelector('#productTitle') || document.querySelector('h1 span')
+    
+    // Try multiple price selectors — Amazon uses different ones per page type
+    const priceWhole = document.querySelector('.a-price-whole')
+    const priceFraction = document.querySelector('.a-price-fraction')
+    const priceSymbol = document.querySelector('.a-price-symbol')
+    const priceOffscreen = document.querySelector('.a-offscreen') as HTMLElement
+    
+    let price: string | null = null
+    let originalPrice: number | null = null
+
+    if (priceWhole) {
+      // e.g. "1,499" + "00"
+      const whole = priceWhole.textContent?.replace(/[^0-9]/g, '') || ''
+      const frac = priceFraction?.textContent?.replace(/[^0-9]/g, '') || '00'
+      price = whole + (frac.length === 2 ? '.' + frac : '')
+    } else if (priceOffscreen) {
+      // e.g. "₹1,499.00"
+      price = priceOffscreen.textContent?.replace(/[^0-9.]/g, '') || null
+    }
+
+    // Try to grab original (strike-through) price
+    const originalEl = document.querySelector('.a-text-price .a-offscreen') as HTMLElement
+    if (originalEl) {
+      originalPrice = parseFloat(originalEl.textContent?.replace(/[^0-9.]/g, '') || '0') || null
+    }
+
+    const title = titleElement?.textContent?.trim()
 
     if (price && title) {
       product = {
         name: title,
         price: parseFloat(price),
-        url: url,
+        originalPrice,
+        url,
         category: 'electronics',
         source: 'amazon',
         detectedAt: new Date().toISOString(),

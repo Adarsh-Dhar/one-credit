@@ -20,25 +20,21 @@ export function Popup() {
   const [calculating, setCalculating] = useState(false)
 
   useEffect(() => {
-    // Try to fetch session from web app API first
-    fetch('http://localhost:3000/api/auth/session')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.user?.email) {
-          setSession({
-            userEmail: data.user.email,
-            userName: data.user.name,
-            userId: data.user.id,
-          })
-          // Store in local storage for persistence
-          chrome.storage.local.set({
-            userEmail: data.user.email,
-            userName: data.user.name,
-            userId: data.user.id,
-          })
-        }
-      })
-      .catch(() => {
+    // Try to fetch session from web app API via background script (avoids CSP)
+    chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
+      if (response?.success && response?.data?.user?.email) {
+        setSession({
+          userEmail: response.data.user.email,
+          userName: response.data.user.name,
+          userId: response.data.user.id,
+        })
+        // Store in local storage for persistence
+        chrome.storage.local.set({
+          userEmail: response.data.user.email,
+          userName: response.data.user.name,
+          userId: response.data.user.id,
+        })
+      } else {
         // Fallback: read local storage (set by session bridge or background)
         chrome.storage.local.get(
           ['userEmail', 'userName', 'userId', 'lastDetectedProduct'],
@@ -60,7 +56,8 @@ export function Popup() {
             if (local.lastDetectedProduct) setProduct(local.lastDetectedProduct as DetectedProduct)
           }
         )
-      })
+      }
+    })
 
     const listener = (msg: any) => {
       if (msg.type === 'PRODUCT_DETECTED_UPDATE' && msg.data) setProduct(msg.data)
@@ -141,14 +138,6 @@ export function Popup() {
             <p className="text-sm font-medium text-white line-clamp-2 leading-snug">{product.name}</p>
             <div className="flex items-baseline gap-2">
               <span className="text-base font-bold text-white">₹{product.price.toLocaleString('en-IN')}</span>
-              {product.originalPrice && (
-                <span className="text-xs text-slate-500 line-through">₹{product.originalPrice.toLocaleString('en-IN')}</span>
-              )}
-              {product.originalPrice && product.price < product.originalPrice && (
-                <span className="text-xs text-green-400 font-medium">
-                  -{Math.round((1 - product.price / product.originalPrice) * 100)}%
-                </span>
-              )}
             </div>
             <button
               onClick={handleCalculate}

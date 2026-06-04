@@ -123,6 +123,20 @@ chrome.runtime.onMessage.addListener(
         return true
       }
 
+      case 'GET_SESSION': {
+        // Proxy session fetch to avoid CSP restrictions in popup
+        fetch('http://localhost:3000/api/auth/session')
+          .then((res) => res.json())
+          .then((data) => {
+            sendResponse({ success: true, data })
+          })
+          .catch((error) => {
+            console.error('[OneCredit] Session fetch error:', error)
+            sendResponse({ success: false, error: error.message })
+          })
+        return true
+      }
+
       default:
         sendResponse({ success: false, error: 'Unknown message type' })
     }

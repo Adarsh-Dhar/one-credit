@@ -9,9 +9,13 @@
     "webRequest",
     "storage"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' http://localhost:3000 https://cdn.jsdelivr.net"
+  },
   "host_permissions": [
     "http://localhost:3000/*",
     "https://www.amazon.com/*",
+    "https://www.amazon.in/*",
     "https://www.walmart.com/*",
     "https://www.bestbuy.com/*",
     "https://www.target.com/*"
@@ -29,6 +33,7 @@
     {
       "matches": [
         "https://www.amazon.com/*",
+        "https://www.amazon.in/*",
         "https://www.walmart.com/*",
         "https://www.bestbuy.com/*",
         "https://www.target.com/*"
@@ -48,7 +53,7 @@
   "web_accessible_resources": [
     {
       "resources": ["images/*"],
-      "matches": ["https://www.amazon.com/*", "https://www.walmart.com/*", "https://www.bestbuy.com/*", "https://www.target.com/*"]
+      "matches": ["https://www.amazon.com/*", "https://www.amazon.in/*", "https://www.walmart.com/*", "https://www.bestbuy.com/*", "https://www.target.com/*"]
     }
   ]
 }
