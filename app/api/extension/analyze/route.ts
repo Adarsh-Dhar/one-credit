@@ -3,6 +3,27 @@ import { runOPAgent } from '@/lib/op-agent'
 import { connectDB } from '@/lib/mongodb'
 import { FiatCard } from '@/lib/models/FiatCard'
 
+// Infer category intelligently from product name
+function inferCategory(productName: string, merchant: string): string {
+  const name = productName.toLowerCase()
+  if (/date|dry fruit|nuts|cashew|almond|raisin|walnut|apricot|fig|pista/.test(name)) return 'grocer'
+  if (/rice|dal|flour|oil|sugar|salt|spice|masala|pulses|atta/.test(name)) return 'grocer'
+  if (/biscuit|cookie|chocolate|candy|snack|chips|popcorn/.test(name)) return 'grocer'
+  if (/milk|curd|paneer|cheese|butter|ghee|cream/.test(name)) return 'grocer'
+  if (/shampoo|soap|toothpaste|facewash|moisturizer|sunscreen/.test(name)) return 'personal care'
+  if (/phone|mobile|laptop|tablet|earphone|headphone|charger|cable|speaker|camera/.test(name)) return 'electronics'
+  if (/shirt|pant|jeans|dress|saree|kurta|jacket|shoe|sandal/.test(name)) return 'fashion'
+  if (/book|novel|textbook|guide|comics/.test(name)) return 'books'
+  if (/flight|hotel|train|bus|cab|tour/.test(name)) return 'travel'
+  if (/restaurant|food delivery|zomato|swiggy/.test(name)) return 'dining'
+  if (/gym|yoga|fitness|protein|supplement/.test(name)) return 'fitness'
+  if (/netflix|hotstar|prime|spotify|zee5/.test(name)) return 'streaming'
+  if (/petrol|diesel|fuel/.test(name)) return 'gas'
+  if (/medicine|tablet|capsule|syrup|health/.test(name)) return 'drug'
+  if (merchant.includes('amazon')) return 'shopping'
+  return 'shopping'
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { product, userId } = await request.json()
@@ -119,13 +140,16 @@ export async function POST(request: NextRequest) {
     }
     const merchant = merchantMap[product.source] || product.source || 'amazon.in'
 
+    // Infer category from product name
+    const category = inferCategory(product.name || '', merchant)
+
     // Run the agent across user's cards
     const result = await runOPAgent(
       {
         product: {
           name: product.name,
           price: product.price,
-          category: product.category || 'electronics',
+          category,
           merchant,
           isEmi,
         },

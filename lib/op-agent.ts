@@ -212,7 +212,7 @@ export interface OPAgentResult {
 
 export async function runOPAgent(input: OPAgentInput, geminiApiKey: string): Promise<OPAgentResult> {
   const genAI = new GoogleGenerativeAI(geminiApiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
   const userTxnsPerYear = (input.userMonthlyTxns ?? 10) * 12
   const riskFreeRate = (input.riskFreeRatePercent ?? 7) / 100
@@ -240,7 +240,12 @@ You are the OPValuationAgent. You calculate the true opportunity-cost-adjusted p
 - Annual transactions per card: ${userTxnsPerYear}
 - Risk-free rate (liquid fund): ${riskFreeRate * 100}% per annum
 - Billing cycle: ${billingDays} days
-- 1 OP token = ₹1
+- 1 OP token = 1 unit of true cost (currency-agnostic).
+opTokenCost is a score — lower is better.
+The unit displayed to the user will be labeled "OP" not "₹".
+feeBurdenInr represents the real per-transaction cost of holding this card.
+A card with a high annual fee and zero rewards on this purchase correctly
+costs MORE OP tokens than a no-fee card — that is the honest truth.
 
 ## Card knowledge base
 ${JSON.stringify(cardKBSubset, null, 2)}
@@ -253,7 +258,10 @@ For EACH card, reason through all 5 steps and produce a JSON result.
 - Check if payment is EMI (use emiEarnRate if so)
 - Find the matching earnRule for this merchant
 - Confirm no monthly cap issue (assume this is the first transaction of the month)
-- Compute: actualPointsEarned = floor(price / per) * rate
+- Compute: actualPointsEarned = (price / per) * rate
+// Do NOT use floor(). Cards earn proportionally on every rupee spent.
+// e.g. 5% cashback on ₹66 = ₹3.30 earned, not ₹0.
+// Round to 2 decimal places in your output.
 
 ### Step 2 — RedemptionValue  
 - List all redemption paths for this card

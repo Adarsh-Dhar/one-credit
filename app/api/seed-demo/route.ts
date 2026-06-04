@@ -1,67 +1,15 @@
-// scripts/seed-cards.ts
-//
-// Production-grade seed script for OneCredit fiat card database.
-//
-// USAGE:
-//   npx ts-node --project tsconfig.json scripts/seed-cards.ts
-//   -- or --
-//   pnpm seed
-//
-// OPTIONS (env vars):
-//   USER_ID         MongoDB user_id to seed for (default: reads from DB by email)
-//   SEED_EMAIL      Email of user to seed for (overrides USER_ID)
-//   WIPE_FIRST      Set to "false" to upsert without wiping (default: true)
-//
-// CARD COVERAGE (20 cards, each optimal for a different real-world use case):
-//   ┌─────────────────────────────────────────────┬─────────────────────────────────────────┐
-//   │ Card                                        │ Best For                                │
-//   ├─────────────────────────────────────────────┼─────────────────────────────────────────┤
-//   │ Chase Sapphire Reserve                      │ Premium travel, lounge access           │
-//   │ Chase Sapphire Preferred                    │ Mid-tier travel, value seekers          │
-//   │ Amex Platinum                               │ Luxury travel, concierge, lounge        │
-//   │ Amex Gold                                   │ Dining + groceries power users          │
-//   │ Capital One Venture X                       │ Flat-rate travel, no FX fee             │
-//   │ Chase Freedom Unlimited                     │ Everyday spend, pharmacy                │
-//   │ Citi Double Cash                            │ Simple 2% flat cashback                 │
-//   │ Wells Fargo Active Cash                     │ 2% + cell phone protection              │
-//   │ Discover it Cash Back                       │ Rotating 5% categories, first-year DM  │
-//   │ Ink Business Preferred                      │ Business travel + shipping + ads        │
-//   │ Ink Business Cash                           │ Business office + telecom               │
-//   │ Amex Blue Cash Preferred                    │ US supermarkets + streaming             │
-//   │ Amex Blue Cash Everyday                     │ No-fee grocery + Amazon                 │
-//   │ Capital One SavorOne                        │ Dining + entertainment, no fee          │
-//   │ Bank of America Premium Rewards             │ BofA relationship bonus                 │
-//   │ Citi Premier                                │ Flexible points, hotel/grocery/gas      │
-//   │ United Explorer                             │ United loyalists, checked bag           │
-//   │ Southwest Rapid Rewards Plus                │ Southwest loyalists, companion pass     │
-//   │ Discover it Student Cash Back               │ Students, no credit history             │
-//   │ Wells Fargo Reflect                         │ 0% APR balance transfers                │
-//   └─────────────────────────────────────────────┴─────────────────────────────────────────┘
+import { NextResponse } from 'next/server';
+import { connectDB } from '@/lib/mongodb';
+import { User } from '@/lib/models/User';
+import { FiatCard } from '@/lib/models/FiatCard';
 
-import mongoose from 'mongoose'
-import { connectDB } from '../lib/mongodb'
-import { FiatCard } from '../lib/models/FiatCard'
-import { User } from '../lib/models/User'
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-const SEED_EMAIL = process.env.SEED_EMAIL || null
-const USER_ID_OVERRIDE = process.env.USER_ID || 'usr_88374'
-const WIPE_FIRST = process.env.WIPE_FIRST !== 'false'
-
-// ─── Helper types ─────────────────────────────────────────────────────────────
-
-type CardType = 'personal' | 'business'
-type Network = 'AMEX' | 'VISA' | 'MASTERCARD' | 'DISCOVER'
-type CurrencyType = 'USD' | 'POINTS' | 'MILES'
-
-// ─── Card data ────────────────────────────────────────────────────────────────
+type CardType = 'personal' | 'business';
+type Network = 'AMEX' | 'VISA' | 'MASTERCARD' | 'DISCOVER';
+type CurrencyType = 'USD' | 'POINTS' | 'MILES';
 
 function buildCards(userId: string) {
   return [
-
     // ── 1. Chase Sapphire Reserve ─────────────────────────────────────────────
-    // Best for: premium travel, airport lounges, comprehensive travel insurance
     {
       user_id: userId,
       card_id: 'card_chase_sapphire_reserve_01',
@@ -168,7 +116,6 @@ function buildCards(userId: string) {
     },
 
     // ── 2. Chase Sapphire Preferred ───────────────────────────────────────────
-    // Best for: travel beginners wanting points without the $550 fee
     {
       user_id: userId,
       card_id: 'card_chase_sapphire_preferred_01',
@@ -257,7 +204,6 @@ function buildCards(userId: string) {
     },
 
     // ── 3. Amex Platinum ──────────────────────────────────────────────────────
-    // Best for: luxury travel, frequent flyers who use Centurion lounges
     {
       user_id: userId,
       card_id: 'card_amex_platinum_01',
@@ -372,7 +318,6 @@ function buildCards(userId: string) {
     },
 
     // ── 4. Amex Gold ──────────────────────────────────────────────────────────
-    // Best for: people who spend heavily on restaurants and US supermarkets
     {
       user_id: userId,
       card_id: 'card_amex_gold_01',
@@ -461,7 +406,6 @@ function buildCards(userId: string) {
     },
 
     // ── 5. Capital One Venture X ──────────────────────────────────────────────
-    // Best for: flat-rate 2x on everything + lounge access at lower fee than Amex Plat
     {
       user_id: userId,
       card_id: 'card_capital_one_venture_x_01',
@@ -551,7 +495,6 @@ function buildCards(userId: string) {
     },
 
     // ── 6. Chase Freedom Unlimited ────────────────────────────────────────────
-    // Best for: no-fee everyday card, pairs as a companion with CSR/CSP
     {
       user_id: userId,
       card_id: 'card_chase_freedom_unlimited_01',
@@ -632,7 +575,6 @@ function buildCards(userId: string) {
     },
 
     // ── 7. Amex Blue Cash Preferred ───────────────────────────────────────────
-    // Best for: US grocery + streaming + gas power users
     {
       user_id: userId,
       card_id: 'card_amex_blue_cash_preferred_01',
@@ -714,7 +656,6 @@ function buildCards(userId: string) {
     },
 
     // ── 8. Citi Double Cash ───────────────────────────────────────────────────
-    // Best for: pure simplicity — 2% on everything, no annual fee, no thinking
     {
       user_id: userId,
       card_id: 'card_citi_double_cash_01',
@@ -783,7 +724,6 @@ function buildCards(userId: string) {
     },
 
     // ── 9. Wells Fargo Active Cash ────────────────────────────────────────────
-    // Best for: 2% cashback with cell phone protection — unique differentiator
     {
       user_id: userId,
       card_id: 'card_wells_fargo_active_cash_01',
@@ -855,7 +795,6 @@ function buildCards(userId: string) {
     },
 
     // ── 10. Discover it Cash Back ──────────────────────────────────────────────
-    // Best for: maximizing 5% rotating categories in first year with Cashback Match
     {
       user_id: userId,
       card_id: 'card_discover_it_cashback_01',
@@ -940,7 +879,6 @@ function buildCards(userId: string) {
     },
 
     // ── 11. Ink Business Preferred ────────────────────────────────────────────
-    // Best for: small businesses with travel, shipping, and advertising spend
     {
       user_id: userId,
       card_id: 'card_ink_preferred_01',
@@ -1021,7 +959,6 @@ function buildCards(userId: string) {
     },
 
     // ── 12. Ink Business Cash ──────────────────────────────────────────────────
-    // Best for: businesses with office supply + telecom spend, no annual fee
     {
       user_id: userId,
       card_id: 'card_ink_business_cash_01',
@@ -1098,7 +1035,6 @@ function buildCards(userId: string) {
     },
 
     // ── 13. Capital One SavorOne ───────────────────────────────────────────────
-    // Best for: dining + entertainment spend with zero annual fee
     {
       user_id: userId,
       card_id: 'card_capital_one_savorone_01',
@@ -1175,7 +1111,6 @@ function buildCards(userId: string) {
     },
 
     // ── 14. Citi Premier ──────────────────────────────────────────────────────
-    // Best for: 3x on hotels, groceries, gas, AND air — breadth of bonus categories
     {
       user_id: userId,
       card_id: 'card_citi_premier_01',
@@ -1257,7 +1192,6 @@ function buildCards(userId: string) {
     },
 
     // ── 15. United Explorer ────────────────────────────────────────────────────
-    // Best for: United flyers who want free checked bags + lounge passes
     {
       user_id: userId,
       card_id: 'card_united_explorer_01',
@@ -1345,7 +1279,6 @@ function buildCards(userId: string) {
     },
 
     // ── 16. Southwest Rapid Rewards Plus ──────────────────────────────────────
-    // Best for: Southwest loyalists pursuing Companion Pass
     {
       user_id: userId,
       card_id: 'card_southwest_plus_01',
@@ -1421,7 +1354,6 @@ function buildCards(userId: string) {
     },
 
     // ── 17. Amex Blue Cash Everyday ────────────────────────────────────────────
-    // Best for: no-fee grocery + Amazon cashback without the $95 BCP fee
     {
       user_id: userId,
       card_id: 'card_amex_blue_cash_everyday_01',
@@ -1499,7 +1431,6 @@ function buildCards(userId: string) {
     },
 
     // ── 18. Bank of America Premium Rewards ───────────────────────────────────
-    // Best for: BofA Preferred Rewards members who get 25–75% bonus on all rewards
     {
       user_id: userId,
       card_id: 'card_bofa_premium_rewards_01',
@@ -1573,7 +1504,6 @@ function buildCards(userId: string) {
     },
 
     // ── 19. Discover it Student Cash Back ─────────────────────────────────────
-    // Best for: college students building credit, no credit history required
     {
       user_id: userId,
       card_id: 'card_discover_it_student_01',
@@ -1659,7 +1589,6 @@ function buildCards(userId: string) {
     },
 
     // ── 20. Wells Fargo Reflect ────────────────────────────────────────────────
-    // Best for: 0% APR balance transfers — paying down debt from other cards
     {
       user_id: userId,
       card_id: 'card_wells_fargo_reflect_01',
@@ -1731,88 +1660,40 @@ function buildCards(userId: string) {
       },
     },
 
-  ] // end cards array
+  ];
 }
 
-// ─── Seed function ────────────────────────────────────────────────────────────
+export async function POST(request: Request) {
+  try {
+    const { email } = await request.json();
+    
+    if (!email) {
+      return NextResponse.json({ error: 'Email required' }, { status: 400 });
+    }
 
-async function seed() {
-  await connectDB()
-  console.log('✓ Connected to MongoDB')
-
-  // Resolve user ID
-  let userId = USER_ID_OVERRIDE
-
-  if (SEED_EMAIL) {
-    const user = await (User as any).findOne({ email: SEED_EMAIL }).lean() as any
+    await connectDB();
+    
+    const user = await User.findOne({ email });
     if (!user) {
-      console.error(`✗ No user found with email: ${SEED_EMAIL}`)
-      process.exit(1)
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-    userId = user._id.toString()
-    console.log(`✓ Resolved user ${SEED_EMAIL} → ${userId}`)
-  } else {
-    console.log(`✓ Using USER_ID: ${userId}`)
+
+    const userId = user._id.toString();
+    
+    // Delete existing cards
+    await FiatCard.deleteMany({ user_id: userId });
+    
+    // Seed new cards
+    const cards = buildCards(userId);
+    await FiatCard.insertMany(cards);
+    
+    return NextResponse.json({ 
+      message: 'Cards seeded successfully',
+      userId,
+      cardCount: cards.length 
+    });
+  } catch (error) {
+    console.error('Seed error:', error);
+    return NextResponse.json({ error: 'Failed to seed cards' }, { status: 500 });
   }
-
-  const cards = buildCards(userId)
-
-  if (WIPE_FIRST) {
-    const deleted = await FiatCard.deleteMany({ user_id: userId })
-    console.log(`✓ Wiped ${deleted.deletedCount} existing cards for user ${userId}`)
-  }
-
-  // Upsert each card individually so duplicates are handled gracefully
-  let inserted = 0
-  let updated = 0
-  let failed = 0
-
-  for (const card of cards) {
-    try {
-      const result = await FiatCard.findOneAndUpdate(
-        { user_id: card.user_id, card_id: card.card_id },
-        { $set: card },
-        { upsert: true, new: true, runValidators: true }
-      )
-      if (result.isNew !== undefined) {
-        inserted++
-      } else {
-        updated++
-      }
-    } catch (err: any) {
-      console.error(`  ✗ Failed to upsert ${card.card_id}:`, err.message)
-      failed++
-    }
-  }
-
-  console.log(`\n✓ Seed complete`)
-  console.log(`  Inserted: ${inserted}`)
-  console.log(`  Updated:  ${updated}`)
-  console.log(`  Failed:   ${failed}`)
-  console.log(`  Total:    ${cards.length} cards`)
-
-  console.log('\nCard coverage:')
-  const coverage = [
-    ['Grocery power user',        'Amex Blue Cash Preferred (6%), Amex Gold (4%), Amex BCE (3%)'],
-    ['Travel rewards (premium)',  'Amex Platinum (5x flights), Chase Sapphire Reserve (3x all travel)'],
-    ['Travel rewards (mid-tier)', 'CSP (2x travel), Capital One Venture X (2x base), Citi Premier (3x hotels+flights)'],
-    ['Dining',                    'Amex Gold (4x), Capital One SavorOne (3x no-fee), CSR/CSP (3x)'],
-    ['Flat cashback',             'Citi Double Cash (2%), WF Active Cash (2% + cell phone), WF Reflect (0% APR)'],
-    ['Business',                  'Ink Preferred (3x travel/ship/ads), Ink Cash (5x office/telecom)'],
-    ['Airline co-brand',          'United Explorer (free bags), Southwest Plus (Companion Pass path)'],
-    ['Student / no credit',       'Discover it Student (5% + Cashback Match + GPA reward)'],
-    ['Balance transfer',          'Wells Fargo Reflect (0% APR up to 21 months)'],
-    ['No-fee dining+entertain',   'Capital One SavorOne (3x dining/entertainment/streaming)'],
-    ['BofA relationship',         'BofA Premium Rewards (2.625–3.5x with Preferred Rewards bonus)'],
-    ['Online shopping',           'Amex BCE (3% online retailers incl. Amazon)'],
-  ]
-  coverage.forEach(([use, cards]) => console.log(`  ${use.padEnd(28)} → ${cards}`))
-
-  await mongoose.connection.close()
-  console.log('\n✓ Connection closed')
 }
-
-seed().catch((err) => {
-  console.error('Fatal seed error:', err)
-  process.exit(1)
-})

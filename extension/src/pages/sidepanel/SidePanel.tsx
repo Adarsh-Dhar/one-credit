@@ -123,8 +123,13 @@ export function SidePanel() {
     })
   }
 
-  const fmt = (n: number) =>
+  // For prices (MRP, industry cost) — show in ₹
+  const fmtPrice = (n: number) =>
     '₹' + Math.round(n).toLocaleString('en-IN')
+
+  // For OP token costs — show as OP score
+  const fmt = (n: number) =>
+    Math.round(n).toLocaleString('en-IN') + ' OP'
 
   const pct = (n: number) => n.toFixed(1) + '%'
 
@@ -185,7 +190,7 @@ export function SidePanel() {
           <h2 className="text-base font-bold">OP Analysis</h2>
         </div>
         <p className="text-xs text-slate-400 line-clamp-1">{result.product.name}</p>
-        <p className="text-xs text-slate-500 mt-0.5">List price: {fmt(result.product.price)}</p>
+        <p className="text-xs text-slate-500 mt-0.5">List price: {fmtPrice(result.product.price)}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -211,7 +216,7 @@ export function SidePanel() {
               </div>
               <div className="bg-slate-800/60 rounded-lg p-2.5">
                 <p className="text-xs text-slate-400 mb-1">Industry says</p>
-                <p className="text-lg font-bold text-slate-400 line-through">{fmt(winner.industryOpCost)}</p>
+                <p className="text-lg font-bold text-slate-400 line-through">{fmtPrice(winner.industryOpCost)}</p>
                 <p className="text-xs text-slate-500">their number</p>
               </div>
             </div>
@@ -221,7 +226,7 @@ export function SidePanel() {
               <div className="flex items-center gap-2 bg-green-900/30 border border-green-500/30 rounded-lg px-3 py-2">
                 <TrendingDown className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
                 <p className="text-xs text-green-300">
-                  Bank understated your benefit by <span className="font-bold">{fmt(winner.savings)}</span>
+                  Bank understated your benefit by <span className="font-bold">{fmtPrice(winner.savings)}</span>
                 </p>
               </div>
             )}
@@ -288,7 +293,7 @@ export function SidePanel() {
                       <div className="space-y-2 text-xs">
                         <div className="flex justify-between text-slate-400">
                           <span>List price</span>
-                          <span className="text-white font-medium">{fmt(result.product.price)}</span>
+                          <span className="text-white font-medium">{fmtPrice(result.product.price)}</span>
                         </div>
 
                         <div className="flex justify-between text-slate-400">
@@ -298,7 +303,7 @@ export function SidePanel() {
                               <span className="text-red-400 ml-1">⚠ excluded</span>
                             )}
                           </span>
-                          <span className="text-green-400">−{fmt(card.trueRewardValueInr)}</span>
+                          <span className="text-green-400">−{fmtPrice(card.trueRewardValueInr)}</span>
                         </div>
                         <div className="text-slate-500 pl-2 -mt-1">
                           via {card.bestRedemptionName} @ ₹{card.bestRedemptionRatePerPoint}/pt
@@ -307,13 +312,13 @@ export function SidePanel() {
                         {card.feeBurdenInr > 0 && (
                           <div className="flex justify-between text-slate-400">
                             <span>Annual fee (per txn)</span>
-                            <span className="text-orange-400">+{fmt(card.feeBurdenInr)}</span>
+                            <span className="text-orange-400">+{fmtPrice(card.feeBurdenInr)}</span>
                           </div>
                         )}
 
                         <div className="flex justify-between text-slate-400">
                           <span>Float value (30d @ 7%)</span>
-                          <span className="text-green-400">−{fmt(card.floatValueInr)}</span>
+                          <span className="text-green-400">−{fmtPrice(card.floatValueInr)}</span>
                         </div>
 
                         <div className="border-t border-slate-700 pt-2 flex justify-between font-medium">
@@ -323,7 +328,7 @@ export function SidePanel() {
 
                         <div className="flex justify-between text-slate-500">
                           <span>Industry would say</span>
-                          <span className="line-through">{fmt(card.industryOpCost)}</span>
+                          <span className="line-through">{fmtPrice(card.industryOpCost)}</span>
                         </div>
                       </div>
 
