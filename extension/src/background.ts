@@ -8,10 +8,8 @@ chrome.runtime.onMessage.addListener(
 
     switch (request.type) {
       case 'PRODUCT_DETECTED': {
-        // Handle product detection from content script
         console.log('[OneCredit] Product detected:', request.data)
 
-        // Store the product data
         chrome.storage.local.set({
           lastDetectedProduct: request.data,
           lastProductTime: Date.now(),
@@ -19,25 +17,12 @@ chrome.runtime.onMessage.addListener(
           console.log('[OneCredit] Product stored in storage')
         })
 
-        // Notify all tabs about product detection
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach((tab) => {
-            if (tab.id) {
-              chrome.tabs.sendMessage(
-                tab.id,
-                {
-                  type: 'PRODUCT_DETECTED_UPDATE',
-                  data: request.data,
-                },
-                () => {
-                  // Ignore errors for tabs that don't have content script
-                  if (chrome.runtime.lastError) {
-                    // Tab doesn't have content script or is closed
-                  }
-                }
-              )
-            }
-          })
+        // Broadcast to extension pages (popup, sidepanel) via runtime — NOT tabs
+        chrome.runtime.sendMessage({
+          type: 'PRODUCT_DETECTED_UPDATE',
+          data: request.data,
+        }).catch(() => {
+          // Popup/sidepanel not open — that's fine, they'll read from storage on open
         })
 
         sendResponse({ success: true })

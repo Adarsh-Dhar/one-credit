@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { ChevronDown, Sparkles, Trophy, TrendingDown, AlertCircle, Loader2 } from 'lucide-react'
 
 interface EarnAudit {
@@ -45,38 +45,9 @@ export function SidePanel() {
   const [selectedCard, setSelectedCard] = useState<string | null>(null)
   const [pendingProduct, setPendingProduct] = useState<any>(null)
 
-  const API_BASE = 'https://localhost:3000'
+  const API_BASE = 'http://localhost:3000'
 
-  useEffect(() => {
-    // Poll for pendingAnalysis set by Popup
-    const checkPending = () => {
-      chrome.storage.local.get(['pendingAnalysis', 'selectedCards'], (stored) => {
-        if (stored.pendingAnalysis) {
-          // Consume the pending product and run analysis
-          const product = stored.pendingAnalysis
-          chrome.storage.local.remove('pendingAnalysis')
-          setPendingProduct(product)
-          runAnalysis(product)
-        } else if (stored.selectedCards && !result) {
-          // Restore previous result if available
-          setResult(stored.selectedCards as AnalysisResult)
-        }
-      })
-    }
-
-    checkPending()
-
-    // Also listen for live updates
-    const listener = (msg: any) => {
-      if (msg.type === 'TRIGGER_ANALYSIS' && msg.product) {
-        runAnalysis(msg.product)
-      }
-    }
-    chrome.runtime.onMessage.addListener(listener)
-    return () => chrome.runtime.onMessage.removeListener(listener)
-  }, [])
-
-  const runAnalysis = async (product: any) => {
+  const runAnalysis = useCallback(async (product: any) => {
     setLoading(true)
     setError(null)
     setResult(null)
@@ -114,7 +85,36 @@ export function SidePanel() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    // Poll for pendingAnalysis set by Popup
+    const checkPending = () => {
+      chrome.storage.local.get(['pendingAnalysis', 'selectedCards'], (stored) => {
+        if (stored.pendingAnalysis) {
+          // Consume the pending product and run analysis
+          const product = stored.pendingAnalysis
+          chrome.storage.local.remove('pendingAnalysis')
+          setPendingProduct(product)
+          runAnalysis(product)
+        } else if (stored.selectedCards && !result) {
+          // Restore previous result if available
+          setResult(stored.selectedCards as AnalysisResult)
+        }
+      })
+    }
+
+    checkPending()
+
+    // Also listen for live updates
+    const listener = (msg: any) => {
+      if (msg.type === 'TRIGGER_ANALYSIS' && msg.product) {
+        runAnalysis(msg.product)
+      }
+    }
+    chrome.runtime.onMessage.addListener(listener)
+    return () => chrome.runtime.onMessage.removeListener(listener)
+  }, [runAnalysis])
 
   const handleCardSelect = (cardKey: string) => {
     setSelectedCard(cardKey)

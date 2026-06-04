@@ -19,13 +19,15 @@ export function ExtensionSessionBridge() {
   console.log('[OneCredit] ExtensionSessionBridge mounted, session:', !!session)
 
   useEffect(() => {
+    console.log('[OneCredit] ExtensionSessionBridge useEffect triggered', { session: !!session, user: !!session?.user })
+
     if (!session?.user) {
       console.log('[OneCredit] No session user yet')
       return
     }
 
     const extId = process.env.NEXT_PUBLIC_EXTENSION_ID
-    console.log('[OneCredit] ExtensionSessionBridge: session detected', { email: session.user.email, extId })
+    console.log('[OneCredit] ExtensionSessionBridge: session detected', { email: session.user.email, extId, userId: session.user.id })
     if (!extId) {
       console.warn('[OneCredit] NEXT_PUBLIC_EXTENSION_ID is not set — extension will not receive session')
       return

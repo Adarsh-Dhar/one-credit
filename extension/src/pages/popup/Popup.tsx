@@ -37,7 +37,7 @@ export function Popup() {
       } else {
         // Fallback: read local storage (set by session bridge or background)
         chrome.storage.local.get(
-          ['userEmail', 'userName', 'userId', 'lastDetectedProduct'],
+          ['userEmail', 'userName', 'userId'],
           (local) => {
             if (local.userEmail) {
               setSession({
@@ -53,10 +53,14 @@ export function Popup() {
                 }
               })
             }
-            if (local.lastDetectedProduct) setProduct(local.lastDetectedProduct as DetectedProduct)
           }
         )
       }
+
+      // Always load product separately — independent of session state
+      chrome.storage.local.get(['lastDetectedProduct'], (local) => {
+        if (local.lastDetectedProduct) setProduct(local.lastDetectedProduct as DetectedProduct)
+      })
     })
 
     const listener = (msg: any) => {
