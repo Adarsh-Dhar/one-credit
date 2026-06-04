@@ -81,9 +81,8 @@ export function Popup() {
     // Open sidepanel which performs the full analysis
     await handleOpenSidePanel()
     // Pass product context so SidePanel auto-triggers analysis
-    chrome.storage.local.set({ pendingAnalysis: product }, () => {
-      setCalculating(false)
-    })
+    chrome.storage.local.set({ pendingAnalysis: product })
+    setCalculating(false)
   }
 
   const initials = session.userName

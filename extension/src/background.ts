@@ -15,6 +15,8 @@ chrome.runtime.onMessage.addListener(
         chrome.storage.local.set({
           lastDetectedProduct: request.data,
           lastProductTime: Date.now(),
+        }, () => {
+          console.log('[OneCredit] Product stored in storage')
         })
 
         // Notify all tabs about product detection
@@ -29,6 +31,9 @@ chrome.runtime.onMessage.addListener(
                 },
                 () => {
                   // Ignore errors for tabs that don't have content script
+                  if (chrome.runtime.lastError) {
+                    // Tab doesn't have content script or is closed
+                  }
                 }
               )
             }
@@ -36,56 +41,21 @@ chrome.runtime.onMessage.addListener(
         })
 
         sendResponse({ success: true })
-        break
+        return true
       }
 
       case 'ANALYZE_PRODUCT': {
-        // Handle analysis request
-        const { product, userId, apiKey } = request
-
-        // Call main app API
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/extension/analyze`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({ product, userId }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            sendResponse({ success: true, data })
-          })
-          .catch((error) => {
-            console.error('[OneCredit] Analysis error:', error)
-            sendResponse({ success: false, error: error.message })
-          })
-
-        // Return true to indicate we'll send response asynchronously
+        // SidePanel handles this directly to avoid CSP issues
+        sendResponse({ success: false, error: 'SidePanel should handle this directly' })
         return true
       }
 
       case 'CARD_SELECTED': {
-        // Handle card selection
+        // Handle card selection - store for later processing
         const { cardKey } = request
-
-        // Send checkout notification to main app
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/extension/checkout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ cardKey }),
+        chrome.storage.local.set({ selectedCard: cardKey }, () => {
+          sendResponse({ success: true })
         })
-          .then((res) => res.json())
-          .then((data) => {
-            sendResponse({ success: true, data })
-          })
-          .catch((error) => {
-            console.error('[OneCredit] Checkout error:', error)
-            sendResponse({ success: false, error: error.message })
-          })
-
         return true
       }
 
@@ -124,16 +94,18 @@ chrome.runtime.onMessage.addListener(
       }
 
       case 'GET_SESSION': {
-        // Proxy session fetch to avoid CSP restrictions in popup
-        fetch('http://localhost:3000/api/auth/session')
-          .then((res) => res.json())
-          .then((data) => {
-            sendResponse({ success: true, data })
+        // Return session from storage instead of fetching (avoid CSP)
+        chrome.storage.local.get(['userEmail', 'userId', 'userName'], (result) => {
+          sendResponse({
+            success: true,
+            data: {
+              user: result.userId ? {
+                name: result.userName || '',
+                email: result.userEmail || '',
+              } : null,
+            },
           })
-          .catch((error) => {
-            console.error('[OneCredit] Session fetch error:', error)
-            sendResponse({ success: false, error: error.message })
-          })
+        })
         return true
       }
 

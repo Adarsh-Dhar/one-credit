@@ -10,6 +10,20 @@ export default defineConfig({
     {
       name: 'copy-html-files',
       writeBundle() {
+        // Copy manifest.json to dist
+        const manifestSrc = path.resolve(__dirname, 'manifest.json')
+        const manifestDest = path.resolve(__dirname, 'dist/manifest.json')
+        if (existsSync(manifestSrc)) {
+          copyFileSync(manifestSrc, manifestDest)
+        }
+
+        // Copy icon.svg to dist
+        const iconSrc = path.resolve(__dirname, 'public/icon.svg')
+        const iconDest = path.resolve(__dirname, 'dist/icon.svg')
+        if (existsSync(iconSrc)) {
+          copyFileSync(iconSrc, iconDest)
+        }
+
         // Copy HTML files to root of dist and rewrite script references
         const htmlFiles = [
           { src: 'src/pages/popup/index.html', dest: 'dist/popup.html', script: 'js/popup.js' },

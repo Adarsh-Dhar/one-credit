@@ -9,11 +9,9 @@
     "webRequest",
     "storage"
   ],
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' http://localhost:3000 https://cdn.jsdelivr.net"
-  },
   "host_permissions": [
     "http://localhost:3000/*",
+    "https://localhost:3000/*",
     "https://www.amazon.com/*",
     "https://www.amazon.in/*",
     "https://www.walmart.com/*",
@@ -23,6 +21,7 @@
   "externally_connectable": {
     "matches": [
       "http://localhost:3000/*",
+      "https://localhost:3000/*",
       "https://onecredit.app/*"
     ]
   },
@@ -39,7 +38,7 @@
         "https://www.target.com/*"
       ],
       "js": ["js/content.js"],
-      "run_at": "document_end"
+      "run_at": "document_idle"
     }
   ],
   "side_panel": {

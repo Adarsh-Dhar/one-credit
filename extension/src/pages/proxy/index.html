@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Proxy</title>
+</head>
+<body>
+  <script>
+    // Listen for messages from background script
+    window.addEventListener('message', async (event) => {
+      const { type, url, options } = event.data
+
+      if (type === 'PROXY_FETCH') {
+        try {
+          const response = await fetch(url, options)
+          const data = await response.json()
+          window.postMessage({ type: 'PROXY_RESPONSE', success: true, data }, '*')
+        } catch (error) {
+          window.postMessage({ type: 'PROXY_RESPONSE', success: false, error: error.message }, '*')
+        }
+      }
+    })
+  </script>
+</body>
+</html>

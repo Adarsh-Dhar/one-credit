@@ -1,6 +1,18 @@
 // Content script for OneCredit extension
 import type { Product } from '@/types'
 
+// Immediate log to verify content script is loaded
+console.log('[OneCredit] Content script loaded - URL:', window.location.href)
+
+// Global error handler to catch extension context invalidation errors
+window.addEventListener('error', (event) => {
+  if (event.message && event.message.includes('Extension context')) {
+    console.log('[OneCredit] Extension context error caught:', event.message)
+    event.preventDefault()
+    event.stopPropagation()
+  }
+})
+
 // Detect product information from the current page
 function detectProduct(): Product | null {
   const url = window.location.href
@@ -112,21 +124,49 @@ function detectProduct(): Product | null {
 
 // Monitor page for product information
 function monitorPage() {
+  console.log('[OneCredit] Starting page monitoring')
+  const product = detectProduct()
+  console.log('[OneCredit] Initial product detection:', product)
+
+  if (product) {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'PRODUCT_DETECTED',
+        data: product,
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.log('[OneCredit] Extension context error on page load:', chrome.runtime.lastError.message)
+        } else if (response?.success) {
+          console.log('[OneCredit] Product sent to background successfully')
+        }
+      })
+    } catch (error) {
+      console.log('[OneCredit] Extension context error on page load:', error)
+    }
+  }
+
   const observer = new MutationObserver(() => {
     const product = detectProduct()
     if (product) {
+      console.log('[OneCredit] Product detected via mutation:', product)
       // Send product data to background script
-      chrome.runtime.sendMessage(
-        {
-          type: 'PRODUCT_DETECTED',
-          data: product,
-        },
-        (response) => {
-          if (response?.success) {
-            console.log('[OneCredit] Product sent to background')
+      try {
+        chrome.runtime.sendMessage(
+          {
+            type: 'PRODUCT_DETECTED',
+            data: product,
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              console.log('[OneCredit] Extension context error:', chrome.runtime.lastError.message)
+            } else if (response?.success) {
+              console.log('[OneCredit] Product sent to background')
+            }
           }
-        }
-      )
+        )
+      } catch (error) {
+        console.log('[OneCredit] Extension context error:', error)
+      }
     }
   })
 
@@ -136,15 +176,6 @@ function monitorPage() {
     attributes: true,
     attributeFilter: ['data-a-price-whole', 'data-testid', 'data-cy', 'data-test'],
   })
-
-  // Also check on page load
-  const product = detectProduct()
-  if (product) {
-    chrome.runtime.sendMessage({
-      type: 'PRODUCT_DETECTED',
-      data: product,
-    })
-  }
 }
 
 // Start monitoring when DOM is ready
