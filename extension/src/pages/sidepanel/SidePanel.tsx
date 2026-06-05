@@ -21,8 +21,8 @@ interface CardResult {
   industryRewardValue: number
   feeBurdenInr: number
   floatValueInr: number
-  opTokenCost: number
-  industryOpCost: number
+  netCost: number
+  industryCost: number
   savings: number
   effectiveDiscountPercent: number
   reasoning: string
@@ -127,9 +127,9 @@ export function SidePanel() {
   const fmtPrice = (n: number) =>
     '₹' + Math.round(n).toLocaleString('en-IN')
 
-  // For OP token costs — show as OP score
+  // For net costs — show as score
   const fmt = (n: number) =>
-    Math.round(n).toLocaleString('en-IN') + ' OP'
+    Math.round(n).toLocaleString('en-IN')
 
   const pct = (n: number) => n.toFixed(1) + '%'
 
@@ -142,7 +142,7 @@ export function SidePanel() {
         <div className="text-center space-y-1">
           <p className="text-xs text-slate-500">Auditing earn rates</p>
           <p className="text-xs text-slate-500">Finding best redemption paths</p>
-          <p className="text-xs text-slate-500">Calculating true OP cost</p>
+          <p className="text-xs text-slate-500">Calculating true cost</p>
         </div>
       </div>
     )
@@ -207,16 +207,16 @@ export function SidePanel() {
               <p className="text-xs text-slate-400">{winner.issuer}</p>
             </div>
 
-            {/* OP cost vs industry */}
+            {/* Net cost vs industry */}
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-slate-800/60 rounded-lg p-2.5">
-                <p className="text-xs text-slate-400 mb-1">OP token cost</p>
-                <p className="text-lg font-bold text-purple-300">{fmt(winner.opTokenCost)}</p>
+                <p className="text-xs text-slate-400 mb-1">Net cost</p>
+                <p className="text-lg font-bold text-purple-300">{fmt(winner.netCost)}</p>
                 <p className="text-xs text-green-400">{pct(winner.effectiveDiscountPercent)} off</p>
               </div>
               <div className="bg-slate-800/60 rounded-lg p-2.5">
                 <p className="text-xs text-slate-400 mb-1">Industry says</p>
-                <p className="text-lg font-bold text-slate-400 line-through">{fmtPrice(winner.industryOpCost)}</p>
+                <p className="text-lg font-bold text-slate-400 line-through">{fmtPrice(winner.industryCost)}</p>
                 <p className="text-xs text-slate-500">their number</p>
               </div>
             </div>
@@ -276,8 +276,8 @@ export function SidePanel() {
                     </div>
 
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-white">{fmt(card.opTokenCost)}</p>
-                      <p className="text-xs text-slate-400">OP cost</p>
+                      <p className="text-sm font-bold text-white">{fmt(card.netCost)}</p>
+                      <p className="text-xs text-slate-400">Net cost</p>
                     </div>
 
                     <ChevronDown
@@ -322,13 +322,13 @@ export function SidePanel() {
                         </div>
 
                         <div className="border-t border-slate-700 pt-2 flex justify-between font-medium">
-                          <span className="text-slate-300">True OP cost</span>
-                          <span className="text-purple-300">{fmt(card.opTokenCost)}</span>
+                          <span className="text-slate-300">True net cost</span>
+                          <span className="text-purple-300">{fmt(card.netCost)}</span>
                         </div>
 
                         <div className="flex justify-between text-slate-500">
                           <span>Industry would say</span>
-                          <span className="line-through">{fmtPrice(card.industryOpCost)}</span>
+                          <span className="line-through">{fmtPrice(card.industryCost)}</span>
                         </div>
                       </div>
 

@@ -1,6 +1,6 @@
 // lib/op-agent.ts
 //
-// The 5-step OP token valuation agent powered by Gemini.
+// The 5-step cost valuation agent powered by Gemini.
 // Each step is a focused reasoning pass. The final step assembles the result.
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -193,8 +193,8 @@ export interface CardOPResult {
   floatValueInr: number
 
   // Step 5 outputs
-  opTokenCost: number
-  industryOpCost: number
+  netCost: number
+  industryCost: number
   savings: number
   effectiveDiscountPercent: number
   reasoning: string
@@ -227,7 +227,7 @@ export async function runOPAgent(input: OPAgentInput, geminiApiKey: string): Pro
 
   // Build the agent prompt — all 5 reasoning steps in one structured pass
   const prompt = `
-You are the OPValuationAgent. You calculate the true opportunity-cost-adjusted price (OP token cost) of purchasing a product with each credit card.
+You are the OPValuationAgent. You calculate the true opportunity-cost-adjusted price (net cost) of purchasing a product with each credit card.
 
 ## Purchase details
 - Product: ${input.product.name}
@@ -240,12 +240,10 @@ You are the OPValuationAgent. You calculate the true opportunity-cost-adjusted p
 - Annual transactions per card: ${userTxnsPerYear}
 - Risk-free rate (liquid fund): ${riskFreeRate * 100}% per annum
 - Billing cycle: ${billingDays} days
-- 1 OP token = 1 unit of true cost (currency-agnostic).
-opTokenCost is a score — lower is better.
-The unit displayed to the user will be labeled "OP" not "₹".
+netCost is a score — lower is better.
 feeBurdenInr represents the real per-transaction cost of holding this card.
 A card with a high annual fee and zero rewards on this purchase correctly
-costs MORE OP tokens than a no-fee card — that is the honest truth.
+costs MORE than a no-fee card — that is the honest truth.
 
 ## Card knowledge base
 ${JSON.stringify(cardKBSubset, null, 2)}
@@ -277,11 +275,11 @@ For EACH card, reason through all 5 steps and produce a JSON result.
 - floatValueInr = price * riskFreeRate * (billingDays / 365)
 - floatValueInr = ${input.product.price} * ${riskFreeRate} * (${billingDays} / 365)
 
-### Step 5 — OPTokenCost
-- opTokenCost = price - trueRewardValueInr + feeBurdenInr - floatValueInr
-- industryOpCost = price - industryRewardValue + feeBurdenInr - floatValueInr
-- savings = industryOpCost - opTokenCost  (how much better than industry)
-- effectiveDiscountPercent = ((price - opTokenCost) / price) * 100
+### Step 5 — NetCost
+- netCost = price - trueRewardValueInr + feeBurdenInr - floatValueInr
+- industryCost = price - industryRewardValue + feeBurdenInr - floatValueInr
+- savings = industryCost - netCost  (how much better than industry)
+- effectiveDiscountPercent = ((price - netCost) / price) * 100
 - Write a 2-sentence plain-English reasoning explaining why this card ranks where it does
 
 ## Output format
@@ -307,8 +305,8 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
       "industryRewardValue": number,
       "feeBurdenInr": number,
       "floatValueInr": number,
-      "opTokenCost": number,
-      "industryOpCost": number,
+      "netCost": number,
+      "industryCost": number,
       "savings": number,
       "effectiveDiscountPercent": number,
       "reasoning": "string"
@@ -331,14 +329,14 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
     throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 300)}`)
   }
 
-  // Sort by opTokenCost ascending
+  // Sort by netCost ascending
   const sorted: CardOPResult[] = parsed.cards.sort(
-    (a: CardOPResult, b: CardOPResult) => a.opTokenCost - b.opTokenCost
+    (a: CardOPResult, b: CardOPResult) => a.netCost - b.netCost
   )
 
-  // Industry winner = lowest industryOpCost
+  // Industry winner = lowest industryCost
   const industrySorted = [...parsed.cards].sort(
-    (a: any, b: any) => a.industryOpCost - b.industryOpCost
+    (a: any, b: any) => a.industryCost - b.industryCost
   )
 
   return {

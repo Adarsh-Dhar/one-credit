@@ -31,10 +31,10 @@ export default function Dashboard() {
     fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())
       .then((data) => {
-        setWallet(data.totalOp ?? 150000);
+        setWallet(data.totalValue ?? 1500);
         setCards(data.cards ?? []);
       })
-      .catch(() => setWallet(150000))
+      .catch(() => setWallet(1500))
       .finally(() => setLoading(false));
   }, [session, status]);
 
@@ -55,8 +55,6 @@ export default function Dashboard() {
     setCardDetails(null);
   };
 
-  const walletUSD = (wallet / 100).toFixed(2);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <Navigation />
@@ -68,7 +66,7 @@ export default function Dashboard() {
             Welcome to <span className="bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">Omni-Wallet</span>
           </h1>
           <p className="text-xl text-slate-400 mb-6">
-            AI-powered OP token portfolio management with Fivetran data synchronization
+            AI-powered portfolio management with Fivetran data synchronization
           </p>
 
           <div className="flex gap-3 flex-wrap">
@@ -89,23 +87,18 @@ export default function Dashboard() {
 
         {/* Wallet Overview */}
         <section className="mb-16">
-          <h2 className="text-2xl font-bold text-white mb-6">OP Token Portfolio</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">Portfolio Value</h2>
           <div className="bg-gradient-to-r from-purple-600/20 to-yellow-500/20 border border-purple-500/30 rounded-lg p-8">
-            <p className="text-slate-400 text-sm mb-2">Total OP Balance</p>
+            <p className="text-slate-400 text-sm mb-2">Total Balance (USD)</p>
             <div className="flex items-baseline gap-2">
               {loading ? (
                 <p className="text-5xl font-bold text-purple-400">Loading...</p>
               ) : (
                 <p className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">
-                  {wallet.toLocaleString()}
+                  ${wallet.toFixed(2)}
                 </p>
               )}
-              <span className="text-2xl text-purple-300">OP</span>
             </div>
-            <p className="text-slate-300 mt-2">
-              USD Equivalent: <span className="font-bold text-yellow-300">${walletUSD}</span>
-            </p>
-            <p className="text-slate-400 text-xs mt-4">1 OP = $0.01 USD</p>
           </div>
         </section>
 
@@ -125,8 +118,8 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {cards.map((card) => {
-                const maxOp = Math.max(...cards.map(c => c.opValue || 0));
-                const isTopCard = card.opValue === maxOp;
+                const maxValue = Math.max(...cards.map(c => c.value || 0));
+                const isTopCard = card.value === maxValue;
                 return (
                   <TiltCard
                     key={card.key}
@@ -291,7 +284,7 @@ export default function Dashboard() {
                     <p className="text-white font-bold text-2xl">
                       ${cardDetails.credit_token_balance?.toFixed(2) || '0.00'}
                     </p>
-                    <p className="text-slate-400 text-xs mt-1">Synthetic OP token value</p>
+                    <p className="text-slate-400 text-xs mt-1">Synthetic value</p>
                   </div>
 
                   {/* Points Balance for Points Cards */}
@@ -447,14 +440,14 @@ export default function Dashboard() {
         <section className="bg-slate-700/30 border border-slate-600 rounded-lg p-8">
           <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-yellow-300" />
-            6-Stage OP Interchange Flow
+            6-Stage Interchange Flow
           </h3>
           <div className="space-y-4 text-slate-300">
             <div className="flex gap-4">
               <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">1</div>
               <div>
                 <p className="font-semibold text-white">Parse Intent</p>
-                <p className="text-sm text-slate-400">Convert USD to OP (1 OP = $0.01)</p>
+                <p className="text-sm text-slate-400">Process purchase amount in USD</p>
               </div>
             </div>
             <div className="flex gap-4">
@@ -467,22 +460,22 @@ export default function Dashboard() {
             <div className="flex gap-4">
               <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">3</div>
               <div>
-                <p className="font-semibold text-white">Read Balances in OP</p>
-                <p className="text-sm text-slate-400">Fetch portfolio, convert to OP using fresh rates</p>
+                <p className="font-semibold text-white">Read Balances</p>
+                <p className="text-sm text-slate-400">Fetch portfolio balances in USD</p>
               </div>
             </div>
             <div className="flex gap-4">
               <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">4</div>
               <div>
                 <p className="font-semibold text-white">Score by Category</p>
-                <p className="text-sm text-slate-400">Gemini ranks assets by OP/$ for user's need</p>
+                <p className="text-sm text-slate-400">Gemini ranks cards by net cost for user's purchase</p>
               </div>
             </div>
             <div className="flex gap-4">
               <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">5</div>
               <div>
-                <p className="font-semibold text-white">Debit OP → Update Balances</p>
-                <p className="text-sm text-slate-400">Apply per-asset debits, convert back to raw units</p>
+                <p className="font-semibold text-white">Track Rewards</p>
+                <p className="text-sm text-slate-400">Calculate earned rewards and update balances</p>
               </div>
             </div>
             <div className="flex gap-4">
@@ -578,10 +571,10 @@ function TiltCard({ card, isTopCard, onClick }: {
           } as any}
         />
 
-        {/* TOP OP badge */}
+        {/* TOP VALUE badge */}
         {isTopCard && (
           <div className="absolute top-3 right-3 bg-gradient-to-r from-purple-600 to-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-            TOP OP
+            TOP VALUE
           </div>
         )}
 
@@ -604,9 +597,9 @@ function TiltCard({ card, isTopCard, onClick }: {
           <p className="text-white font-bold text-lg mb-4">{card.name}</p>
 
           <div className="mb-4">
-            <p className="text-slate-500 text-xs">OP Balance</p>
+            <p className="text-slate-500 text-xs">Balance (USD)</p>
             <p className="text-purple-300 font-bold text-2xl">
-              {Math.round(card.opValue || 0).toLocaleString()} OP
+              ${Math.round(card.value || 0).toLocaleString()}
             </p>
           </div>
 

@@ -134,7 +134,7 @@ export default function ExtensionTestPage() {
                   POST /api/extension/analyze
                 </p>
                 <p className="text-slate-400">
-                  Analyzes a product and calculates OP costs for all user cards
+                  Analyzes a product and calculates net costs for all user cards
                 </p>
               </div>
               <div>
@@ -179,7 +179,7 @@ export default function ExtensionTestPage() {
               <div className="flex gap-3">
                 <span className="text-indigo-400 font-semibold">results</span>
                 <span>
-                  Card ranking with expandable details and OP costs
+                  Card ranking with expandable details and net costs
                 </span>
               </div>
               <div className="flex gap-3">

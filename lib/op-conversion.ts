@@ -1,13 +1,9 @@
 // lib/op-conversion.ts
 //
-// Complete OP token conversion logic for all reward types.
-// Based on the axiom: 100 OP = $1.00 USD
-//
-// Every reward type is converted to USD first, then multiplied by 100 to get OP.
+// Complete value conversion logic for all reward types.
+// All values are in USD.
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-export const OP_PER_USD = 100;
 
 export const PROTECTION_RATES = {
   extended_warranty: 0.07,      // 7% of purchase price
@@ -47,45 +43,43 @@ const PERK_TRIGGERS: Record<string, { keyword: string; category: string; value: 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface TotalValueResult {
-  // Type 1 — earn rate OP
-  baseOp: number;
+  // Type 1 — earn rate
+  baseValue: number;
   earnRateUsd: number;
-  portalOp: number;
+  portalValue: number;
   portalUsd: number;
   portalName: string | null;
 
   // Type 2 — statement credits
-  creditOp: number;
+  creditValue: number;
   creditUsd: number;
   creditName: string | null;
 
   // Type 3 — portal/partner bonus (replaces base for issuer portals)
-  additionalPortalOp: number;
+  additionalPortalValue: number;
   additionalPortalUsd: number;
 
   // Type 4 — protection estimate
-  protectionOp: number;
+  protectionValue: number;
   protectionUsd: number;
   protectionLabels: string[];
 
   // Type 5 — transfer range (only for POINTS cards)
-  earnedOp_min: number;
-  earnedOp_max: number;
+  earnedValue_min: number;
+  earnedValue_max: number;
 
-  // Type 6 — experiential perks (display only, not in totalUsd)
-  perkOp: number;
+  // Type 6 — experiential perks (display only, not in totalValue)
+  perkValue: number;
   perkUsd: number;
   perkName: string | null;
 
   // Totals
-  totalOp: number;
-  totalUsd: number;
+  totalValue: number;
   confidence: 'direct' | 'derived' | 'estimated';
 }
 
 export interface CardForConversion {
   currency: string;             // 'usd' | 'points' | 'miles'
-  opRate: number;              // OP per unit of currency (100 for USD)
   earnRates: Record<string, number>;
   pointsProgram?: {
     cppMin: number;
@@ -125,39 +119,38 @@ export function computeTotalValue(
   categoryKey: string
 ): TotalValueResult {
   const result: TotalValueResult = {
-    // Type 1 — earn rate OP
-    baseOp: 0,
+    // Type 1 — earn rate
+    baseValue: 0,
     earnRateUsd: 0,
-    portalOp: 0,
+    portalValue: 0,
     portalUsd: 0,
     portalName: null,
 
     // Type 2 — statement credits
-    creditOp: 0,
+    creditValue: 0,
     creditUsd: 0,
     creditName: null,
 
     // Type 3 — portal/partner bonus (replaces base for issuer portals)
-    additionalPortalOp: 0,
+    additionalPortalValue: 0,
     additionalPortalUsd: 0,
 
     // Type 4 — protection estimate
-    protectionOp: 0,
+    protectionValue: 0,
     protectionUsd: 0,
     protectionLabels: [],
 
     // Type 5 — transfer range (only for POINTS cards)
-    earnedOp_min: 0,
-    earnedOp_max: 0,
+    earnedValue_min: 0,
+    earnedValue_max: 0,
 
-    // Type 6 — experiential perks (display only, not in totalUsd)
-    perkOp: 0,
+    // Type 6 — experiential perks (display only, not in totalValue)
+    perkValue: 0,
     perkUsd: 0,
     perkName: null,
 
     // Totals
-    totalOp: 0,
-    totalUsd: 0,
+    totalValue: 0,
     confidence: 'direct',
   };
 
@@ -167,16 +160,16 @@ export function computeTotalValue(
 
   if (card.currency === 'usd') {
     result.earnRateUsd = cashReward;
-    result.baseOp = cashReward * OP_PER_USD;
+    result.baseValue = cashReward;
   } else {
     // Points card — use cpp range
     const cpp_min = card.pointsProgram?.cppMin ?? 1.0;
     const cpp_max = card.pointsProgram?.cppMax ?? 1.0;
-    const points = spendAmount * (earnRate / 100) * (card.opRate / 1);
-    result.earnedOp_min = points * cpp_min;
-    result.earnedOp_max = points * cpp_max;
-    result.earnRateUsd = points * cpp_min / OP_PER_USD; // conservative for comparison
-    result.baseOp = result.earnedOp_min;
+    const points = spendAmount * (earnRate / 100);
+    result.earnedValue_min = points * cpp_min;
+    result.earnedValue_max = points * cpp_max;
+    result.earnRateUsd = points * cpp_min; // conservative for comparison
+    result.baseValue = result.earnedValue_min;
     result.confidence = 'derived';
   }
 
@@ -187,7 +180,7 @@ export function computeTotalValue(
     if (available <= 0) continue;
     const fired = Math.min(available, spendAmount);
     result.creditUsd += fired;
-    result.creditOp += fired * OP_PER_USD;
+    result.creditValue += fired;
     result.creditName = credit.name;
     break; // only one credit fires per transaction
   }
@@ -202,14 +195,14 @@ export function computeTotalValue(
       // Issuer portal — show as alternative to base (not stacked)
       const portalCash = spendAmount * (bestPortal.bonus_multiplier / 100);
       result.portalUsd = portalCash;
-      result.portalOp = portalCash * OP_PER_USD;
+      result.portalValue = portalCash;
       result.portalName = bestPortal.portal_name;
-      // portalOp replaces baseOp — only use for display, not totalOp
+      // portalValue replaces baseValue — only use for display, not totalValue
     } else {
       // Affiliate/shopping portal — additive on top of base
       const addCash = spendAmount * (bestPortal.bonus_multiplier / 100);
       result.additionalPortalUsd = addCash;
-      result.additionalPortalOp = addCash * OP_PER_USD;
+      result.additionalPortalValue = addCash;
       result.portalName = bestPortal.portal_name;
     }
   }
@@ -243,7 +236,7 @@ export function computeTotalValue(
     result.protectionLabels.push('Rental CDW');
   }
   result.protectionUsd = protUsd;
-  result.protectionOp = protUsd * OP_PER_USD;
+  result.protectionValue = protUsd;
   if (protUsd > 0) result.confidence = 'estimated';
 
   // ── TYPE 6: Experiential perks ───────────────────────────────────
@@ -260,16 +253,14 @@ export function computeTotalValue(
       }
     }
   }
-  result.perkOp = result.perkUsd * OP_PER_USD;
+  result.perkValue = result.perkUsd;
 
   // ── TOTALS ──────────────────────────────────────────────────────
-  // Portal OP: base if no portal, additivePortal stacks, issuer portal shown separately
-  result.totalUsd = result.earnRateUsd
+  // Portal value: base if no portal, additivePortal stacks, issuer portal shown separately
+  result.totalValue = result.earnRateUsd
     + result.creditUsd
     + result.additionalPortalUsd
     + result.protectionUsd;
-
-  result.totalOp = result.totalUsd * OP_PER_USD;
 
   return result;
 }

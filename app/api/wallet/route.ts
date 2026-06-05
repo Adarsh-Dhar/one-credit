@@ -61,22 +61,22 @@ export async function GET(request: Request) {
   const fiatCards = await FiatCard.find({ user_id: userId }).lean();
   console.log('[Wallet API] Cards found:', fiatCards.length);
 
-  // Calculate total OP from credit_token_balance (rewards) not current_balance_owed (debt)
-  let totalOp = 0;
+  // Calculate total value from credit_token_balance (rewards) not current_balance_owed (debt)
+  let totalValue = 0;
   const cardDetails = fiatCards.map((card: any) => {
     const creditTokenBalance = card.credit_token_balance || 0;
     const pointsBalance = card.points_balance || 0;
     const pointsValueCents = card.points_value_cents || 1.0;
     
-    // OP value comes from rewards (credit_token_balance or points_balance), not debt
-    let opValue = 0;
+    // Value comes from rewards (credit_token_balance or points_balance), not debt
+    let value = 0;
     if (card.currency_type === 'POINTS') {
-      opValue = pointsBalance * pointsValueCents;
+      value = pointsBalance * (pointsValueCents / 100); // Convert cents to USD
     } else {
-      opValue = creditTokenBalance;
+      value = creditTokenBalance; // Already in USD
     }
     
-    totalOp += opValue;
+    totalValue += value;
 
     // Extract earn rates from rewards structure
     const rewardsStructure = card.rewards_structure || {};
@@ -115,10 +115,9 @@ export async function GET(request: Request) {
       currency: card.currency_type.toLowerCase(),
       balance: card.current_balance_owed || 0, // Debt (what you owe)
       limit: card.credit_limit || 0,
-      opValue: opValue, // Rewards (what you can spend)
-      opRate: card.currency_type === 'USD' ? 100 : (pointsValueCents || 1.0),
+      value: value, // Rewards (what you can spend) in USD
       earnRates,
-      redemptionRate: card.redemption_rate_display || (card.currency_type === 'USD' ? '$1.00 = 100 OP' : `1 Point = ${pointsValueCents || 1.0} OP`),
+      redemptionRate: card.redemption_rate_display || (card.currency_type === 'USD' ? '$1.00' : `1 Point = $${(pointsValueCents / 100).toFixed(2)}`),
       statementCredits: card.benefits_and_credits?.statement_credits || [],
       portalBonuses: card.benefits_and_credits?.portal_bonuses || [],
       protections: card.benefits_and_credits?.purchase_protections || null,
@@ -137,5 +136,5 @@ export async function GET(request: Request) {
     };
   });
 
-  return NextResponse.json({ totalOp, cards: cardDetails });
+  return NextResponse.json({ totalValue, cards: cardDetails });
 }

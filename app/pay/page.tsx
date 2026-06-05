@@ -22,7 +22,6 @@ interface Merchant {
 interface GeminiRecommendation {
   bestCard: string;
   bestCardKey: string;
-  earnedOp: number;
   nativeReward: number;
   rewardRate: number;
   reasoning: string;
@@ -139,10 +138,10 @@ export default function PayPage() {
         User wants to spend $${amount} at ${selectedMerchant?.name} (${selectedCategory?.label} category).
         User ID: ${userId}
 
-        OP MATH RULE: card.earnRates[category] is a whole number (e.g., 3 = 3%, NOT 0.03).
-        CORRECT: $${amount} × (earnRate / 100) × opRate = OP earned
-        Example: $${amount} at 3% → $${amount} × 0.03 = $${(parseFloat(amount) * 0.03).toFixed(2)} × 100 = ${Math.round(parseFloat(amount) * 0.03 * 100)} OP
-        WRONG: $${amount} × 3 = $${parseFloat(amount) * 3} × 100 = ${Math.round(parseFloat(amount) * 3 * 100)} OP (100× error)
+        MATH RULE: card.earnRates[category] is a whole number (e.g., 3 = 3%, NOT 0.03).
+        CORRECT: $${amount} × (earnRate / 100) = USD earned
+        Example: $${amount} at 3% → $${amount} × 0.03 = $${(parseFloat(amount) * 0.03).toFixed(2)} USD
+        WRONG: $${amount} × 3 = $${parseFloat(amount) * 3} USD (100× error)
 
         1. Call sync_rewards to get fresh offer data
         2. Call get_rewards_offers for category "${selectedCategory?.id}"
@@ -152,14 +151,13 @@ export default function PayPage() {
            - Statement credits that match this category (check merchant_categories)
            - Portal bonuses that apply to this category
            - Purchase protections that are relevant (extended warranty, purchase protection, cell phone protection, etc.)
-        6. Calculate totalValue = (earnedOp / 100) + creditFired_USD + protectionEstimate_USD + portalBonusValue_USD
-        7. Recommend the card with the HIGHEST totalValue (not just highest earnedOp)
+        6. Calculate totalValue = cashReward + creditFired_USD + protectionEstimate_USD + portalBonusValue_USD
+        7. Recommend the card with the HIGHEST totalValue
 
         Respond ONLY as JSON (no markdown):
         {
           "bestCard": "display name of card",
           "bestCardKey": "card key from balances",
-          "earnedOp": <number of OP earned>,
           "nativeReward": <native currency earned (miles, points, cash)>,
           "rewardRate": <rate as decimal e.g. 0.05>,
           "reasoning": "one sentence why this card has the highest total value",
@@ -198,12 +196,10 @@ export default function PayPage() {
         const earnRate = bestCard?.earnRates?.[categoryKey as keyof typeof bestCard.earnRates] ?? 1.0;
         // earnRate is a whole number (e.g., 3 = 3%), so divide by 100 to get decimal
         const cashReward = parseFloat(amount) * (earnRate / 100);
-        const earnedOp = cashReward * 100;
 
         rec = {
           bestCard:   bestCard?.name ?? 'Your best card',
           bestCardKey: bestCard?.key ?? '',
-          earnedOp,
           nativeReward: cashReward,
           rewardRate: earnRate / 100,
           reasoning:  'Best available rewards for this category.',
@@ -230,7 +226,7 @@ export default function PayPage() {
     await new Promise(r => setTimeout(r, 2200));
 
     try {
-      // Debit the card (use nativeReward, not earnedOp)
+      // Debit the car)
       await fetch('/api/tools/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,9 +246,7 @@ export default function PayPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId,
           type: 'spend',
-          amountOp: recommendation.earnedOp,
           description: `${selectedMerchant?.name} — $${amount}`,
           metadata: {
             merchant:  selectedMerchant?.name,
@@ -417,7 +411,6 @@ export default function PayPage() {
                 fromCard={recommendation.bestCard}
                 toMerchant={selectedMerchant!}
                 amount={parseFloat(amount)}
-                earnedOp={recommendation.earnedOp}
               />
 
               {/* Recommendation card */}
@@ -440,7 +433,7 @@ export default function PayPage() {
                   </div>
                   <div>
                     <p className="text-slate-500 text-xs">You earn</p>
-                    <p className="text-purple-400 font-bold">+{recommendation.earnedOp.toLocaleString()} OP</p>
+                    <p className="text-purple-400 font-bold">+${recommendation.nativeReward?.toFixed(2)} USD</p>
                   </div>
                   <div>
                     <p className="text-slate-500 text-xs">Amount</p>
@@ -520,12 +513,11 @@ function StepIndicator({ step }: { step: Step }) {
 }
 
 function TokenFlowAnimation({
-  fromCard, toMerchant, amount, earnedOp
+  fromCard, toMerchant, amount
 }: {
   fromCard: string;
   toMerchant: Merchant;
   amount: number;
-  earnedOp: number;
 }) {
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-5">
@@ -543,11 +535,11 @@ function TokenFlowAnimation({
         </div>
 
         {/* Animated token flow */}
-        <div className="flex flex-col items-center gap-1 relative w-16">
+        <div $camoust="eFixld 2iteUSD-center gap-1 relative w-16">
           <TokenParticles />
           <ArrowRight className="w-5 h-5 text-slate-600" />
           <span className="text-purple-400 text-xs font-bold text-center">
-            +{earnedOp.toLocaleString()} OP
+            +${amount.toFixed(2)} USD
           </span>
         </div>
 
@@ -674,8 +666,7 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
 
   // Standard cost = what you'd pay with no optimization (no rewards, full price)
   const standardCost = amount;
-  // earnedOp ÷ 100 = USD value (since 100 OP = $1.00)
-  const rewardsCashValue = recommendation ? (recommendation.earnedOp / 100) : 0;
+  const rewardsCashValue = recommendation ? recommendation.nativeReward : 0;
   const savedAmount = Math.min(rewardsCashValue, standardCost);
   const optimizedCost = Math.max(0, standardCost - savedAmount);
   const savedPercent = standardCost > 0 ? ((savedAmount / standardCost) * 100).toFixed(1) : '0';
@@ -687,7 +678,6 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
     name: string;
     earnRate: number;      // whole-number % (e.g. 3 = 3%)
     cashReward: number;    // USD
-    earnedOp: number;
     isWinner: boolean;
     currency: string;
     totalValue: number;    // USD total value including credits, portal bonuses, protections
@@ -697,8 +687,6 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
     protectionLabels: string[];
     transferCppMin: number | null;
     transferCppMax: number | null;
-    baseOp: number;
-    portalOp: number;
     confidence: 'direct' | 'derived' | 'estimated';
   };
 
@@ -706,9 +694,6 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
     .map((card) => {
       const earnRate = card.earnRates?.[categoryKey] ?? card.earnRates?.general ?? 1;
       let cashReward = amount * (earnRate / 100);
-      let earnedOp = card.currency === 'usd'
-        ? cashReward * 100
-        : cashReward * (card.opRate ?? 100);
 
       // Use computeTotalValue utility for all benefit calculations
       const totalValueResult = computeTotalValue(card, amount, categoryKey);
@@ -722,10 +707,9 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
         ? { name: totalValueResult.portalName, url: '', multiplier: 0 } // URL not available from computeTotalValue
         : null;
 
-      // If portal fired, re-compute earnedOp with portal rate (for display)
-      if (totalValueResult.portalName && totalValueResult.portalOp > 0) {
+      // If portal fired, use portal value
+      if (totalValueResult.portalName && totalValueResult.portalUsd > 0) {
         cashReward = totalValueResult.portalUsd;
-        earnedOp = totalValueResult.portalOp;
       }
 
       // Transfer partner cpp range
@@ -738,7 +722,6 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
         name: card.name,
         earnRate,
         cashReward,
-        earnedOp,
         isWinner: false, // Will be set after sorting
         currency: card.currency,
         totalValue: totalValueResult.totalUsd,
@@ -748,8 +731,6 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
         protectionLabels: totalValueResult.protectionLabels,
         transferCppMin,
         transferCppMax,
-        baseOp: totalValueResult.baseOp,
-        portalOp: totalValueResult.portalOp,
         confidence: totalValueResult.confidence,
       };
     })
@@ -907,7 +888,7 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
                           ${row.totalValue.toFixed(2)}
                         </span>
                         <span className="text-slate-500 text-xs ml-1.5">
-                          +{row.earnedOp % 1 === 0 ? row.earnedOp.toFixed(0) : row.earnedOp.toFixed(1)} OP
+                          +${row.cashReward.toFixed(2)} USD
                         </span>
                       </div>
                     </div>
@@ -926,7 +907,7 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
                           rel="noopener noreferrer"
                           className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
                         >
-                          ↗ {row.portalOp > row.baseOp ? `${row.baseOp} → ${row.portalOp} OP` : `${row.portalBonus.multiplier}x`} via {row.portalBonus.name}
+                          ↗ {row.portalBonus.multiplier}x via {row.portalBonus.name}
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
@@ -969,8 +950,8 @@ function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, a
         {/* Receipt line items */}
         <div className="px-6 py-4 space-y-3 border-b border-slate-700/60">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-400">OP Earned</span>
-            <span className="text-purple-400 font-bold">+{recommendation?.earnedOp.toLocaleString()} OP</span>
+            <span className="text-slate-400">USD Earned</span>
+            <span className="text-purple-400 font-bold">+${recommendation?.nativeReward?.toFixed(2)} USD</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-slate-400">Reward Rate</span>

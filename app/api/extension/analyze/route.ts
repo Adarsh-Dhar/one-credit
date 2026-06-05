@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
       industryWinner: result.industryWinner,
       agentReasoning: result.agentReasoning,
       savings: result.cards.length > 1
-        ? result.cards[result.cards.length - 1].opTokenCost - result.winner.opTokenCost
+        ? result.cards[result.cards.length - 1].netCost - result.winner.netCost
         : 0,
     })
   } catch (error) {

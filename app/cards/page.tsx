@@ -237,12 +237,12 @@ export default function CardsPage() {
                       <div className="mb-5">
                         <p className="text-slate-400 text-sm mb-0.5">Available Rewards</p>
                         <p className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">
-                          {Math.round(card.opValue || 0).toLocaleString()} OP
+                          ${Math.round(card.value || 0).toLocaleString()}
                         </p>
                         <p className="text-slate-400 text-xs mt-0.5">
                           {card.currency === 'usd'
-                            ? `($${((card.opValue || 0) / 100).toFixed(2)} Cash Back)`
-                            : `(${Math.round(card.opValue / (card.opRate || 1)).toLocaleString()} Points)`}
+                            ? `(Cash Back)`
+                            : `(Points)`}
                         </p>
                       </div>
 

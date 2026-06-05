@@ -13,7 +13,6 @@ export interface CardDefinition {
   color: string;          // gradient CSS string
   currency: string;       // what it earns — "miles", "points", "cash", etc.
   defaultBalance: number; // starting balance for demo users
-  opRate: number;         // how many OP per 1 unit of currency
   pointsProgramKey?: string; // key for TRANSFER_CPP lookup (e.g., 'chase_ur', 'amex_mr')
   // Card design/marketing information
   cardImageUrl?: string;
@@ -113,8 +112,6 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
   else if (currency_type === 'MILES') defaultBalance = 50000;
   else defaultBalance = (fiatCard as any).credit_token_balance || 150;
 
-  // Calculate OP rate based on rewards
-  const opRate = currency_type === 'USD' ? 100 : ((fiatCard as any).points_value_cents || 1.0);
 
   // Combine perks
   const perks = [
@@ -131,7 +128,6 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
     color: typeToColor[type] || typeToColor.general,
     currency: currency_type.toLowerCase(),
     defaultBalance,
-    opRate,
     pointsProgramKey: mapProgramName(fiatCard.points_program_name),
     cardImageUrl: fiatCard.card_image_url,
     cardDescription: fiatCard.card_description,
@@ -169,7 +165,7 @@ export async function getCard(key: CardKey, userId: string = 'usr_88374'): Promi
   }
 }
 
-// Helper: compute totalOp from a balances object (sync version - cards already passed in)
-export function computeTotalOp(balances: Record<string, number>, cards: CardDefinition[]): number {
-  return cards.reduce((sum, card) => sum + (balances[card.key] ?? 0) * card.opRate, 0);
+// Helper: compute totalValue from a balances object (sync version - cards already passed in)
+export function computeTotalValue(balances: Record<string, number>, cards: CardDefinition[]): number {
+  return cards.reduce((sum, card) => sum + (balances[card.key] ?? 0), 0);
 }

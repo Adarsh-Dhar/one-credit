@@ -27,7 +27,7 @@ const mockCards = [
     bestRedemptionCpp: 2.1,
     currentRedemptionCpp: 1.0,
     opportunityMultiplier: 2.1,
-    opCost: 4157,
+    netCost: 4157,
     rank: 1,
     reasoning: 'Although only 1x earn, your UR points are worth 2.1¢ each via Hyatt transfer — spending them here at 1¢ is a waste. But among all your cards, this still comes out lowest because of your high balance creating offset value.',
     bestAlternativeUse: 'Transfer to World of Hyatt — 2.1¢/point',
@@ -45,7 +45,7 @@ const mockCards = [
     bestRedemptionCpp: 1.8,
     currentRedemptionCpp: 1.0,
     opportunityMultiplier: 1.8,
-    opCost: 5494,
+    netCost: 5494,
     rank: 2,
     reasoning: 'MR points have a best redemption of 1.8¢ via Air France/KLM transfer. Spending here costs you that premium.',
     bestAlternativeUse: 'Transfer to Air France Flying Blue — 1.8¢/point',
@@ -63,7 +63,7 @@ const mockCards = [
     bestRedemptionCpp: 1.0,
     currentRedemptionCpp: 1.0,
     opportunityMultiplier: 1.0,
-    opCost: 5897,
+    netCost: 5897,
     rank: 3,
     reasoning: 'Cash is cash — no opportunity cost penalty. But 2% on a $2k purchase still leaves you paying most of it in raw dollars.',
     bestAlternativeUse: 'Cash back — no transfer bonus available',
@@ -81,7 +81,7 @@ const mockCards = [
     bestRedemptionCpp: 1.0,
     currentRedemptionCpp: 1.0,
     opportunityMultiplier: 1.0,
-    opCost: 6230,
+    netCost: 6230,
     rank: 4,
     reasoning: 'Apple Card gives 3% at Apple.com but only 1% at Amazon. Low earn rate and no transfer bonus makes this the costliest option.',
     bestAlternativeUse: 'Use at Apple.com directly for 3% back',
@@ -244,7 +244,7 @@ export default function OneCreditTxPortal() {
 function CalculatingState({ product, onComplete }: any) {
   const [loadingSteps, setLoadingSteps] = useState([
     { text: 'Fetching your card portfolio...', complete: false },
-    { text: 'Running OP cost model...', complete: false },
+    { text: 'Calculating true net cost...', complete: false },
     { text: 'Evaluating opportunity costs...', complete: false },
   ]);
 
@@ -479,7 +479,7 @@ function CardRow({ card, isExpanded, onToggle, onSelect }: any) {
 
           {/* OP Cost */}
           <div className="flex-shrink-0 text-right">
-            <p className="text-white font-bold text-lg">{card.opCost}</p>
+            <p className="text-white font-bold text-lg">{card.netCost}</p>
             <p className="text-slate-400 text-xs">OP</p>
           </div>
 
@@ -544,7 +544,7 @@ function CardRow({ card, isExpanded, onToggle, onSelect }: any) {
             </p>
 
             <button className="w-full text-indigo-400 hover:text-indigo-300 text-xs font-medium py-2 transition-colors">
-              Why is OP cost higher? ⓘ
+              Why is net cost higher? ⓘ
             </button>
           </motion.div>
         )}

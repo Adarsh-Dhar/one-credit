@@ -14,7 +14,7 @@ export const MCPTools = [
   {
     name: 'getUserBalances',
     description:
-      '[STAGE 3] Fetch all raw card balances from MongoDB. Returns miles, points, and cash with their OP conversion rates. Note: opValue is the balance converted to OP (existing rewards), not the OP earned from a new spend.',
+      '[STAGE 3] Fetch all raw card balances from MongoDB. Returns miles, points, and cash with their USD values. Note: value is the balance converted to USD (existing rewards), not the rewards earned from a new spend.',
     parameters: {
       type: 'object',
       properties: {
@@ -26,7 +26,7 @@ export const MCPTools = [
   {
     name: 'updateBalances',
     description:
-      '[STAGE 5] Apply per-card raw debits after OP allocation. cardDebits is an object where keys are card keys and values are { debit: number } in native currency units.',
+      '[STAGE 5] Apply per-card raw debits after allocation. cardDebits is an object where keys are card keys and values are { debit: number } in native currency units.',
     parameters: {
       type: 'object',
       properties: {
@@ -240,26 +240,23 @@ WORKFLOW FOR REWARDS QUESTIONS:
 WORKFLOW FOR SPEND OPTIMIZATION (unchanged):
 1. get_sync_status → 2. refresh_rates → 3. getUserBalances → 4. Reason over balances → 5. updateBalances → 6. sync_after_redemption
 
-OP CALCULATION FORMULA (mandatory for all spend recommendations):
+SPEND OPTIMIZATION FORMULA (mandatory for all spend recommendations):
 CRITICAL: card.earnRates[category] is stored as a whole number percentage (e.g., 3 = 3%, NOT 0.03).
 Step 1 — Native reward (cash value): nativeReward = spendAmount × (card.earnRates[category] / 100)
   Example: $25 spend at 3% earnRate → $25 × (3 / 100) = $0.75 cash reward
-Step 2 — Convert to OP: earnedOp = nativeReward × card.opRate
-  Example: $0.75 × 100 opRate = 75 OP (correct)
-  WRONG: $25 × 3 = $75 × 100 = 7,500 OP (100× error)
-VALIDATION CHECK: Before responding, verify your math. A $25 purchase at 3% must yield ~75 OP, NEVER 7500 OP.
+VALIDATION CHECK: Before responding, verify your math. A $25 purchase at 3% must yield ~$0.75 in rewards.
 
 TOTAL VALUE FORMULA (mandatory for card recommendations):
 When recommending the best card for a spend, calculate totalValue as:
-totalValue = (earnedOp / 100) + creditFired_USD + protectionEstimate_USD + portalBonusValue_USD
+totalValue = nativeReward + creditFired_USD + protectionEstimate_USD + portalBonusValue_USD
 
 Where:
-- earnedOp / 100 = cash value of rewards earned (OP converted to USD)
+- nativeReward = cash value of rewards earned
 - creditFired_USD = statement credit amount that would be triggered for this category
 - protectionEstimate_USD = estimated value of purchase protections (e.g., extended warranty, purchase protection)
 - portalBonusValue_USD = additional value from portal bonuses (multiplier applied to base rewards)
 
-The bestCard MUST be the card with the highest totalValue, not just the highest earnedOp.
+The bestCard MUST be the card with the highest totalValue.
 
 CARD BENEFIT DATA (from getUserBalances):
 - statementCredits: Array of statement credits with name, amount_usd, reset_period, merchant_categories
@@ -322,8 +319,7 @@ async function getUserBalances(userId: string) {
       name:     card.name,
       type:     card.type,
       balance:  balances[card.key],
-      opValue:  balances[card.key] * card.opRate,
-      opRate:   card.opRate,
+      value:    balances[card.key],
       currency: card.currency,
       earnRates: card.earnRates,
       statementCredits: (benefits.statement_credits || []).filter((c: any) =>
@@ -342,7 +338,7 @@ async function getUserBalances(userId: string) {
 
   return {
     cards:    cardBreakdown,
-    totalOp:  CARDS.reduce((sum, card) => sum + (balances[card.key] ?? 0) * card.opRate, 0),
+    totalValue: CARDS.reduce((sum, card) => sum + (balances[card.key] ?? 0), 0),
     lastSync: new Date().toISOString(),
   };
 }
