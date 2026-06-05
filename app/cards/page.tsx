@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { WalletCard } from '@/lib/types';
+import { useWallet } from '@/hooks/useWallet';
 
 // ── Spending-cap config per card (issuer/category) ─────────────────────────
 // These caps mirror the reward structure limits (e.g., Amex $6k grocery cap).
@@ -26,11 +26,14 @@ function deriveSpendingCaps(card: any): SpendingCap[] {
   (rs.fixed_categories ?? []).forEach((fc: any) => {
     if (fc.annual_cap_usd || fc.quarterly_cap_usd) {
       const capAmount = fc.annual_cap_usd ?? (fc.quarterly_cap_usd * 4);
+      // Use deterministic hash based on card key for consistent demo values
+      const hash = card.key.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+      const randomFactor = (hash % 100) / 100; // 0-1 based on card key
       caps.push({
         label: fc.category,
         cap: capAmount,
-        // Simulate spend at ~65–90% of cap for demo purposes
-        spent: capAmount * (0.55 + Math.random() * 0.42),
+        // Simulate spend at ~65–90% of cap for demo purposes (deterministic)
+        spent: capAmount * (0.55 + randomFactor * 0.35),
       });
     }
   });
@@ -144,29 +147,8 @@ function SpendingRing({ cap }: RingProps) {
 
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function CardsPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const [cards, setCards] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { cards, loading } = useWallet();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin');
-    }
-  }, [status, router]);
-
-  useEffect(() => {
-    if (status === 'loading') return;
-    const email = session?.user?.email || 'demo@omniwallet.com';
-    fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setCards(data.cards ?? []);
-      })
-      .catch(() => setCards([]))
-      .finally(() => setLoading(false));
-  }, [session, status]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

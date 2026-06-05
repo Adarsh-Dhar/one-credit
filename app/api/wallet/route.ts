@@ -37,29 +37,16 @@ export async function GET(request: Request) {
   }
 
   await connectDB();
-  console.log('[Wallet API] MongoDB connection state:', mongoose.connection.readyState);
-  console.log('[Wallet API] MongoDB name:', mongoose.connection.name);
   
   let user = await User.findOne({ email }).lean() as any;
 
-  console.log('[Wallet API] Query email:', email);
-  console.log('[Wallet API] User from DB:', user ? { id: user._id.toString(), email: user.email, name: user.name } : 'null');
-
   if (!user) {
-    // Auto-create demo user
-    const created = await User.create({
-      email,
-      portfolio: { cards: {} },
-    });
-    user = created.toObject();
-    console.log('[Wallet API] Created new user:', { id: user._id.toString(), email: user.email });
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
   // Get fiat cards from database with actual balances using the user's actual ID
   const userId = user._id?.toString();
-  console.log('[Wallet API] Final User ID:', userId);
   const fiatCards = await FiatCard.find({ user_id: userId }).lean();
-  console.log('[Wallet API] Cards found:', fiatCards.length);
 
   // Calculate total value from credit_token_balance (rewards) not current_balance_owed (debt)
   let totalValue = 0;

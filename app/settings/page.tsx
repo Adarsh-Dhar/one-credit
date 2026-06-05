@@ -37,9 +37,6 @@ export default function Settings() {
     setLoading(true);
 
     try {
-      // Store ONLY the email client-side for display
-      localStorage.setItem('userEmail', email || 'demo@omniwallet.com');
-
       // Send the key to your server to store in env / secrets manager
       // DO NOT store the raw key in MongoDB or localStorage
       const res = await fetch('/api/settings', {
@@ -57,17 +54,6 @@ export default function Settings() {
       setError('Failed to save configuration. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadApiKey = () => {
-    const saved = localStorage.getItem('geminiApiKey');
-    const savedEmail = localStorage.getItem('userEmail');
-    if (saved) {
-      setApiKey(saved.substring(0, 10) + '...' + saved.substring(saved.length - 5));
-    }
-    if (savedEmail) {
-      setEmail(savedEmail);
     }
   };
 
@@ -150,14 +136,6 @@ export default function Settings() {
                 ) : (
                   'Save Configuration'
                 )}
-              </Button>
-
-              <Button
-                onClick={loadApiKey}
-                variant="outline"
-                className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10 w-full"
-              >
-                Load Saved Configuration
               </Button>
             </div>
           </Card>

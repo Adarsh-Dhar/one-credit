@@ -24,21 +24,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    // Use the same pattern as sync-engine to avoid type issues
-    const { connectDB } = await import('@/lib/mongodb');
-    const mongoose = await connectDB();
-    
-    if (!mongoose) {
-      return NextResponse.json(
-        { error: 'Failed to connect to database' },
-        { status: 500 }
-      );
-    }
-    
-    // Access the raw MongoDB connection
-    const collection = (mongoose as any).connection.db.collection('sync_reports');
-    
-    const report = await collection.findOne({}, { sort: { createdAt: -1 } });
+    const { getLastSyncStatus } = await import('@/lib/fivetran/rewards-connector');
+    const report = await getLastSyncStatus();
     
     if (!report) {
       return NextResponse.json({

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Menu, X, Settings, LogOut, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSession, signOut } from 'next-auth/react';
@@ -9,6 +10,7 @@ import { useSession, signOut } from 'next-auth/react';
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const { data: session } = useSession();
+  const pathname = usePathname();
 
   return (
     <nav className="bg-slate-900/50 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-50">
@@ -25,22 +27,22 @@ export function Navigation() {
 
           <div className="hidden md:flex items-center gap-1">
             <Link href="/">
-              <Button variant="ghost" className="text-slate-300 hover:text-white">
+              <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Dashboard
               </Button>
             </Link>
             <Link href="/cards">
-              <Button variant="ghost" className="text-slate-300 hover:text-white">
+              <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/cards' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Cards
               </Button>
             </Link>
             <Link href="/pay">
-              <Button variant="ghost" className="text-slate-300 hover:text-white">
+              <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/pay' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Pay
               </Button>
             </Link>
             <Link href="/extension">
-              <Button variant="ghost" className="text-slate-300 hover:text-white">
+              <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/extension' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 <CreditCard className="w-4 h-4 mr-2" />
                 Extension
               </Button>
@@ -77,22 +79,22 @@ export function Navigation() {
         {isOpen && (
           <div className="md:hidden pb-4 space-y-2">
             <Link href="/">
-              <Button variant="ghost" className="w-full justify-start text-slate-300">
+              <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Dashboard
               </Button>
             </Link>
             <Link href="/cards">
-              <Button variant="ghost" className="w-full justify-start text-slate-300">
+              <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/cards' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Cards
               </Button>
             </Link>
             <Link href="/pay">
-              <Button variant="ghost" className="w-full justify-start text-slate-300">
+              <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/pay' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Pay
               </Button>
             </Link>
             <Link href="/extension">
-              <Button variant="ghost" className="w-full justify-start text-slate-300">
+              <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/extension' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 <CreditCard className="w-4 h-4 mr-2" />
                 Extension
               </Button>
