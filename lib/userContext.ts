@@ -222,15 +222,48 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
   const totalSpend = txns.reduce((sum, t) => sum + (t.amountUsd ?? 0), 0)
 
   // Group by category (cross-card aggregate)
-  const categoryMap: Record<string, { total: number; count: number }> = {}
+  const categoryMap:    Record<string, { total: number; count: number }> = {}
+  const cardCategoryMap: Record<string, Record<string, { total: number; count: number }>> = {}
+  const merchantMap:    Record<string, { total: number; count: number; categories: Record<string, number>; cardCounts: Record<string, number> }> = {}
+  const cardMerchantMap: Record<string, Record<string, { total: number; count: number }>> = {}
+  const monthBuckets:   Record<string, Record<string, number>> = {}
   let emiCount = 0
 
   for (const tx of txns) {
-    const cat = tx.category ?? 'other'
+    const cat   = tx.category ?? 'other'
+    const cid   = tx.cardId
+    const m     = (tx.merchant ?? 'unknown').toLowerCase().trim()
+    const month = (tx.createdAt as Date).toISOString().slice(0, 7)
+    const amt   = tx.amountUsd ?? 0
+
+    // cross-card category aggregate
     if (!categoryMap[cat]) categoryMap[cat] = { total: 0, count: 0 }
-    categoryMap[cat].total += tx.amountUsd ?? 0
+    categoryMap[cat].total += amt
     categoryMap[cat].count += 1
     if (tx.isEmi) emiCount++
+
+    // per-card category
+    if (!cardCategoryMap[cid]) cardCategoryMap[cid] = {}
+    if (!cardCategoryMap[cid][cat]) cardCategoryMap[cid][cat] = { total: 0, count: 0 }
+    cardCategoryMap[cid][cat].total += amt
+    cardCategoryMap[cid][cat].count += 1
+
+    // global merchant
+    if (!merchantMap[m]) merchantMap[m] = { total: 0, count: 0, categories: {}, cardCounts: {} }
+    merchantMap[m].total += amt
+    merchantMap[m].count += 1
+    merchantMap[m].categories[cat] = (merchantMap[m].categories[cat] ?? 0) + 1
+    merchantMap[m].cardCounts[cid] = (merchantMap[m].cardCounts[cid] ?? 0) + 1
+
+    // per-card merchant
+    if (!cardMerchantMap[cid]) cardMerchantMap[cid] = {}
+    if (!cardMerchantMap[cid][m]) cardMerchantMap[cid][m] = { total: 0, count: 0 }
+    cardMerchantMap[cid][m].total += amt
+    cardMerchantMap[cid][m].count += 1
+
+    // monthly trend
+    if (!monthBuckets[month]) monthBuckets[month] = {}
+    monthBuckets[month][cat] = (monthBuckets[month][cat] ?? 0) + amt
   }
 
   const categoryBreakdown = Object.entries(categoryMap)
@@ -242,18 +275,6 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
       avgTxSizeUsd: parseFloat((data.total / data.count).toFixed(2)),
     }))
     .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
-
-  // Per-card category grouping
-  const cardCategoryMap: Record<string, Record<string, { total: number; count: number }>> = {}
-
-  for (const tx of txns) {
-    const cid = tx.cardId
-    const cat = tx.category ?? 'other'
-    if (!cardCategoryMap[cid]) cardCategoryMap[cid] = {}
-    if (!cardCategoryMap[cid][cat]) cardCategoryMap[cid][cat] = { total: 0, count: 0 }
-    cardCategoryMap[cid][cat].total += tx.amountUsd ?? 0
-    cardCategoryMap[cid][cat].count += 1
-  }
 
   const cardCategoryBreakdown: SpendingBehaviour['cardCategoryBreakdown'] = {}
 
@@ -269,23 +290,6 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
       .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
   }
 
-  // Global merchant map
-  const merchantMap: Record<string, {
-    total: number
-    count: number
-    categories: Record<string, number>
-    cardCounts: Record<string, number>
-  }> = {}
-
-  for (const tx of txns) {
-    const m = (tx.merchant ?? 'unknown').toLowerCase().trim()
-    if (!merchantMap[m]) merchantMap[m] = { total: 0, count: 0, categories: {}, cardCounts: {} }
-    merchantMap[m].total += tx.amountUsd ?? 0
-    merchantMap[m].count += 1
-    merchantMap[m].categories[tx.category ?? 'other'] = (merchantMap[m].categories[tx.category ?? 'other'] ?? 0) + 1
-    merchantMap[m].cardCounts[tx.cardId] = (merchantMap[m].cardCounts[tx.cardId] ?? 0) + 1
-  }
-
   const topMerchants = Object.entries(merchantMap)
     .map(([merchant, data]) => ({
       merchant,
@@ -297,18 +301,6 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
     .sort((a, b) => b.txCount - a.txCount)
     .slice(0, 10)
 
-  // Per-card top merchants
-  const cardMerchantMap: Record<string, Record<string, { total: number; count: number }>> = {}
-
-  for (const tx of txns) {
-    const cid = tx.cardId
-    const m = (tx.merchant ?? 'unknown').toLowerCase().trim()
-    if (!cardMerchantMap[cid]) cardMerchantMap[cid] = {}
-    if (!cardMerchantMap[cid][m]) cardMerchantMap[cid][m] = { total: 0, count: 0 }
-    cardMerchantMap[cid][m].total += tx.amountUsd ?? 0
-    cardMerchantMap[cid][m].count += 1
-  }
-
   const cardTopMerchants: SpendingBehaviour['cardTopMerchants'] = {}
   for (const [cid, mMap] of Object.entries(cardMerchantMap)) {
     cardTopMerchants[cid] = Object.entries(mMap)
@@ -319,16 +311,6 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
       }))
       .sort((a, b) => b.txCount - a.txCount)
       .slice(0, 5)
-  }
-
-  // Monthly trend bucketing
-  const monthBuckets: Record<string, Record<string, number>> = {}
-
-  for (const tx of txns) {
-    const month = (tx.createdAt as Date).toISOString().slice(0, 7)
-    const cat = tx.category ?? 'other'
-    if (!monthBuckets[month]) monthBuckets[month] = {}
-    monthBuckets[month][cat] = (monthBuckets[month][cat] ?? 0) + (tx.amountUsd ?? 0)
   }
 
   const monthlyTrend = Object.entries(monthBuckets)

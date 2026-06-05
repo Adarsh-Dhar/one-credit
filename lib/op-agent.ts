@@ -226,7 +226,7 @@ export interface OPAgentInput {
   userMonthlyTxns?: number
   riskFreeRatePercent?: number
   billingCycleDays?: number
-  userContext?: UserContext              // ← new: real user state
+  userContext?: UserContext              // optional: real user state passed from buildUserContext
 }
 
 export interface CardOPResult {
@@ -338,7 +338,7 @@ ${JSON.stringify(input.userContext.cards.map(c => ({
   aprPct: c.standardAprPct,
   pointsBalance: c.pointsBalance,
   pointsValueUsd: c.pointsValueUsd,
-  opTokenState: c.opTokenState,           // ← add this line
+  opTokenState: c.opTokenState,
   categoryCapProgress: c.categoryCapProgress,
   annualSpendUsd: c.annualSpendUsd,
 })), null, 2)}
@@ -519,7 +519,7 @@ For EACH card, reason through all 5 steps and produce a JSON result.
 - floatValueUsd = ${input.product.price} * ${riskFreeRate} * (${billingDays} / 365)
 
 ### Step 5 — NetCost
-- Apply RULE 13 (foreign transaction fee): If isForeignMerchant = true AND foreignTxnFeePct > 0: foreignFeeUsd = price * foreignTxnFeePct / 100. Else: foreignFeeUsd = 0.
+- Foreign transaction fee: If isForeignMerchant = true AND foreignTxnFeePct > 0: foreignFeeUsd = price * foreignTxnFeePct / 100. Else: foreignFeeUsd = 0.
 - netCost = price - trueRewardValueUsd + feeBurdenUsd - floatValueUsd + foreignFeeUsd
 - industryCost = price - industryRewardValue + feeBurdenUsd - floatValueUsd + foreignFeeUsd
 - savings = industryCost - netCost  (how much better than industry)
