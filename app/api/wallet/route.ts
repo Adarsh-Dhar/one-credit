@@ -1,9 +1,10 @@
 // app/api/wallet/route.ts
 import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
+import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models/User';
-import { FiatCard } from '@/lib/models/FiatCard';
+import { FiatCard, IFiatCard } from '@/lib/models/FiatCard';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 function getCardColor(cardType: string, network: string): string {
   const typeColors: Record<string, string> = {
@@ -29,16 +30,27 @@ function getCardColor(cardType: string, network: string): string {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const email = searchParams.get('email');
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  if (!email) {
-    return NextResponse.json({ error: 'Email required' }, { status: 400 });
-  }
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
 
-  await connectDB();
-  
-  let user = await User.findOne({ email }).lean() as any;
+    if (!email) {
+      return NextResponse.json({ error: 'Email required' }, { status: 400 });
+    }
+
+    // Verify the requested email matches the authenticated user
+    if (session.user.email !== email) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    await connectDB();
+
+    const user = await User.findOne({ email }).lean();
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -46,11 +58,11 @@ export async function GET(request: Request) {
 
   // Get fiat cards from database with actual balances using the user's actual ID
   const userId = user._id?.toString();
-  const fiatCards = await FiatCard.find({ user_id: userId }).lean();
+  const fiatCards = await FiatCard.find({ user_id: userId }).lean() as IFiatCard[];
 
   // Calculate total value from credit_token_balance (rewards) not current_balance_owed (debt)
   let totalValue = 0;
-  const cardDetails = fiatCards.map((card: any) => {
+  const cardDetails = fiatCards.map((card) => {
     const creditTokenBalance = card.credit_token_balance || 0;
     const pointsBalance = card.points_balance || 0;
     const pointsValueCents = card.points_value_cents || 1.0;
@@ -124,4 +136,8 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json({ totalValue, cards: cardDetails });
+  } catch (error) {
+    console.error('[GET /api/wallet]', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

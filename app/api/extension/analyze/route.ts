@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 import { runOPAgent } from '@/lib/op-agent'
 import { connectDB } from '@/lib/mongodb'
 import { FiatCard } from '@/lib/models/FiatCard'
 import { buildUserContext } from '@/lib/userContext'
 import { inferCategory } from '@/lib/utils'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { product, userId } = await request.json()
 
     if (!product) {
@@ -15,6 +22,11 @@ export async function POST(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+    }
+
+    // Verify the requested userId matches the authenticated user
+    if (session.user.id !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const apiKey = process.env.GOOGLE_API_KEY

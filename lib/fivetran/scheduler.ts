@@ -52,7 +52,7 @@ async function runRewardsSyncCycle(): Promise<void> {
       .map((c) => `${c.source}:${c.recordsUpserted}`)
       .join(', ');
     console.log(
-      `[FivetranScheduler] Sync ${report.syncId.slice(0, 8)} — ${summary} (${report.totalMs}ms)` 
+      `[FivetranScheduler] Sync ${report.syncId.slice(0, 8)} — ${summary} (${report.totalMs}ms)`
     );
   } catch (err) {
     console.error('[FivetranScheduler] Sync error:', err);

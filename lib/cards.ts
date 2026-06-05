@@ -108,9 +108,9 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
 
   // Calculate default balance based on currency type - use credit_token_balance (rewards) not current_balance_owed (debt)
   let defaultBalance = 0;
-  if (currency_type === 'POINTS') defaultBalance = (fiatCard as any).points_balance || 30000;
+  if (currency_type === 'POINTS') defaultBalance = fiatCard.points_balance || 30000;
   else if (currency_type === 'MILES') defaultBalance = 50000;
-  else defaultBalance = (fiatCard as any).credit_token_balance || 150;
+  else defaultBalance = fiatCard.credit_token_balance || 150;
 
 
   // Combine perks
@@ -141,7 +141,10 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
 }
 
 // Fetch cards from database
-export async function getCards(userId: string = 'usr_88374'): Promise<CardDefinition[]> {
+export async function getCards(userId: string): Promise<CardDefinition[]> {
+  if (!userId) {
+    throw new Error('userId is required');
+  }
   try {
     await connectDB();
     const fiatCards = await FiatCard.find({ user_id: userId }).lean();
@@ -153,7 +156,10 @@ export async function getCards(userId: string = 'usr_88374'): Promise<CardDefini
 }
 
 // Helper: get a card by key
-export async function getCard(key: CardKey, userId: string = 'usr_88374'): Promise<CardDefinition | undefined> {
+export async function getCard(key: CardKey, userId: string): Promise<CardDefinition | undefined> {
+  if (!userId) {
+    throw new Error('userId is required');
+  }
   try {
     await connectDB();
     const fiatCard = await FiatCard.findOne({ user_id: userId, card_id: key }).lean();

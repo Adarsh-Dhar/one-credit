@@ -34,26 +34,19 @@ const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log('Authorize called with:', credentials?.email);
         if (!credentials?.email || !credentials?.password) {
-          console.log('Missing credentials');
           return null;
         }
         try {
           await connectDB();
           const user = await User.findOne({ email: credentials.email }).select("+password");
-          console.log('User found:', user ? 'yes' : 'no');
           if (!user || !user.password) {
-            console.log('No user or password');
             return null;
           }
           const isValid = await bcrypt.compare(credentials.password, user.password);
-          console.log('Password valid:', isValid);
           if (!isValid) return null;
-          console.log('Returning user:', { id: user._id.toString(), email: user.email, name: user.name });
           return { id: user._id.toString(), email: user.email, name: user.name };
         } catch (error) {
-          console.error('Authorize error:', error);
           return null;
         }
       },
@@ -63,12 +56,10 @@ const authOptions: NextAuthOptions = {
   pages: { signIn: "/auth/signin" },
   callbacks: {
     async jwt({ token, user }) {
-      console.log('JWT callback:', { token, user });
       if (user) token.id = user.id;
       return token;
     },
     async session({ session, token }) {
-      console.log('Session callback:', { session, token });
       if (session.user) session.user.id = token.id as string;
       return session;
     },
@@ -80,3 +71,4 @@ const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
+export { authOptions };

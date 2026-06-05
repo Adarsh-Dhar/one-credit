@@ -2,24 +2,30 @@
 //
 // GET  /api/fiat-cards?userId=<id>   → returns all FiatCards for that user
 // POST /api/fiat-cards               → creates a new FiatCard
-//
-// Example GET:
-//   fetch('/api/fiat-cards?userId=usr_88374')
-//
-// Example POST body:
-//   { ...card payload matching IFiatCard }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
 import { FiatCard } from '@/lib/models/FiatCard';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     await connectDB();
 
     const userId = req.nextUrl.searchParams.get('userId');
     if (!userId) {
       return NextResponse.json({ error: 'userId query param is required' }, { status: 400 });
+    }
+
+    // Verify the requested userId matches the authenticated user
+    if (session.user.id !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const cards = await FiatCard.find({ user_id: userId }).lean();
@@ -32,6 +38,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     await connectDB();
 
     const body = await req.json();
@@ -39,6 +50,11 @@ export async function POST(req: NextRequest) {
 
     if (!user_id || !card_id) {
       return NextResponse.json({ error: 'user_id and card_id are required' }, { status: 400 });
+    }
+
+    // Verify the requested userId matches the authenticated user
+    if (session.user.id !== user_id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Upsert: update if exists, create if not

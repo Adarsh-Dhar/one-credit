@@ -6,165 +6,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { UserContext } from './userContext'
 
-// ─── Indian card knowledge base ──────────────────────────────────────────────
-// This is what the agent reasons over. Add more cards here as needed.
-
-export const INDIAN_CARD_KB: Record<string, CardKnowledge> = {
-  hdfc_regalia_gold: {
-    name: 'HDFC Regalia Gold',
-    issuer: 'HDFC Bank',
-    annualFeeUsd: 27.78,
-    gstOnFee: 0.18,
-    earnRules: [
-      { merchant: 'amazon.in', rate: 4, per: 1.67, currency: 'points', notes: 'Standard rate. Not excluded.' },
-      { merchant: 'flipkart', rate: 4, per: 1.67, currency: 'points' },
-      { merchant: 'all', rate: 4, per: 1.67, currency: 'points' },
-    ],
-    emiEarnRate: 0,
-    monthlyCapPoints: 10000,
-    excludedCategories: ['fuel', 'rent', 'utilities', 'insurance'],
-    redemptionPaths: [
-      { name: 'Cashback / statement credit', ratePerPoint: 0.50 },
-      { name: 'HDFC Rewards catalog', ratePerPoint: 0.65 },
-      { name: 'SmartBuy vouchers (Amazon/Flipkart)', ratePerPoint: 0.80 },
-      { name: 'SmartBuy domestic flights', ratePerPoint: 1.00 },
-      { name: 'SmartBuy international flights / Air India miles', ratePerPoint: 1.20 },
-    ],
-    bestRedemptionRatePerPoint: 1.20,
-    bestRedemptionName: 'SmartBuy international flights',
-    statementCredits: [],
-    portalBonuses: [],
-    rotatingCategory: null,
-    milestoneBonuses: [],
-    feeWaiverSpendUsd: null,
-    foreignTxnFeePct: 0,
-  },
-  amazon_pay_icici: {
-    name: 'Amazon Pay ICICI',
-    issuer: 'ICICI Bank',
-    annualFeeUsd: 0,
-    gstOnFee: 0,
-    earnRules: [
-      { merchant: 'amazon.in', rate: 5, per: 100, currency: 'cashback', notes: 'Prime members. Direct cashback, no conversion needed.' },
-      { merchant: 'amazon.in', rate: 3, per: 100, currency: 'cashback', notes: 'Non-Prime members.' },
-      { merchant: 'all', rate: 1, per: 100, currency: 'cashback' },
-    ],
-    emiEarnRate: 0,
-    monthlyCapPoints: null,
-    excludedCategories: ['fuel'],
-    redemptionPaths: [
-      { name: 'Amazon Pay balance (direct)', ratePerPoint: 1.00 },
-    ],
-    bestRedemptionRatePerPoint: 1.00,
-    bestRedemptionName: 'Amazon Pay balance',
-    statementCredits: [],
-    portalBonuses: [],
-    rotatingCategory: null,
-    milestoneBonuses: [],
-    feeWaiverSpendUsd: null,
-    foreignTxnFeePct: 0,
-  },
-  axis_magnus: {
-    name: 'Axis Magnus',
-    issuer: 'Axis Bank',
-    annualFeeUsd: 138.89,
-    gstOnFee: 0.18,
-    earnRules: [
-      { merchant: 'all', rate: 12, per: 2.22, currency: 'EDGE Miles', notes: '12 EDGE Miles per $2.22.' },
-      { merchant: 'travel_partners', rate: 35, per: 2.22, currency: 'EDGE Miles', notes: '35 EDGE Miles per $2.22 on travel partners.' },
-    ],
-    emiEarnRate: 0,
-    monthlyCapPoints: 50000,
-    excludedCategories: ['fuel', 'emi', 'rent', 'wallets'],
-    redemptionPaths: [
-      { name: 'EDGE Rewards catalog', ratePerPoint: 1.00 },
-      { name: 'Air India miles transfer (1:1)', ratePerPoint: 1.60 },
-      { name: 'Business class redemption via Air India', ratePerPoint: 2.40 },
-    ],
-    bestRedemptionRatePerPoint: 2.40,
-    bestRedemptionName: 'Business class via Air India miles',
-    statementCredits: [],
-    portalBonuses: [],
-    rotatingCategory: null,
-    milestoneBonuses: [],
-    feeWaiverSpendUsd: null,
-    foreignTxnFeePct: 0,
-  },
-  sbi_simplyclick: {
-    name: 'SBI SimplyCLICK',
-    issuer: 'SBI Card',
-    annualFeeUsd: 5.54,
-    gstOnFee: 0.18,
-    earnRules: [
-      { merchant: 'amazon.in', rate: 10, per: 100, currency: 'points', notes: '10x points on Amazon.' },
-      { merchant: 'flipkart', rate: 10, per: 100, currency: 'points' },
-      { merchant: 'all', rate: 1, per: 100, currency: 'points' },
-    ],
-    emiEarnRate: 0,
-    monthlyCapPoints: null,
-    excludedCategories: ['fuel', 'utilities'],
-    redemptionPaths: [
-      { name: 'Statement credit', ratePerPoint: 0.25 },
-      { name: 'Rewards catalog', ratePerPoint: 0.25 },
-    ],
-    bestRedemptionRatePerPoint: 0.25,
-    bestRedemptionName: 'Statement credit (only option)',
-    statementCredits: [],
-    portalBonuses: [],
-    rotatingCategory: null,
-    milestoneBonuses: [],
-    feeWaiverSpendUsd: null,
-    foreignTxnFeePct: 0,
-  },
-  hdfc_millennia: {
-    name: 'HDFC Millennia',
-    issuer: 'HDFC Bank',
-    annualFeeUsd: 11.11,
-    gstOnFee: 0.18,
-    earnRules: [
-      { merchant: 'amazon.in', rate: 5, per: 100, currency: 'cashback', notes: '5% cashback on Amazon, Flipkart, Myntra via SmartBuy.' },
-      { merchant: 'all', rate: 1, per: 100, currency: 'cashback' },
-    ],
-    emiEarnRate: 0,
-    monthlyCapPoints: 1000,
-    excludedCategories: ['fuel', 'emi', 'rent'],
-    redemptionPaths: [
-      { name: 'Cashback to statement', ratePerPoint: 1.00 },
-    ],
-    bestRedemptionRatePerPoint: 1.00,
-    bestRedemptionName: 'Direct cashback',
-    statementCredits: [],
-    portalBonuses: [],
-    rotatingCategory: null,
-    milestoneBonuses: [],
-    feeWaiverSpendUsd: null,
-    foreignTxnFeePct: 0,
-  },
-  icici_coral: {
-    name: 'ICICI Coral',
-    issuer: 'ICICI Bank',
-    annualFeeUsd: 5.56,
-    gstOnFee: 0.18,
-    earnRules: [
-      { merchant: 'all', rate: 2, per: 100, currency: 'PAYBACK points' },
-    ],
-    emiEarnRate: 0,
-    monthlyCapPoints: null,
-    excludedCategories: ['fuel', 'emi'],
-    redemptionPaths: [
-      { name: 'PAYBACK redemption', ratePerPoint: 0.25 },
-    ],
-    bestRedemptionRatePerPoint: 0.25,
-    bestRedemptionName: 'PAYBACK catalog',
-    statementCredits: [],
-    portalBonuses: [],
-    rotatingCategory: null,
-    milestoneBonuses: [],
-    feeWaiverSpendUsd: null,
-    foreignTxnFeePct: 0,
-  },
-}
-
 export interface CardKnowledge {
   name: string
   issuer: string
@@ -222,7 +63,7 @@ export interface OPAgentInput {
     isForeignMerchant: boolean
   }
   cards: string[]
-  cardKnowledgeMap?: Record<string, CardKnowledge>
+  cardKnowledgeMap: Record<string, CardKnowledge>
   userMonthlyTxns?: number
   riskFreeRatePercent?: number
   billingCycleDays?: number
@@ -291,8 +132,11 @@ export async function runOPAgent(input: OPAgentInput, geminiApiKey: string): Pro
   const riskFreeRate = (input.riskFreeRatePercent ?? 7) / 100
   const billingDays = input.billingCycleDays ?? 30
 
-  // Use provided cardKnowledgeMap if available, otherwise fall back to INDIAN_CARD_KB
-  const cardKB = input.cardKnowledgeMap || INDIAN_CARD_KB
+  // cardKnowledgeMap is now required
+  const cardKB = input.cardKnowledgeMap
+  if (!cardKB) {
+    throw new Error('cardKnowledgeMap is required')
+  }
 
   const cardKBSubset = input.cards
     .filter(k => cardKB[k])

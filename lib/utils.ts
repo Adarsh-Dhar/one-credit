@@ -8,10 +8,10 @@ export function cn(...inputs: ClassValue[]) {
 // Infer category intelligently from product name
 export function inferCategory(productName: string, merchant: string): string {
   const name = productName.toLowerCase()
-  if (/date|dry fruit|nuts|cashew|almond|raisin|walnut|apricot|fig|pista/.test(name)) return 'grocer'
-  if (/rice|dal|flour|oil|sugar|salt|spice|masala|pulses|atta/.test(name)) return 'grocer'
-  if (/biscuit|cookie|chocolate|candy|snack|chips|popcorn/.test(name)) return 'grocer'
-  if (/milk|curd|paneer|cheese|butter|ghee|cream/.test(name)) return 'grocer'
+  if (/date|dry fruit|nuts|cashew|almond|raisin|walnut|apricot|fig|pista/.test(name)) return 'grocery'
+  if (/rice|dal|flour|oil|sugar|salt|spice|masala|pulses|atta/.test(name)) return 'grocery'
+  if (/biscuit|cookie|chocolate|candy|snack|chips|popcorn/.test(name)) return 'grocery'
+  if (/milk|curd|paneer|cheese|butter|ghee|cream/.test(name)) return 'grocery'
   if (/shampoo|soap|toothpaste|facewash|moisturizer|sunscreen/.test(name)) return 'personal care'
   if (/phone|mobile|laptop|tablet|earphone|headphone|charger|cable|speaker|camera/.test(name)) return 'electronics'
   if (/shirt|pant|jeans|dress|saree|kurta|jacket|shoe|sandal/.test(name)) return 'fashion'

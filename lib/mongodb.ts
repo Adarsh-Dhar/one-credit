@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/omni-wallet';
+if (!process.env.MONGODB_URI) {
+  throw new Error('MONGODB_URI is not set in environment variables');
+}
+
+const MONGODB_URI = process.env.MONGODB_URI;
 
 let cached = global.mongoose;
 
@@ -14,9 +18,7 @@ export async function connectDB() {
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => {
-      return mongoose;
-    });
+    cached.promise = mongoose.connect(MONGODB_URI);
   }
 
   cached.conn = await cached.promise;
@@ -26,6 +28,6 @@ export async function connectDB() {
 declare global {
   var mongoose: {
     conn: typeof mongoose | null;
-    promise: Promise<typeof mongoose> | null;
+    promise: Promise<any> | null;
   };
 }

@@ -16,29 +16,32 @@ declare global {
 export function ExtensionSessionBridge() {
   const { data: session } = useSession()
 
-  console.log('[OneCredit] ExtensionSessionBridge mounted, session:', !!session)
+  const log = process.env.NODE_ENV === 'development' ? console.log : () => {}
+  const logWarn = process.env.NODE_ENV === 'development' ? console.warn : () => {}
+
+  log('[OneCredit] ExtensionSessionBridge mounted, session:', !!session)
 
   useEffect(() => {
-    console.log('[OneCredit] ExtensionSessionBridge useEffect triggered', { session: !!session, user: !!session?.user })
+    log('[OneCredit] ExtensionSessionBridge useEffect triggered', { session: !!session, user: !!session?.user })
 
     if (!session?.user) {
-      console.log('[OneCredit] No session user yet')
+      log('[OneCredit] No session user yet')
       return
     }
 
     const extId = process.env.NEXT_PUBLIC_EXTENSION_ID
-    console.log('[OneCredit] ExtensionSessionBridge: session detected', { email: session.user.email, extId, userId: session.user.id })
+    log('[OneCredit] ExtensionSessionBridge: session detected', { email: session.user.email, extId, userId: session.user.id })
     if (!extId) {
-      console.warn('[OneCredit] NEXT_PUBLIC_EXTENSION_ID is not set — extension will not receive session')
+      logWarn('[OneCredit] NEXT_PUBLIC_EXTENSION_ID is not set — extension will not receive session')
       return
     }
     if (!window.chrome?.runtime?.sendMessage) {
-      console.warn('[OneCredit] chrome.runtime.sendMessage not available')
+      logWarn('[OneCredit] chrome.runtime.sendMessage not available')
       return
     }
 
     try {
-      console.log('[OneCredit] Sending SET_USER_SESSION to extension', extId)
+      log('[OneCredit] Sending SET_USER_SESSION to extension', extId)
       window.chrome.runtime.sendMessage(
         extId,
         {
@@ -51,16 +54,16 @@ export function ExtensionSessionBridge() {
         },
         (response) => {
           if (window.chrome?.runtime?.lastError) {
-            console.warn('[OneCredit] Extension message failed:', window.chrome.runtime.lastError.message)
+            logWarn('[OneCredit] Extension message failed:', window.chrome.runtime.lastError.message)
           } else {
-            console.log('[OneCredit] Extension message sent successfully', response)
+            log('[OneCredit] Extension message sent successfully', response)
           }
         }
       )
     } catch (e) {
-      console.warn('[OneCredit] Extension message error:', e)
+      logWarn('[OneCredit] Extension message error:', e)
     }
-  }, [session])
+  }, [session, log, logWarn])
 
   return null
 }

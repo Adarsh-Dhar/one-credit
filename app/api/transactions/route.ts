@@ -1,24 +1,46 @@
 // app/api/transactions/route.ts  (new file)
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
 import { Transaction } from '@/lib/models/Transaction';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  if (!userId) {
-    return NextResponse.json({ error: 'UserId required' }, { status: 400 });
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return NextResponse.json({ error: 'UserId required' }, { status: 400 });
+    }
+
+    // Verify the requested userId matches the authenticated user
+    if (session.user.id !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    await connectDB();
+    const transactions = await Transaction.find({ userId }).sort({ createdAt: -1 }).limit(50).lean();
+
+    return NextResponse.json({ transactions });
+  } catch (error) {
+    console.error('[GET /api/transactions]', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  await connectDB();
-  const transactions = await Transaction.find({ userId }).sort({ createdAt: -1 }).limit(50).lean();
-
-  return NextResponse.json({ transactions });
 }
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       userId, type, amountUsd, cardId, category, merchant,
@@ -27,6 +49,11 @@ export async function POST(request: Request) {
 
     if (!userId || !type) {
       return NextResponse.json({ error: 'userId and type required' }, { status: 400 });
+    }
+
+    // Verify the requested userId matches the authenticated user
+    if (session.user.id !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     await connectDB();

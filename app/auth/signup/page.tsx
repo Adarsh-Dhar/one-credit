@@ -22,7 +22,6 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      console.log('Signup attempt:', { name, email });
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,12 +29,10 @@ export default function SignUpPage() {
       });
 
       const data = await response.json();
-      console.log('Signup response:', data);
 
       if (!response.ok) {
         setError(data.error || 'Failed to create account');
       } else {
-        console.log('Signup successful, redirecting to signin');
         router.push('/auth/signin');
       }
     } catch (error) {
