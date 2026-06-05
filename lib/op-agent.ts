@@ -352,7 +352,23 @@ ${JSON.stringify(input.userContext.cards.map(c => ({
 - Grocery dominant: ${input.userContext.behaviour.isGroceryDominant}
 - EMI transaction rate: ${input.userContext.behaviour.emiTransactionPct}%
 - Actual avg CPP achieved historically: ${input.userContext.behaviour.actualAvgCppAchieved ?? 'no redemption history'}
+- Total points redeemed (90d): ${input.userContext.behaviour.totalPointsRedeemed90d}
+- Redemption count (90d): ${input.userContext.behaviour.redemptionCount90d}
 - Category breakdown: ${JSON.stringify(input.userContext.behaviour.categoryBreakdown, null, 2)}
+
+### Per-card spending patterns (last 90 days)
+${JSON.stringify(input.userContext.behaviour.cardCategoryBreakdown, null, 2)}
+
+### Per-card top merchants
+${JSON.stringify(input.userContext.behaviour.cardTopMerchants, null, 2)}
+
+### Top merchants (cross-card, by frequency)
+${JSON.stringify(input.userContext.behaviour.topMerchants.slice(0, 8), null, 2)}
+
+### Spend trend
+- Month-over-month change: ${input.userContext.behaviour.momSpendChangePct !== null ? input.userContext.behaviour.momSpendChangePct + '%' : 'insufficient data'}
+- Fastest growing category: ${input.userContext.behaviour.fastestGrowingCategory ?? 'none'}
+- Monthly breakdown: ${JSON.stringify(input.userContext.behaviour.monthlyTrend, null, 2)}
 
 ### Cross-card OP token pool
 - totalOpTokens: ${input.userContext.totalOpTokens}
@@ -452,6 +468,22 @@ For each card where opTokenState is not null AND opTokenState.minRedeemThreshold
     Set opVelocityBonus = velocityBonus in output.
     Note in reasoning: "Near OP redemption tier — prioritising highest token velocity to reach threshold faster."
   Else: opVelocityBonus = 0.
+
+RULE 15 — Respect existing card habits:
+Before recommending a card for a category, check cardCategoryBreakdown.
+If the winning card is NOT the card the user already uses most for this category:
+  Look up cardCategoryBreakdown[winningCardId] — does this card appear at all for this category?
+  If the user has never used the winning card for this category, add a note:
+    "Note: you currently use [currentCard] for [category] — switching to [winningCard] would earn [X]¢ more per $1."
+  If the user already uses the winning card for this category:
+    Add: "You are already using the optimal card for [category]."
+
+RULE 16 — Trend-aware recommendation:
+If momSpendChangePct is not null AND fastestGrowingCategory is not null:
+  If fastestGrowingCategory matches the purchase category AND momSpendChangePct > 20:
+    Note in reasoning: "Your [category] spend is up [X]% this month — optimising this category has higher impact than usual."
+  If the purchase merchant appears in topMerchants (txCount >= 3):
+    Note: "You shop at [merchant] frequently ([N] times in 90 days) — a card with a [merchant] portal bonus would compound well here."
 ` : ''}
 
 ## Your task
