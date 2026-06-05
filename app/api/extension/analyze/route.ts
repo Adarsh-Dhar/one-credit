@@ -89,7 +89,9 @@ export async function POST(request: NextRequest) {
     for (const card of userContext.cards) {
       const cardKey = card.cardId
       const dbCard = dbCardMap.get(cardKey)
-      if (!dbCard) continue
+      if (!dbCard) {
+continue
+}
 
       // Extract earn rules from rewards_structure
       const earnRules: CardKnowledge['earnRules'] = [

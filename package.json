@@ -2,11 +2,13 @@
   "name": "my-project",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "seed": "ts-node --project tsconfig.json scripts/seed-cards.ts"
@@ -77,6 +79,7 @@
     "vite": "^8.0.16"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@google-cloud/vertexai": "^1.12.0",
     "@tailwindcss/postcss": "^4.2.0",
     "@testing-library/jest-dom": "^6.9.1",
@@ -86,8 +89,15 @@
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
     "axios": "^1.16.1",
     "dotenv": "^17.4.2",
+    "eslint": "^10.4.1",
+    "eslint-config-next": "^16.2.7",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "jest": "^30.4.2",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "zip": "cd dist && zip -r ../one-credit-extension.zip . && cd .."
+    "zip": "cd dist && zip -r ../one-credit-extension.zip . && cd ..",
+    "lint": "eslint src --ext .ts,.tsx --no-ignore",
+    "lint:fix": "eslint src --ext .ts,.tsx --no-ignore --fix"
   },
   "dependencies": {
     "framer-motion": "^11.0.0",
@@ -19,8 +21,13 @@
     "@types/chrome": "^0.1.42",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.5.0",
+    "eslint": "^10.4.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.5.15",
     "tailwindcss": "3.4.0",
     "terser": "^5.48.0",

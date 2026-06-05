@@ -148,19 +148,33 @@ function normalizeAffiliateOffer(deal: any, syncId: string) {
 
 function inferCategoryFromNetwork(merchantName: string): string {
   const name = merchantName.toLowerCase();
-  if (/hotel|hilton|ritz|marriott|inn/.test(name)) return 'travel';
-  if (/air|british|delta|flight/.test(name)) return 'travel';
-  if (/restaurant|nobu|dining|michelin/.test(name)) return 'dining';
-  if (/rental|hertz/.test(name)) return 'travel';
-  if (/apple|best buy/.test(name)) return 'shopping';
-  if (/lounge|priority/.test(name)) return 'travel';
+  if (/hotel|hilton|ritz|marriott|inn/.test(name)) {
+return 'travel';
+}
+  if (/air|british|delta|flight/.test(name)) {
+return 'travel';
+}
+  if (/restaurant|nobu|dining|michelin/.test(name)) {
+return 'dining';
+}
+  if (/rental|hertz/.test(name)) {
+return 'travel';
+}
+  if (/apple|best buy/.test(name)) {
+return 'shopping';
+}
+  if (/lounge|priority/.test(name)) {
+return 'travel';
+}
   return 'shopping';
 }
 
 // ── MongoDB bulk upsert ────────────────────────────────────────────────────────
 
 async function bulkUpsertOffers(docs: ReturnType<typeof normalizeCardlyticsOffer>[]): Promise<number> {
-  if (docs.length === 0) return 0;
+  if (docs.length === 0) {
+return 0;
+}
 
   const bulkOps = docs.map((doc) => ({
     updateOne: {
@@ -280,9 +294,15 @@ export async function runRewardsSync(
   const start  = Date.now();
 
   const jobs: Promise<ConnectorSyncResult>[] = [];
-  if (sources.includes('cardlytics')) jobs.push(syncCardlyticsConnector(syncId));
-  if (sources.includes('network'))    jobs.push(syncNetworkConnector(syncId));
-  if (sources.includes('affiliate'))  jobs.push(syncAffiliateConnector(syncId));
+  if (sources.includes('cardlytics')) {
+jobs.push(syncCardlyticsConnector(syncId));
+}
+  if (sources.includes('network'))    {
+jobs.push(syncNetworkConnector(syncId));
+}
+  if (sources.includes('affiliate'))  {
+jobs.push(syncAffiliateConnector(syncId));
+}
 
   const connectors = await Promise.all(jobs);
 
@@ -329,12 +349,24 @@ export async function queryRewardsOffers(filters: {
 
   const query: Record<string, any> = {};
 
-  if (filters.activeOnly !== false) query.active = true;
-  if (filters.source)       query.source       = filters.source;
-  if (filters.category)     query.category     = { $regex: filters.category, $options: 'i' };
-  if (filters.merchantName) query.merchantName = { $regex: filters.merchantName, $options: 'i' };
-  if (filters.minRewardRate !== undefined) query.rewardRate = { $gte: filters.minRewardRate };
-  if (filters.country)      query['networkData.geoTargets.country'] = filters.country.toUpperCase();
+  if (filters.activeOnly !== false) {
+query.active = true;
+}
+  if (filters.source)       {
+query.source       = filters.source;
+}
+  if (filters.category)     {
+query.category     = { $regex: filters.category, $options: 'i' };
+}
+  if (filters.merchantName) {
+query.merchantName = { $regex: filters.merchantName, $options: 'i' };
+}
+  if (filters.minRewardRate !== undefined) {
+query.rewardRate = { $gte: filters.minRewardRate };
+}
+  if (filters.country)      {
+query['networkData.geoTargets.country'] = filters.country.toUpperCase();
+}
   if (filters.network) {
     // could be card network (VISA/MC) or affiliate network
     query.$or = [

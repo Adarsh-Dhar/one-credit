@@ -18,9 +18,13 @@ export function useWallet() {
   }, [status, router]);
 
   useEffect(() => {
-    if (status === 'loading') return;
+    if (status === 'loading') {
+return;
+}
     const email = session?.user?.email;
-    if (!email) return; // Don't fetch if not authenticated
+    if (!email) {
+return;
+} // Don't fetch if not authenticated
     setError(null);
     fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())

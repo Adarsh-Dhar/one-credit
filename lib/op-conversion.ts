@@ -175,9 +175,13 @@ export function computeTotalValue(
 
   // ── TYPE 2: Statement credits ───────────────────────────────────
   for (const credit of card.statementCredits ?? []) {
-    if (!credit.merchant_categories.includes(categoryKey)) continue;
+    if (!credit.merchant_categories.includes(categoryKey)) {
+continue;
+}
     const available = credit.amount_usd - (credit.amount_redeemed ?? 0);
-    if (available <= 0) continue;
+    if (available <= 0) {
+continue;
+}
     const fired = Math.min(available, spendAmount);
     result.creditUsd += fired;
     result.creditValue += fired;
@@ -237,13 +241,17 @@ export function computeTotalValue(
   }
   result.protectionUsd = protUsd;
   result.protectionValue = protUsd;
-  if (protUsd > 0) result.confidence = 'estimated';
+  if (protUsd > 0) {
+result.confidence = 'estimated';
+}
 
   // ── TYPE 6: Experiential perks ───────────────────────────────────
   // Check if any perk triggers based on category and add amortized value (display only)
   for (const perk of card.perks ?? []) {
     const triggers = PERK_TRIGGERS[perk];
-    if (!triggers) continue;
+    if (!triggers) {
+continue;
+}
 
     for (const trigger of triggers) {
       if (categoryKey.includes(trigger.keyword) || trigger.category === categoryKey) {

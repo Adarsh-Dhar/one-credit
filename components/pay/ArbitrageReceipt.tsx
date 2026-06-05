@@ -86,7 +86,7 @@ export function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onR
         cashReward,
         isWinner: false, // Will be set after sorting
         currency: card.currency,
-        totalValue: totalValueResult.totalUsd,
+        totalValue: totalValueResult.portalUsd,
         creditFired,
         portalBonus,
         protectionValue: totalValueResult.protectionUsd,
@@ -103,7 +103,9 @@ export function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onR
 
   useEffect(() => {
     // Dynamically load canvas-confetti only when savings >= $50
-    if (!bigSave) return;
+    if (!bigSave) {
+return;
+}
     import('canvas-confetti').then((confettiModule) => {
       const confetti = confettiModule.default;
       const end = Date.now() + 2200;
@@ -123,7 +125,9 @@ export function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onR
           origin: { x: 1, y: 0.7 },
           colors,
         });
-        if (Date.now() < end) requestAnimationFrame(frame);
+        if (Date.now() < end) {
+requestAnimationFrame(frame);
+}
       };
       frame();
     }).catch(() => {

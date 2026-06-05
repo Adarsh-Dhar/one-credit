@@ -440,9 +440,9 @@ class AffiliateStore extends EventEmitter {
     );
     if (network === 'rakuten') {
       return `https://click.linksynergy.com/fs-bin/click?id=${dealId}&offerid=123456&type=3&subid=0&tmpid=1234&RD_PN1=${encodedMerchant}`;
-    } else {
+    } 
       return `https://go2cloud.org/aff_c?offer_id=${dealId}&aff_id=12345&url=https://${encodedMerchant}.com`;
-    }
+    
   }
 
   private _generatePromoCode(): string | undefined {
@@ -502,7 +502,9 @@ class AffiliateStore extends EventEmitter {
 
   getDeal(dealId: string): AffiliateDeal | undefined {
     const rakutenDeal = this.rakutenDeals.get(dealId);
-    if (rakutenDeal) return rakutenDeal;
+    if (rakutenDeal) {
+return rakutenDeal;
+}
     return this.impactDeals.get(dealId);
   }
 

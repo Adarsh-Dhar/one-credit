@@ -39,7 +39,9 @@ async function getCollection(collectionName: string) {
 
 // Generic bulk upsert using MongoDB bulkWrite
 async function upsertMany<T extends Record<string, unknown>>(collectionName: string, documents: T[], keyField: string): Promise<number> {
-  if (documents.length === 0) return 0;
+  if (documents.length === 0) {
+return 0;
+}
 
   const collection = await getCollection(collectionName);
 

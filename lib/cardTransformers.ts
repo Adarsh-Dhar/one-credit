@@ -47,7 +47,7 @@ function getCategoryMultiplier(fixedCategories: any[], targetCategory: string): 
     streaming: 'streaming',
   };
   const normalizedTarget = categoryMap[targetCategory] || targetCategory;
-  return fixedCixedCategories.(f:iany) nd((c: any) => c.category === normalizedTarget)?.multiplier ?? 1;
+  return fixedCategories.find((c: any) => c.category === normalizedTarget)?.multiplier ?? 1;
 }
 
 export function transformFiatCardToWalletDetail(card: IFiatCard, value: number): WalletCardDetail {
@@ -102,11 +102,11 @@ export function transformFiatCardToWalletDetail(card: IFiatCard, value: number):
       ...(card.benefits_and_credits?.general_perks || []),
     ],
     annualFee: card.financials?.annual_fee || 0,
-    cardImageUrl: card.card_image_url
-    cardDescription: card.card_description
-    pros: card.pros
-    cons: card.cons
-    features: card.features
+    cardImageUrl: card.card_image_url || '',
+    cardDescription: card.card_description || '',
+    pros: card.pros || [],
+    cons: card.cons || [],
+    features: card.features || []
   };
 }
 

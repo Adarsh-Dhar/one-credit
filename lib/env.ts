@@ -34,16 +34,16 @@ const envSchema = z.object({
   SEED_SECRET: z.string().min(1, 'SEED_SECRET is required'),
 
   // Upstash Redis (for rate limiting)
-  UPSTASH_REDIS_REST_URL: z.string().url('Invalid UPSTASH_REDIS_REST_URL format'),
-  UPSTASH_REDIS_REST_TOKEN: z.string().min(1, 'UPSTASH_REDIS_REST_TOKEN is required'),
+  UPSTASH_REDIS_REST_URL: z.string().url('Invalid UPSTASH_REDIS_REST_URL format').optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(1, 'UPSTASH_REDIS_REST_TOKEN is required').optional(),
 
   // Development Origins
   ALLOWED_DEV_ORIGINS: z.string().optional().default(''),
 
   // Additional app config
-  GST_RATE: z.string().optional().transform(Number).pipe(z.number().min(0).max(1).default(0.18)),
-  RISK_FREE_RATE_PERCENT: z.string().optional().transform(Number).pipe(z.number().min(0).max(100).default(7)),
-  BILLING_CYCLE_DAYS: z.string().optional().transform(Number).pipe(z.number().int().positive().default(30)),
+  GST_RATE: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : 0.18).pipe(z.number().min(0).max(1).default(0.18)),
+  RISK_FREE_RATE_PERCENT: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : 7).pipe(z.number().min(0).max(100).default(7)),
+  BILLING_CYCLE_DAYS: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : 30).pipe(z.number().int().positive().default(30)),
 });
 
 export type Env = z.infer<typeof envSchema>;

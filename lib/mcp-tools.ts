@@ -281,7 +281,9 @@ async function refreshRates() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'refresh_rates' }),
   });
-  if (!res.ok) return { success: false, error: 'Fivetran sync failed' };
+  if (!res.ok) {
+return { success: false, error: 'Fivetran sync failed' };
+}
   return res.json();
 }
 
@@ -296,7 +298,9 @@ async function getUserBalances(userId: string) {
     $or: [{ _id: userId }, { email: userId }],
   }).lean();
 
-  if (!user) return { error: 'User not found' };
+  if (!user) {
+return { error: 'User not found' };
+}
 
   const cards = user.portfolio?.cards ?? {};
   const balances: Record<string, number> = {};
@@ -429,7 +433,9 @@ async function getSyncStatus(source?: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'get_sync_status', source }),
   });
-  if (!res.ok) return { error: 'Status check failed' };
+  if (!res.ok) {
+return { error: 'Status check failed' };
+}
   return res.json();
 }
 
@@ -444,7 +450,9 @@ async function syncRewards(
     body: JSON.stringify({ sources: sources ?? ['cardlytics', 'network', 'affiliate'] }),
     cache: 'no-store',
   });
-  if (!res.ok) return { success: false, error: 'Rewards sync failed' };
+  if (!res.ok) {
+return { success: false, error: 'Rewards sync failed' };
+}
   return res.json();
 }
 

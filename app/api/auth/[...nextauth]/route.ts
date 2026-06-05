@@ -44,7 +44,9 @@ const authOptions: NextAuthOptions = {
             return null;
           }
           const isValid = await bcrypt.compare(credentials.password, user.password);
-          if (!isValid) return null;
+          if (!isValid) {
+return null;
+}
           return { id: user._id.toString(), email: user.email, name: user.name };
         } catch (error) {
           console.error('[NextAuth] authorize error:', error);
@@ -57,11 +59,15 @@ const authOptions: NextAuthOptions = {
   pages: { signIn: "/auth/signin" },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+token.id = user.id;
+}
       return token;
     },
     async session({ session, token }) {
-      if (session.user) session.user.id = token.id as string;
+      if (session.user) {
+session.user.id = token.id as string;
+}
       return session;
     },
   },

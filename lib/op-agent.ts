@@ -437,7 +437,7 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
   let parsed: GeminiResponse
   try {
     parsed = JSON.parse(text)
-  } catch (e) {
+  } catch {
     throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 300)}`)
   }
 

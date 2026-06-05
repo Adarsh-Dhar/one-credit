@@ -2,52 +2,15 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
-import { User } from '@/lib/models/User';
 import { FiatCard, IFiatCard } from '@/lib/models/FiatCard';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { UnauthorizedError, toErrorResponse } from '@/lib/errors';
+import { toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
+import { transformFiatCardToWalletDetail } from '@/lib/cardTransformers';
 
-function getCardColor(cardType: string, network: string): string {
-  const typeColors: Record<string, string> = {
-    travel: 'from-blue-600 to-purple-600',
-    dining: 'from-orange-500 to-red-600',
-    cashback: 'from-green-500 to-emerald-600',
-    fuel: 'from-yellow-500 to-orange-600',
-    shopping: 'from-pink-500 to-rose-600',
-    crypto: 'from-violet-500 to-purple-600',
-    general: 'from-slate-500 to-slate-700',
-    business: 'from-indigo-600 to-blue-700',
-    student: 'from-cyan-500 to-blue-600',
-  };
 
-  const networkColors: Record<string, string> = {
-    AMEX: 'from-blue-500 to-blue-700',
-    VISA: 'from-blue-600 to-indigo-700',
-    MASTERCARD: 'from-orange-500 to-red-600',
-    DISCOVER: 'from-orange-400 to-orange-600',
-  };
 
-  return typeColors[cardType] || networkColors[network] || 'from-slate-600 to-slate-800';
-}
-
-function getCategoryMultiplier(categories: any[], targetCategory: string): number {
-  const categoryMap: Record<string, string> = {
-    flights: 'travel',
-    hotel: 'hotel',
-    dining: 'dining',
-    groceries: 'grocery',
-    fuel: 'gas',
-    shopping: 'shopping',
-    pharmacy: 'pharmacy',
-    electronics: 'electronics',
-    streaming: 'streaming',
-  };
-  const normalizedTarget = categoryMap[targetCategory] || targetCategory;
-  return categories.find(c => c.category === normalizedTarget)?.multiplier ?? 1;
-}
-
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {

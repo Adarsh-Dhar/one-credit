@@ -45,12 +45,14 @@ export default function Settings() {
         body: JSON.stringify({ email, geminiApiKey: apiKey }),
       });
 
-      if (!res.ok) throw new Error('Failed to save');
+      if (!res.ok) {
+throw new Error('Failed to save');
+}
 
       setSuccess(true);
       setApiKey(''); // Clear from state after saving
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
+    } catch {
       setError('Failed to save configuration. Please try again.');
     } finally {
       setLoading(false);

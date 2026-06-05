@@ -52,14 +52,28 @@ const typeToColor: Record<string, string> = {
 
 // Map points program names to TRANSFER_CPP lookup keys
 function mapProgramName(programName: string | null | undefined): string | undefined {
-  if (!programName) return undefined;
+  if (!programName) {
+return undefined;
+}
   const lower = programName.toLowerCase();
-  if (lower.includes('ultimate rewards')) return 'chase_ur';
-  if (lower.includes('membership rewards')) return 'amex_mr';
-  if (lower.includes('venture rewards')) return 'cap1_miles';
-  if (lower.includes('thankyou')) return 'citi_ty';
-  if (lower.includes('hilton honors')) return 'hilton';
-  if (lower.includes('marriott bonvoy')) return 'marriott';
+  if (lower.includes('ultimate rewards')) {
+return 'chase_ur';
+}
+  if (lower.includes('membership rewards')) {
+return 'amex_mr';
+}
+  if (lower.includes('venture rewards')) {
+return 'cap1_miles';
+}
+  if (lower.includes('thankyou')) {
+return 'citi_ty';
+}
+  if (lower.includes('hilton honors')) {
+return 'hilton';
+}
+  if (lower.includes('marriott bonvoy')) {
+return 'marriott';
+}
   return undefined;
 }
 
@@ -69,14 +83,23 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
   
   // Determine card type for UI
   let type: CardDefinition['type'] = 'general';
-  if (card_type === 'business') type = 'business';
-  else if (display_name.toLowerCase().includes('student')) type = 'student';
-  else if (currency_type === 'MILES' || display_name.toLowerCase().includes('travel') || display_name.toLowerCase().includes('sapphire')) type = 'travel';
-  else if (display_name.toLowerCase().includes('dining') || display_name.toLowerCase().includes('restaurant')) type = 'dining';
-  else if (currency_type === 'USD' || display_name.toLowerCase().includes('cash')) type = 'cashback';
-  else if (display_name.toLowerCase().includes('fuel') || display_name.toLowerCase().includes('gas')) type = 'fuel';
-  else if (display_name.toLowerCase().includes('shop') || display_name.toLowerCase().includes('online')) type = 'shopping';
-  else if (display_name.toLowerCase().includes('crypto')) type = 'crypto';
+  if (card_type === 'business') {
+type = 'business';
+} else if (display_name.toLowerCase().includes('student')) {
+type = 'student';
+} else if (currency_type === 'MILES' || display_name.toLowerCase().includes('travel') || display_name.toLowerCase().includes('sapphire')) {
+type = 'travel';
+} else if (display_name.toLowerCase().includes('dining') || display_name.toLowerCase().includes('restaurant')) {
+type = 'dining';
+} else if (currency_type === 'USD' || display_name.toLowerCase().includes('cash')) {
+type = 'cashback';
+} else if (display_name.toLowerCase().includes('fuel') || display_name.toLowerCase().includes('gas')) {
+type = 'fuel';
+} else if (display_name.toLowerCase().includes('shop') || display_name.toLowerCase().includes('online')) {
+type = 'shopping';
+} else if (display_name.toLowerCase().includes('crypto')) {
+type = 'crypto';
+}
 
   // Extract earn rates from rewards structure
   const earnRates = {
@@ -97,21 +120,39 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
       const category = cat.category.toLowerCase();
       const multiplier = cat.multiplier;
       
-      if (category.includes('travel') || category.includes('flight')) earnRates.flights = multiplier;
-      if (category.includes('hotel') || category.includes('lodging')) earnRates.hotel = multiplier;
-      if (category.includes('dining') || category.includes('restaurant')) earnRates.dining = multiplier;
-      if (category.includes('electronics') || category.includes('tech')) earnRates.electronics = multiplier;
-      if (category.includes('grocer') || category.includes('supermarket')) earnRates.groceries = multiplier;
-      if (category.includes('gas') || category.includes('fuel') || category.includes('station')) earnRates.fuel = multiplier;
-      if (category.includes('shop') || category.includes('online') || category.includes('retail')) earnRates.shopping = multiplier;
+      if (category.includes('travel') || category.includes('flight')) {
+earnRates.flights = multiplier;
+}
+      if (category.includes('hotel') || category.includes('lodging')) {
+earnRates.hotel = multiplier;
+}
+      if (category.includes('dining') || category.includes('restaurant')) {
+earnRates.dining = multiplier;
+}
+      if (category.includes('electronics') || category.includes('tech')) {
+earnRates.electronics = multiplier;
+}
+      if (category.includes('grocer') || category.includes('supermarket')) {
+earnRates.groceries = multiplier;
+}
+      if (category.includes('gas') || category.includes('fuel') || category.includes('station')) {
+earnRates.fuel = multiplier;
+}
+      if (category.includes('shop') || category.includes('online') || category.includes('retail')) {
+earnRates.shopping = multiplier;
+}
     }
   }
 
   // Calculate default balance based on currency type - use credit_token_balance (rewards) not current_balance_owed (debt)
   let defaultBalance = 0;
-  if (currency_type === 'POINTS') defaultBalance = fiatCard.points_balance || 30000;
-  else if (currency_type === 'MILES') defaultBalance = 50000;
-  else defaultBalance = fiatCard.credit_token_balance || 150;
+  if (currency_type === 'POINTS') {
+defaultBalance = fiatCard.points_balance || 30000;
+} else if (currency_type === 'MILES') {
+defaultBalance = 50000;
+} else {
+defaultBalance = fiatCard.credit_token_balance || 150;
+}
 
 
   // Combine perks
@@ -185,7 +226,9 @@ export async function getCard(key: CardKey, userId: string): Promise<CardDefinit
         features: 1,
       })
       .lean();
-    if (!fiatCard) return undefined;
+    if (!fiatCard) {
+return undefined;
+}
     return transformFiatCard(fiatCard);
   } catch (error) {
     logger.error({ error }, 'Error fetching card from database');

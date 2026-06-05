@@ -500,7 +500,9 @@ class NetworkOfferStore extends EventEmitter {
 
   getOffer(offerId: string): NetworkOffer | undefined {
     const visaOffer = this.visaOffers.get(offerId);
-    if (visaOffer) return visaOffer;
+    if (visaOffer) {
+return visaOffer;
+}
     return this.mastercardOffers.get(offerId);
   }
 

@@ -98,7 +98,9 @@ export function Popup() {
   const handleOpenOptions = () => chrome.runtime.openOptionsPage()
 
   const handleCalculate = async () => {
-    if (!product) return
+    if (!product) {
+return
+}
     setCalculating(true)
     // Open sidepanel which performs the full analysis
     await handleOpenSidePanel()

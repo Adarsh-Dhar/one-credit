@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import OneCreditTxPortal from '@/components/OneCreditTxPortal';
 
 describe('Track A - UI/Logic Tests', () => {
@@ -9,7 +8,7 @@ describe('Track A - UI/Logic Tests', () => {
       const { container } = render(<OneCreditTxPortal />);
       
       // Component starts in idle state with small pill
-      let pill = container.querySelector('[data-testid="idle-pill"]');
+      const pill = container.querySelector('[data-testid="idle-pill"]');
       expect(pill).toBeInTheDocument();
       expect(pill).toHaveClass('w-10', 'h-20');
       
@@ -26,7 +25,7 @@ describe('Track A - UI/Logic Tests', () => {
       const { container } = render(<OneCreditTxPortal />);
       
       // Start with pill
-      let pill = container.querySelector('[data-testid="idle-pill"]');
+      const pill = container.querySelector('[data-testid="idle-pill"]');
       fireEvent.click(pill!);
       
       await waitFor(() => {
@@ -45,7 +44,7 @@ describe('Track A - UI/Logic Tests', () => {
       const { container } = render(<OneCreditTxPortal />);
       
       // Go to detected state
-      let pill = container.querySelector('[data-testid="idle-pill"]');
+      const pill = container.querySelector('[data-testid="idle-pill"]');
       fireEvent.click(pill!);
       
       await waitFor(() => {
@@ -68,7 +67,7 @@ describe('Track A - UI/Logic Tests', () => {
       fireEvent.click(devCalcBtn);
       
       // Should show calculating state initially
-      let calculating = container.querySelector('[data-testid="calculating-state"]');
+      const calculating = container.querySelector('[data-testid="calculating-state"]');
       expect(calculating).toBeInTheDocument();
       
       // Wait for auto-transition

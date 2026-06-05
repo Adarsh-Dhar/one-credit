@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, X, Settings, Zap, CreditCard } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 
 // Mock data
 const mockProduct = {
@@ -195,8 +195,7 @@ export default function OneCreditTxPortal() {
             cards={mockCards}
             expandedCard={expandedCard}
             setExpandedCard={setExpandedCard}
-            selectedCard={selectedCard}
-            onSelectCard={(card) => {
+            onSelectCard={(card: any) => {
               setSelectedCard(card);
               setStep('confirmed');
             }}
@@ -358,7 +357,6 @@ function ResultsState({
   cards,
   expandedCard,
   setExpandedCard,
-  selectedCard,
   onSelectCard,
   onDismiss,
 }: any) {
@@ -409,7 +407,7 @@ function ResultsState({
 
       {/* Card List */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-        {cards.map((card, idx) => (
+        {cards.map((card: any) => (
           <CardRow
             key={card.key}
             card={card}
@@ -417,7 +415,6 @@ function ResultsState({
             onToggle={() =>
               setExpandedCard(expandedCard === card.key ? null : card.key)
             }
-            onSelect={() => onSelectCard(card.key)}
           />
         ))}
       </div>
@@ -444,7 +441,7 @@ function ResultsState({
 }
 
 // Card Row Component
-function CardRow({ card, isExpanded, onToggle, onSelect }: any) {
+function CardRow({ card, isExpanded, onToggle }: any) {
   const rankEmoji = ['🥇', '🥈', '🥉', '4️⃣'][card.rank - 1];
 
   return (

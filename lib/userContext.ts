@@ -203,8 +203,8 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
 
     // Cap progress per category
     const categoryCapProgress = (card.rewards_structure.fixed_categories ?? [])
-      .filter(fc => fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined)
-      .map(fc => ({
+      .filter((fc: any) => fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined)
+      .map((fc: any) => ({
         category: fc.category,
         spentTowardsCap: fc.current_spend_towards_cap ?? 0,
         capLimit: fc.cap_amount_usd ?? null,
@@ -276,32 +276,48 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
     const amt   = tx.amountUsd ?? 0
 
     // cross-card category aggregate
-    if (!categoryMap[cat]) categoryMap[cat] = { total: 0, count: 0 }
+    if (!categoryMap[cat]) {
+categoryMap[cat] = { total: 0, count: 0 }
+}
     categoryMap[cat].total += amt
     categoryMap[cat].count += 1
-    if (tx.isEmi) emiCount++
+    if (tx.isEmi) {
+emiCount++
+}
 
     // per-card category
-    if (!cardCategoryMap[cid]) cardCategoryMap[cid] = {}
-    if (!cardCategoryMap[cid][cat]) cardCategoryMap[cid][cat] = { total: 0, count: 0 }
+    if (!cardCategoryMap[cid]) {
+cardCategoryMap[cid] = {}
+}
+    if (!cardCategoryMap[cid][cat]) {
+cardCategoryMap[cid][cat] = { total: 0, count: 0 }
+}
     cardCategoryMap[cid][cat].total += amt
     cardCategoryMap[cid][cat].count += 1
 
     // global merchant
-    if (!merchantMap[m]) merchantMap[m] = { total: 0, count: 0, categories: {}, cardCounts: {} }
+    if (!merchantMap[m]) {
+merchantMap[m] = { total: 0, count: 0, categories: {}, cardCounts: {} }
+}
     merchantMap[m].total += amt
     merchantMap[m].count += 1
     merchantMap[m].categories[cat] = (merchantMap[m].categories[cat] ?? 0) + 1
     merchantMap[m].cardCounts[cid] = (merchantMap[m].cardCounts[cid] ?? 0) + 1
 
     // per-card merchant
-    if (!cardMerchantMap[cid]) cardMerchantMap[cid] = {}
-    if (!cardMerchantMap[cid][m]) cardMerchantMap[cid][m] = { total: 0, count: 0 }
+    if (!cardMerchantMap[cid]) {
+cardMerchantMap[cid] = {}
+}
+    if (!cardMerchantMap[cid][m]) {
+cardMerchantMap[cid][m] = { total: 0, count: 0 }
+}
     cardMerchantMap[cid][m].total += amt
     cardMerchantMap[cid][m].count += 1
 
     // monthly trend
-    if (!monthBuckets[month]) monthBuckets[month] = {}
+    if (!monthBuckets[month]) {
+monthBuckets[month] = {}
+}
     monthBuckets[month][cat] = (monthBuckets[month][cat] ?? 0) + amt
   }
 

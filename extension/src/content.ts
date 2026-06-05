@@ -36,7 +36,9 @@ function detectProduct(): Product | null {
 
     for (const block of Array.from(allPriceBlocks)) {
       // Skip if this price block is inside a struck-through container
-      if (block.closest('.a-text-price')) continue
+      if (block.closest('.a-text-price')) {
+continue
+}
       dealPriceBlock = block
       break
     }
@@ -44,14 +46,18 @@ function detectProduct(): Product | null {
     if (dealPriceBlock) {
       const whole = dealPriceBlock.querySelector('.a-price-whole')?.textContent?.replace(/[^0-9]/g, '') || ''
       const frac = dealPriceBlock.querySelector('.a-price-fraction')?.textContent?.replace(/[^0-9]/g, '') || '00'
-      if (whole) price = whole + '.' + frac
+      if (whole) {
+price = whole + '.' + frac
+}
     }
 
     // Fallback: .a-offscreen contains the full formatted price e.g. "₹26,990"
     if (!price) {
       const offscreenEls = document.querySelectorAll('.a-offscreen')
       for (const el of Array.from(offscreenEls)) {
-        if (el.closest('.a-text-price')) continue // skip struck-through
+        if (el.closest('.a-text-price')) {
+continue
+} // skip struck-through
         const raw = el.textContent?.replace(/[^0-9.]/g, '')
         if (raw && parseFloat(raw) > 0) {
           price = raw
@@ -156,10 +162,14 @@ function monitorPage() {
 
   function tryDetectAndSend() {
     const product = detectProduct()
-    if (!product) return
+    if (!product) {
+return
+}
 
     // Deduplicate — only send if price or URL changed
-    if (product.url === lastSentUrl && product.price === lastSentPrice) return
+    if (product.url === lastSentUrl && product.price === lastSentPrice) {
+return
+}
     lastSentUrl = product.url
     lastSentPrice = product.price
 
@@ -188,7 +198,9 @@ function monitorPage() {
 
   // Debounced observer — waits 500ms after mutations settle before detecting
   const observer = new MutationObserver(() => {
-    if (debounceTimer) clearTimeout(debounceTimer)
+    if (debounceTimer) {
+clearTimeout(debounceTimer)
+}
     debounceTimer = setTimeout(tryDetectAndSend, 500)
   })
 
@@ -211,7 +223,7 @@ if (document.readyState === 'loading') {
 }
 
 // Listen for messages from background script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
   if (request.type === 'PRODUCT_DETECTED_UPDATE') {
     if (process.env.NODE_ENV === 'development') {
       console.log('[OneCredit] Product update received:', request.data)

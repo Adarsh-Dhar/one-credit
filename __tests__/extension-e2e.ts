@@ -129,7 +129,7 @@ export const testLoadingSequenceE2E = async () => {
   
   // Check step 1 at 0s
   let snapshot = await getSnapshot();
-  let step1 = findElement(snapshot, 'step-1');
+  const step1 = findElement(snapshot, 'step-1');
   if (!hasClass(step1, 'animate-spin')) {
     throw new Error('Step 1 not spinning');
   }
@@ -138,7 +138,7 @@ export const testLoadingSequenceE2E = async () => {
   // Wait ~0.8s for step 2
   await runCommand('wait 1000');
   snapshot = await getSnapshot();
-  let step2 = findElement(snapshot, 'step-2');
+  const step2 = findElement(snapshot, 'step-2');
   if (!hasClass(step2, 'animate-spin')) {
     throw new Error('Step 2 not spinning at 0.8s');
   }
@@ -147,7 +147,7 @@ export const testLoadingSequenceE2E = async () => {
   // Wait another ~0.8s for step 3
   await runCommand('wait 1000');
   snapshot = await getSnapshot();
-  let step3 = findElement(snapshot, 'step-3');
+  const step3 = findElement(snapshot, 'step-3');
   if (!hasClass(step3, 'animate-spin')) {
     throw new Error('Step 3 not spinning at 1.6s');
   }
@@ -230,25 +230,25 @@ export const testRankBadgesE2E = async () => {
   
   const snapshot = await getSnapshot();
   
-  let badge1 = getText(findElement(snapshot, 'rank-badge-1'));
+  const badge1 = getText(findElement(snapshot, 'rank-badge-1'));
   if (badge1 !== '🥇') {
     throw new Error(`Badge 1 is ${badge1}, expected 🥇`);
   }
   console.log('✓ Rank 1 shows 🥇');
   
-  let badge2 = getText(findElement(snapshot, 'rank-badge-2'));
+  const badge2 = getText(findElement(snapshot, 'rank-badge-2'));
   if (badge2 !== '🥈') {
     throw new Error(`Badge 2 is ${badge2}, expected 🥈`);
   }
   console.log('✓ Rank 2 shows 🥈');
   
-  let badge3 = getText(findElement(snapshot, 'rank-badge-3'));
+  const badge3 = getText(findElement(snapshot, 'rank-badge-3'));
   if (badge3 !== '🥉') {
     throw new Error(`Badge 3 is ${badge3}, expected 🥉`);
   }
   console.log('✓ Rank 3 shows 🥉');
   
-  let badge4 = getText(findElement(snapshot, 'rank-badge-4'));
+  const badge4 = getText(findElement(snapshot, 'rank-badge-4'));
   if (badge4 !== '4') {
     throw new Error(`Badge 4 is ${badge4}, expected 4`);
   }
@@ -262,7 +262,7 @@ export const testAnimationsE2E = async () => {
   await runCommand('open http://localhost:3000/extension');
   
   // Get initial viewport height
-  let initialHeight = getViewportHeight();
+  const initialHeight = getViewportHeight();
   
   // Click pill to expand to detected
   const pill = findElement(await getSnapshot(), 'idle-pill');
@@ -270,7 +270,7 @@ export const testAnimationsE2E = async () => {
   await runCommand('wait 500');
   
   // Check height hasn't changed (no layout shift)
-  let afterHeight = getViewportHeight();
+  const afterHeight = getViewportHeight();
   if (initialHeight !== afterHeight) {
     throw new Error('Layout shifted during animation');
   }

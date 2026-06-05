@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plane, ShoppingCart, Utensils, Fuel, Tv, Pill,
   ShoppingBag, Zap, CheckCircle2, XCircle,
-  CreditCard, ArrowRight, Sparkles, Trophy, TrendingDown,
-  Shield, ExternalLink, Receipt
+  CreditCard, ArrowRight, Sparkles
 } from 'lucide-react';
-import { computeTotalValue } from '@/lib/op-conversion';
 import { buildPaymentPrompt } from '@/lib/prompts';
 import { WalletCard } from '@/lib/types';
 import { StepIndicator } from '@/components/pay/StepIndicator';
@@ -31,7 +29,7 @@ interface GeminiRecommendation {
   rewardRate: number;
   reasoning: string;
   offerFound: boolean;
-  offerSource?: string;
+  offerSource: string;
   creditFired?: { name: string; amount: number };
   portalUsed?: { name: string; url: string };
   protectionNotes?: string[];
@@ -107,21 +105,24 @@ export default function PayPage() {
   const [cards, setCards]                 = useState<WalletCard[]>([]);
   const [recommendation, setRec]          = useState<GeminiRecommendation | null>(null);
   const [txHash, setTxHash]               = useState('');
-  const [particlesDone, setParticlesDone] = useState(false);
   const [isProcessing, setIsProcessing]   = useState(false);
 
   const userId = session?.user?.email;
-  if (!userId) {
-    // Handle unauthenticated case - redirect or show empty state
-    return <div>Please sign in to access this page</div>;
-  }
 
   // Fetch user cards once
   useEffect(() => {
+    if (!userId) {
+      return;
+    }
     fetch(`/api/wallet?email=${encodeURIComponent(userId)}`)
       .then(r => r.json())
       .then(d => setCards(d.cards ?? []));
   }, [userId]);
+
+  if (!userId) {
+    // Handle unauthenticated case - redirect or show empty state
+    return <div>Please sign in to access this page</div>;
+  }
 
   const filteredMerchants = selectedCategory
     ? MERCHANTS.filter(m => m.category === selectedCategory.id)
@@ -140,7 +141,9 @@ export default function PayPage() {
 
   const handleAmountSubmit = async () => {
     const parsedAmount = parseFloat(amount);
-    if (!amount || parsedAmount <= 0 || parsedAmount > 10000) return;
+    if (!amount || parsedAmount <= 0 || parsedAmount > 10000) {
+return;
+}
     setStep('analyzing');
 
     try {
@@ -201,9 +204,10 @@ export default function PayPage() {
   };
 
   const handleApprove = async () => {
-    if (!recommendation || isProcessing) return;
+    if (!recommendation || isProcessing) {
+return;
+}
     setIsProcessing(true);
-    setParticlesDone(false);
 
     // Wait for animation
     await new Promise(r => setTimeout(r, 2200));
@@ -276,7 +280,7 @@ export default function PayPage() {
 
       <main className="max-w-2xl mx-auto px-4 py-12">
         {/* Progress bar */}
-        <StepIndicator step={step} />
+        {step !== 'failed' && <StepIndicator step={step as any} />}
 
         <AnimatePresence mode="wait">
 
@@ -510,7 +514,7 @@ function TokenFlowAnimation({
         </div>
 
         {/* Animated token flow */}
-        <div $camoust="eFixld 2iteUSD-center gap-1 relative w-16">
+        <div className="flex items-center gap-1 relative w-16">
           <TokenParticles />
           <ArrowRight className="w-5 h-5 text-slate-600" />
           <span className="text-purple-400 text-xs font-bold text-center">

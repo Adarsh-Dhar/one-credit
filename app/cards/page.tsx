@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { WalletCard } from '@/lib/types';
 import { useWallet } from '@/hooks/useWallet';
 
 // ── Spending-cap config per card (issuer/category) ─────────────────────────
@@ -243,17 +242,17 @@ export default function CardsPage() {
                       )}
 
                       {/* ── Card Benefits ─────────────────────────── */}
-                      {(card.statementCredits?.length > 0 || card.portalBonuses?.length > 0 || card.protections) && (
+                      {((card.statementCredits?.length ?? 0) > 0 || (card.portalBonuses?.length ?? 0) > 0 || card.protections) && (
                         <div className="border-t border-slate-600/60 pt-4 mt-2">
                           <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">
                             Card Benefits
                           </p>
 
                           {/* Statement Credits */}
-                          {card.statementCredits?.length > 0 && (
+                          {(card.statementCredits?.length ?? 0) > 0 && (
                             <div className="mb-3">
                               <p className="text-xs text-slate-400 mb-2">Statement Credits</p>
-                              {card.statementCredits.map((credit: any, idx: number) => {
+                              {card.statementCredits!.map((credit: any, idx: number) => {
                                 const used = credit.amount_redeemed || 0;
                                 const remaining = credit.amount_usd - used;
                                 const pct = Math.min(used / credit.amount_usd, 1);
@@ -279,11 +278,11 @@ export default function CardsPage() {
                           )}
 
                           {/* Portal Bonuses */}
-                          {card.portalBonuses?.length > 0 && (
+                          {(card.portalBonuses?.length ?? 0) > 0 && (
                             <div className="mb-3">
                               <p className="text-xs text-slate-400 mb-2">Portal Bonuses</p>
                               <div className="flex flex-wrap gap-2">
-                                {card.portalBonuses.map((bonus: any, idx: number) => (
+                                {card.portalBonuses!.map((bonus: any, idx: number) => (
                                   <a
                                     key={idx}
                                     href={bonus.portal_url}

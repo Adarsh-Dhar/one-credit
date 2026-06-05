@@ -7,7 +7,6 @@ import { CardDetailModal } from '@/components/CardDetailModal';
 import { Sparkles, DollarSign, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { CardDefinition } from '@/lib/cards';
-import { WalletCard } from '@/lib/types';
 import { useWallet } from '@/hooks/useWallet';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 
@@ -15,6 +14,8 @@ export default function Dashboard() {
   const { wallet, cards, loading, session } = useWallet();
   const [selectedCard, setSelectedCard] = useState<CardDefinition | null>(null);
   const [cardDetails, setCardDetails] = useState<any>(null);
+
+  const maxValue = useMemo(() => Math.max(...cards.map(c => c.value || 0)), [cards]);
 
   const handleCardClick = async (card: any) => {
     setSelectedCard(card);
@@ -108,24 +109,19 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            (() => {
-              const maxValue = useMemo(() => Math.max(...cards.map(c => c.value || 0)), [cards]);
-              return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {cards.map((card) => {
-                    const isTopCard = card.value === maxValue;
-                    return (
-                      <TiltCard
-                        key={card.key}
-                        card={card}
-                        isTopCard={isTopCard}
-                        onClick={() => handleCardClick(card)}
-                      />
-                    );
-                  })}
-                </div>
-              );
-            })()
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {cards.map((card) => {
+                const isTopCard = card.value === maxValue;
+                return (
+                  <TiltCard
+                    key={card.key}
+                    card={card}
+                    isTopCard={isTopCard}
+                    onClick={() => handleCardClick(card)}
+                  />
+                );
+              })}
+            </div>
           )}
         </section>
 

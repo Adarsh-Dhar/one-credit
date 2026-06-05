@@ -8,8 +8,12 @@ export function Options() {
 
   useEffect(() => {
     chrome.storage.sync.get(['cards', 'apiKey'], (result) => {
-      if (result.cards) setCards(result.cards)
-      if (result.apiKey) setApiKey(result.apiKey)
+      if (result.cards) {
+setCards(result.cards)
+}
+      if (result.apiKey) {
+setApiKey(result.apiKey)
+}
     })
   }, [])
 
