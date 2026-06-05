@@ -33,6 +33,7 @@ export interface CardLiveState {
     capLimit: number | null
     remainingCapRoom: number | null
   }[]
+  annualSpendInr: number   // total spend on this card in last 365 days
 }
 
 export interface SpendingBehaviour {
@@ -84,7 +85,22 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
     createdAt: { $gte: since },
   }).lean()
 
+  // 2b. Fetch last 365 days of transactions for annual spend
+  const since365 = new Date()
+  since365.setDate(since365.getDate() - 365)
+  const annualTxns = await Transaction.find({
+    userId,
+    type: 'spend',
+    createdAt: { $gte: since365 },
+  }).lean()
+
   // ── Card live states ──────────────────────────────────────────────────────
+
+  // Build per-card annual spend map
+  const annualSpendByCard: Record<string, number> = {}
+  for (const tx of annualTxns) {
+    annualSpendByCard[tx.cardId] = (annualSpendByCard[tx.cardId] ?? 0) + (tx.amountInr ?? 0)
+  }
 
   const cardStates: CardLiveState[] = cards.map(card => {
     const limit = card.credit_limit ?? null
@@ -119,6 +135,7 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
       pointsBalance,
       pointsValueInr: Math.round(pointsValueInr),
       categoryCapProgress,
+      annualSpendInr: Math.round(annualSpendByCard[card.card_id] ?? 0),
     }
   })
 

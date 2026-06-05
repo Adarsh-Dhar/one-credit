@@ -32,6 +32,12 @@ export const INDIAN_CARD_KB: Record<string, CardKnowledge> = {
     ],
     bestRedemptionRatePerPoint: 1.20,
     bestRedemptionName: 'SmartBuy international flights',
+    statementCredits: [],
+    portalBonuses: [],
+    rotatingCategory: null,
+    milestoneBonuses: [],
+    feeWaiverSpendInr: null,
+    foreignTxnFeePct: 0,
   },
   amazon_pay_icici: {
     name: 'Amazon Pay ICICI',
@@ -51,6 +57,12 @@ export const INDIAN_CARD_KB: Record<string, CardKnowledge> = {
     ],
     bestRedemptionRatePerPoint: 1.00,
     bestRedemptionName: 'Amazon Pay balance',
+    statementCredits: [],
+    portalBonuses: [],
+    rotatingCategory: null,
+    milestoneBonuses: [],
+    feeWaiverSpendInr: null,
+    foreignTxnFeePct: 0,
   },
   axis_magnus: {
     name: 'Axis Magnus',
@@ -71,6 +83,12 @@ export const INDIAN_CARD_KB: Record<string, CardKnowledge> = {
     ],
     bestRedemptionRatePerPoint: 2.40,
     bestRedemptionName: 'Business class via Air India miles',
+    statementCredits: [],
+    portalBonuses: [],
+    rotatingCategory: null,
+    milestoneBonuses: [],
+    feeWaiverSpendInr: null,
+    foreignTxnFeePct: 0,
   },
   sbi_simplyclick: {
     name: 'SBI SimplyCLICK',
@@ -91,6 +109,12 @@ export const INDIAN_CARD_KB: Record<string, CardKnowledge> = {
     ],
     bestRedemptionRatePerPoint: 0.25,
     bestRedemptionName: 'Statement credit (only option)',
+    statementCredits: [],
+    portalBonuses: [],
+    rotatingCategory: null,
+    milestoneBonuses: [],
+    feeWaiverSpendInr: null,
+    foreignTxnFeePct: 0,
   },
   hdfc_millennia: {
     name: 'HDFC Millennia',
@@ -109,6 +133,12 @@ export const INDIAN_CARD_KB: Record<string, CardKnowledge> = {
     ],
     bestRedemptionRatePerPoint: 1.00,
     bestRedemptionName: 'Direct cashback',
+    statementCredits: [],
+    portalBonuses: [],
+    rotatingCategory: null,
+    milestoneBonuses: [],
+    feeWaiverSpendInr: null,
+    foreignTxnFeePct: 0,
   },
   icici_coral: {
     name: 'ICICI Coral',
@@ -126,6 +156,12 @@ export const INDIAN_CARD_KB: Record<string, CardKnowledge> = {
     ],
     bestRedemptionRatePerPoint: 0.25,
     bestRedemptionName: 'PAYBACK catalog',
+    statementCredits: [],
+    portalBonuses: [],
+    rotatingCategory: null,
+    milestoneBonuses: [],
+    feeWaiverSpendInr: null,
+    foreignTxnFeePct: 0,
   },
 }
 
@@ -147,9 +183,33 @@ export interface CardKnowledge {
   redemptionPaths: {
     name: string
     ratePerPoint: number
+    ratePerPointMin?: number
   }[]
   bestRedemptionRatePerPoint: number
   bestRedemptionName: string
+  statementCredits: {
+    name: string
+    annualValueInr: number
+    merchantCategories: string[]
+  }[]
+  portalBonuses: {
+    portalName: string
+    categories: string[]
+    bonusMultiplier: number
+    bonusType: 'multiplier' | 'flat_pct'
+  }[]
+  rotatingCategory: {
+    isActive: boolean
+    activeCategories: string[]
+    multiplier: number
+  } | null
+  milestoneBonuses: {
+    spendThresholdInr: number
+    bonusPoints: number
+    period: string
+  }[]
+  feeWaiverSpendInr: number | null
+  foreignTxnFeePct: number
 }
 
 export interface OPAgentInput {
@@ -159,6 +219,7 @@ export interface OPAgentInput {
     category: string
     merchant: string
     isEmi: boolean
+    isForeignMerchant: boolean
   }
   cards: string[]
   cardKnowledgeMap?: Record<string, CardKnowledge>
@@ -200,6 +261,14 @@ export interface CardOPResult {
   savings: number
   effectiveDiscountPercent: number
   reasoning: string
+  foreignFeeInr: number
+  statementCreditApplied: number
+  milestoneCreditInr: number
+  portalBonusApplied: boolean
+  portalBonusName: string | null
+  rotatingBonusApplied: boolean
+  feeWaiverActive: boolean
+  feeWaiverNote: string | null
 }
 
 export interface OPAgentResult {
@@ -237,6 +306,7 @@ You are the OPValuationAgent. You calculate the true opportunity-cost-adjusted p
 - Category: ${input.product.category}
 - Merchant: ${input.product.merchant}
 - Payment type: ${input.product.isEmi ? 'EMI' : 'Full price'}
+- Foreign merchant: ${input.product.isForeignMerchant ? 'Yes' : 'No'}
 
 ## Constants for this calculation
 - Annual transactions per card: ${userTxnsPerYear}
@@ -264,6 +334,7 @@ ${JSON.stringify(input.userContext.cards.map(c => ({
   pointsBalance: c.pointsBalance,
   pointsValueInr: c.pointsValueInr,
   categoryCapProgress: c.categoryCapProgress,
+  annualSpendInr: c.annualSpendInr,
 })), null, 2)}
 
 ### Spending behaviour (last 90 days)
@@ -297,7 +368,7 @@ RULE 4 — Realistic CPP (most important):
 Do NOT use bestRedemptionRatePerPoint blindly.
 Instead, pick the realistic CPP based on the user's behaviour:
 - If isFrequentTraveller = true → use bestRedemptionRatePerPoint (user can actually redeem flights/business class)
-- If isFrequentTraveller = false AND bestRedemptionName involves 'flight' or 'airline' or 'business class' → use redemptionPaths[1].ratePerPoint if it exists, else redemptionPaths[0].ratePerPoint
+- If isFrequentTraveller = false AND bestRedemptionName involves 'flight' or 'airline' or 'business class' → use ratePerPointMin from that redemption path (not redemptionPaths[1])
 - If actualAvgCppAchieved is not null → use max(actualAvgCppAchieved, redemptionPaths[0].ratePerPoint) as a floor
 This realistic CPP is what you use for trueRewardValueInr. Label it realisticCpp in your output.
 
@@ -317,6 +388,39 @@ RULE 7 — EMI penalty:
 If isEmi = true OR user's emiTransactionPct > 40 (habitual EMI user) and price > ₹30,000:
 set actualPointsEarned = price * emiEarnRate (usually 0), set confirmedEarn = false,
 exclusionReason = "EMI transactions earn 0 points on this card."
+
+RULE 8 — Statement credits:
+Sum all statementCredits whose merchantCategories includes the purchase category (or is empty []).
+statementCreditAnnualInr = sum of matching credit.annualValueInr.
+effectiveAnnualFee = (annualFeeInr * (1 + gstOnFee)) - statementCreditAnnualInr.
+feeBurdenInr = max(0, effectiveAnnualFee) / userTxnsPerYear.
+Set statementCreditApplied = statementCreditAnnualInr / userTxnsPerYear in output.
+
+RULE 9 — Fee waiver:
+If feeWaiverSpendInr is not null AND annualSpendInr >= feeWaiverSpendInr:
+  set annualFeeInr = 0 for this card. Set feeWaiverActive = true.
+  feeWaiverNote = "Annual fee waived — you've spent ₹X this year (threshold: ₹Y)"
+Else if feeWaiverSpendInr is not null:
+  set feeWaiverActive = false.
+  feeWaiverNote = "₹X more spend this year waives the annual fee"
+
+RULE 10 — Milestone bonuses:
+For each milestone in milestoneBonuses where annualSpendInr >= spendThresholdInr:
+  milestoneCreditInr += (bonusPoints * realisticCpp) / userTxnsPerYear
+Subtract milestoneCreditInr from feeBurdenInr (floor at 0).
+
+RULE 11 — Rotating category bonus:
+Before picking the earnRule in Step 1, check rotatingCategory.
+If rotatingCategory.isActive = true AND rotatingCategory.activeCategories includes the purchase category:
+  use rotatingCategory.multiplier as the earn rate (per 100).
+  Set rotatingBonusApplied = true in earnAudit.
+
+RULE 12 — Portal bonus:
+After computing actualPointsEarned in Step 1, check portalBonuses.
+If any portalBonus.categories includes the purchase category AND bonusType = "multiplier":
+  actualPointsEarned = actualPointsEarned * bonusMultiplier.
+  Set portalBonusApplied = true, portalBonusName = portalBonus.portalName.
+  Note in reasoning: "Requires routing through [portalName]."
 ` : ''}
 
 ## Your task
@@ -331,6 +435,8 @@ For EACH card, reason through all 5 steps and produce a JSON result.
 // Do NOT use floor(). Cards earn proportionally on every rupee spent.
 // e.g. 5% cashback on ₹66 = ₹3.30 earned, not ₹0.
 // Round to 2 decimal places in your output.
+// Apply RULE 11 (rotating category) before picking earnRule.
+// Apply RULE 12 (portal bonus) after computing actualPointsEarned.
 
 ### Step 2 — RedemptionValue  
 - List all redemption paths for this card
@@ -339,6 +445,9 @@ For EACH card, reason through all 5 steps and produce a JSON result.
 - Also compute industryRewardValue = actualPointsEarned * redemptionPaths[0].ratePerPoint (cheapest path — what banks advertise)
 
 ### Step 3 — FeeAmortization
+- Apply RULE 8 (statement credits) to reduce effective annual fee
+- Apply RULE 9 (fee waiver) to zero out annual fee if threshold met
+- Apply RULE 10 (milestone bonuses) to reduce fee burden
 - totalFeeInr = annualFeeInr * (1 + gstOnFee)
 - feeBurdenInr = totalFeeInr / ${userTxnsPerYear}
 
@@ -347,8 +456,9 @@ For EACH card, reason through all 5 steps and produce a JSON result.
 - floatValueInr = ${input.product.price} * ${riskFreeRate} * (${billingDays} / 365)
 
 ### Step 5 — NetCost
-- netCost = price - trueRewardValueInr + feeBurdenInr - floatValueInr
-- industryCost = price - industryRewardValue + feeBurdenInr - floatValueInr
+- Apply RULE 13 (foreign transaction fee): If isForeignMerchant = true AND foreignTxnFeePct > 0: foreignFeeInr = price * foreignTxnFeePct / 100. Else: foreignFeeInr = 0.
+- netCost = price - trueRewardValueInr + feeBurdenInr - floatValueInr + foreignFeeInr
+- industryCost = price - industryRewardValue + feeBurdenInr - floatValueInr + foreignFeeInr
 - savings = industryCost - netCost  (how much better than industry)
 - effectiveDiscountPercent = ((price - netCost) / price) * 100
 - Write a 2-sentence plain-English reasoning explaining why this card ranks where it does
@@ -385,7 +495,15 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
       "utilizationWarning": null or "string",
       "aprWarning": null or "string",
       "existingPoints": { "balance": number, "valueInr": number, "note": "string" } or null,
-      "capBreached": boolean
+      "capBreached": boolean,
+      "foreignFeeInr": number,
+      "statementCreditApplied": number,
+      "milestoneCreditInr": number,
+      "portalBonusApplied": boolean,
+      "portalBonusName": null or "string",
+      "rotatingBonusApplied": boolean,
+      "feeWaiverActive": boolean,
+      "feeWaiverNote": null or "string"
     }
   ],
   "agentReasoning": "One paragraph summary of the overall analysis and why the winner wins"

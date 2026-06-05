@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
           redemptionPaths.push({
             name: `${partner.program} transfer (${partner.ratio})`,
             ratePerPoint: partner.cpp_max,
+            ratePerPointMin: partner.cpp_min,
           })
         }
       } else if (card.points_value_cents) {
@@ -126,6 +127,31 @@ export async function POST(request: NextRequest) {
         redemptionPaths,
         bestRedemptionRatePerPoint: bestRedemption.ratePerPoint,
         bestRedemptionName: bestRedemption.name,
+        statementCredits: (card.benefits_and_credits.statement_credits ?? []).map(sc => ({
+          name: sc.name,
+          annualValueInr: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
+          merchantCategories: sc.merchant_categories ?? [],
+        })),
+        portalBonuses: (card.benefits_and_credits.portal_bonuses ?? []).map(pb => ({
+          portalName: pb.portal_name,
+          categories: pb.categories,
+          bonusMultiplier: pb.bonus_multiplier,
+          bonusType: pb.bonus_type,
+        })),
+        rotatingCategory: card.rewards_structure.rotating_categories
+          ? {
+              isActive: card.rewards_structure.rotating_categories.is_active,
+              activeCategories: card.rewards_structure.rotating_categories.active_categories ?? [],
+              multiplier: card.rewards_structure.rotating_categories.multiplier ?? 1,
+            }
+          : null,
+        milestoneBonuses: (card.rewards_structure.milestone_bonuses ?? []).map(mb => ({
+          spendThresholdInr: mb.spend_threshold_inr,
+          bonusPoints: mb.bonus_points,
+          period: mb.period,
+        })),
+        feeWaiverSpendInr: card.financials.fee_waiver_spend_inr ?? null,
+        foreignTxnFeePct: card.financials.foreign_transaction_fee_pct ?? 0,
       }
     }
 
@@ -141,6 +167,9 @@ export async function POST(request: NextRequest) {
     }
     const merchant = merchantMap[product.source] || product.source || 'amazon.in'
 
+    // Detect foreign merchant
+    const isForeignMerchant = !merchant.endsWith('.in') && merchant !== 'amazon.in'
+
     // Infer category from product name
     const category = inferCategory(product.name || '', merchant)
 
@@ -155,7 +184,7 @@ export async function POST(request: NextRequest) {
     // Run the agent across user's cards
     const result = await runOPAgent(
       {
-        product: { name: product.name, price: product.price, category, merchant, isEmi },
+        product: { name: product.name, price: product.price, category, merchant, isEmi, isForeignMerchant },
         cards: cardKeys,
         cardKnowledgeMap,
         userMonthlyTxns: monthlyTxns,

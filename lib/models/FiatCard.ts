@@ -20,6 +20,8 @@ export interface IFinancials {
   annual_fee: number;
   foreign_transaction_fee_pct: number;
   standard_apr: number;
+  fee_waiver_spend_inr?: number | null;
+  fee_waiver_period?: 'annual' | 'anniversary_year' | null;
   promos?: IPromos;
 }
 
@@ -39,10 +41,17 @@ export interface IRotatingCategories {
   multiplier?: number | null;
 }
 
+export interface IMilestoneBonus {
+  spend_threshold_inr: number;
+  bonus_points: number;
+  period: 'annual' | 'anniversary_year';
+}
+
 export interface IRewardsStructure {
   base_multiplier: number;
   fixed_categories?: IFixedCategory[];
   rotating_categories?: IRotatingCategories;
+  milestone_bonuses?: IMilestoneBonus[];
 }
 
 export interface IStatementCredit {
@@ -142,6 +151,8 @@ const FinancialsSchema = new Schema<IFinancials>(
     annual_fee:                   { type: Number, required: true, default: 0 },
     foreign_transaction_fee_pct:  { type: Number, required: true, default: 0 },
     standard_apr:                 { type: Number, required: true },
+    fee_waiver_spend_inr:         { type: Number, default: null },
+    fee_waiver_period:            { type: String, default: null },
     promos:                       { type: PromosSchema, default: null },
   },
   { _id: false }
@@ -169,11 +180,21 @@ const RotatingCategoriesSchema = new Schema<IRotatingCategories>(
   { _id: false }
 );
 
+const MilestoneBonusSchema = new Schema<IMilestoneBonus>(
+  {
+    spend_threshold_inr: { type: Number, required: true },
+    bonus_points:        { type: Number, required: true },
+    period:              { type: String, required: true },
+  },
+  { _id: false }
+);
+
 const RewardsStructureSchema = new Schema<IRewardsStructure>(
   {
     base_multiplier:     { type: Number, required: true, default: 1.0 },
     fixed_categories:    { type: [FixedCategorySchema], default: [] },
     rotating_categories: { type: RotatingCategoriesSchema, default: { is_active: false } },
+    milestone_bonuses:   { type: [MilestoneBonusSchema], default: [] },
   },
   { _id: false }
 );
