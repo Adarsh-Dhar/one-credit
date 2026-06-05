@@ -134,9 +134,6 @@ export async function runOPAgent(input: OPAgentInput, geminiApiKey: string): Pro
 
   // cardKnowledgeMap is now required
   const cardKB = input.cardKnowledgeMap
-  if (!cardKB) {
-    throw new Error('cardKnowledgeMap is required')
-  }
 
   const cardKBSubset = input.cards
     .filter(k => cardKB[k])
@@ -167,7 +164,7 @@ A card with a high annual fee and zero rewards on this purchase correctly
 costs MORE than a no-fee card — that is the honest truth.
 
 ## Card knowledge base
-${JSON.stringify(cardKBSubset, null, 2)}
+${JSON.stringify(cardKBSubset)}
 
 ${input.userContext ? `
 ## User's real financial state
@@ -185,7 +182,7 @@ ${JSON.stringify(input.userContext.cards.map(c => ({
   opTokenState: c.opTokenState,
   categoryCapProgress: c.categoryCapProgress,
   annualSpendUsd: c.annualSpendUsd,
-})), null, 2)}
+})))}
 
 ### Spending behaviour (last 90 days)
 - Top category: ${input.userContext.behaviour.topCategory}
@@ -419,15 +416,17 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
 }
 `
 
-  const result = await model.generateContent(prompt)
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+    },
+  })
   const text = result.response.text()
-
-  // Strip markdown fences if Gemini wraps them
-  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
 
   let parsed: { cards: any[]; agentReasoning: string }
   try {
-    parsed = JSON.parse(cleaned)
+    parsed = JSON.parse(text)
   } catch (e) {
     throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 300)}`)
   }

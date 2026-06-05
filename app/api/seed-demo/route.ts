@@ -168,7 +168,7 @@ function buildCards(userId: string) {
         fixed_categories: [
           { category: 'dining', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'restaurant', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
-          { category: 'grocer', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
+          { category: 'grocery', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'travel', multiplier: 2, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'flights', multiplier: 2, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'hotel', multiplier: 2, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
@@ -368,7 +368,7 @@ function buildCards(userId: string) {
       rewards_structure: {
         base_multiplier: 1,
         fixed_categories: [
-          { category: 'grocer', multiplier: 4, cap_amount_usd: 25000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
+          { category: 'grocery', multiplier: 4, cap_amount_usd: 25000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'dining', multiplier: 4, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'restaurant', multiplier: 4, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'flights', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
@@ -629,7 +629,7 @@ function buildCards(userId: string) {
       rewards_structure: {
         base_multiplier: 1,
         fixed_categories: [
-          { category: 'grocer', multiplier: 6, cap_amount_usd: 6000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
+          { category: 'grocery', multiplier: 6, cap_amount_usd: 6000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'streaming', multiplier: 6, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'gas', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'transit', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
@@ -849,7 +849,7 @@ function buildCards(userId: string) {
       rewards_structure: {
         base_multiplier: 1,
         fixed_categories: [
-          { category: 'grocer', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
+          { category: 'grocery', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'drug', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'restaurant', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'gas', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
@@ -1088,7 +1088,7 @@ function buildCards(userId: string) {
           { category: 'restaurant', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1.5 },
           { category: 'entertainment', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1.5 },
           { category: 'streaming', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1.5 },
-          { category: 'grocer', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1.5 },
+          { category: 'grocery', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1.5 },
           { category: 'hotel', multiplier: 5, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1.5 },
           { category: 'rental car', multiplier: 5, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1.5 },
         ],
@@ -1157,7 +1157,7 @@ function buildCards(userId: string) {
         fixed_categories: [
           { category: 'flights', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'hotel', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
-          { category: 'grocer', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
+          { category: 'grocery', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'dining', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'gas', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
         ],
@@ -1405,7 +1405,7 @@ function buildCards(userId: string) {
       rewards_structure: {
         base_multiplier: 1,
         fixed_categories: [
-          { category: 'grocer', multiplier: 3, cap_amount_usd: 6000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
+          { category: 'grocery', multiplier: 3, cap_amount_usd: 6000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'shopping', multiplier: 3, cap_amount_usd: 6000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'electronics', multiplier: 3, cap_amount_usd: 6000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'gas', multiplier: 3, cap_amount_usd: 6000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
@@ -1560,7 +1560,7 @@ function buildCards(userId: string) {
         fixed_categories: [
           { category: 'restaurant', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
           { category: 'gas', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
-          { category: 'grocer', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
+          { category: 'grocery', multiplier: 5, cap_amount_usd: 1500, cap_period: 'quarter', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
         ],
         rotating_categories: {
           is_active: true,

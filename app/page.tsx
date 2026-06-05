@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { CardDetailModal } from '@/components/CardDetailModal';
@@ -18,8 +18,11 @@ export default function Dashboard() {
 
   const handleCardClick = async (card: any) => {
     setSelectedCard(card);
+    const email = session?.user?.email;
+    if (!email) {
+      return; // Don't fetch if not authenticated
+    }
     try {
-      const email = session?.user?.email || 'demo@omniwallet.com';
       const response = await fetch(`/api/fiat-cards?userId=${encodeURIComponent(email)}`);
       const data = await response.json();
       const fullCard = data.cards.find((c: any) => c.card_id === card.key);
@@ -45,14 +48,14 @@ export default function Dashboard() {
   }, [selectedCard, cardDetails]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header Section */}
         <div className="mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Welcome to <span className="bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">Omni-Wallet</span>
+            Welcome to <span className="bg-linear-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">Omni-Wallet</span>
           </h1>
           <p className="text-xl text-slate-400 mb-6">
             AI-powered portfolio management with Fivetran data synchronization
@@ -60,7 +63,7 @@ export default function Dashboard() {
 
           <div className="flex gap-3 flex-wrap">
             <Link href="/pay">
-              <Button className="bg-gradient-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white border-0">
+              <Button className="bg-linear-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white border-0">
                 <Sparkles className="w-4 h-4 mr-2" />
                 Test Interchange
               </Button>
@@ -77,13 +80,13 @@ export default function Dashboard() {
         {/* Wallet Overview */}
         <section className="mb-16">
           <h2 className="text-2xl font-bold text-white mb-6">Portfolio Value</h2>
-          <div className="bg-gradient-to-r from-purple-600/20 to-yellow-500/20 border border-purple-500/30 rounded-lg p-8">
+          <div className="bg-linear-to-r from-purple-600/20 to-yellow-500/20 border border-purple-500/30 rounded-lg p-8">
             <p className="text-slate-400 text-sm mb-2">Total Balance (USD)</p>
             <div className="flex items-baseline gap-2">
               {loading ? (
                 <div className="h-12 w-40 bg-slate-700 rounded animate-pulse" />
               ) : (
-                <p className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">
+                <p className="text-5xl font-bold bg-linear-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">
                   ${wallet.toFixed(2)}
                 </p>
               )}
@@ -173,42 +176,42 @@ export default function Dashboard() {
           </h3>
           <div className="space-y-4 text-slate-300">
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">1</div>
+              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">1</div>
               <div>
                 <p className="font-semibold text-white">Parse Intent</p>
                 <p className="text-sm text-slate-400">Process purchase amount in USD</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">2</div>
+              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">2</div>
               <div>
                 <p className="font-semibold text-white">Fivetran Syncs Rates</p>
                 <p className="text-sm text-slate-400">Fresh award charts & exchange rates to MongoDB</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">3</div>
+              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">3</div>
               <div>
                 <p className="font-semibold text-white">Read Balances</p>
                 <p className="text-sm text-slate-400">Fetch portfolio balances in USD</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">4</div>
+              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">4</div>
               <div>
                 <p className="font-semibold text-white">Score by Category</p>
                 <p className="text-sm text-slate-400">Gemini ranks cards by net cost for user's purchase</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">5</div>
+              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">5</div>
               <div>
                 <p className="font-semibold text-white">Track Rewards</p>
                 <p className="text-sm text-slate-400">Calculate earned rewards and update balances</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold">6</div>
+              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">6</div>
               <div>
                 <p className="font-semibold text-white">Resync After Redemption</p>
                 <p className="text-sm text-slate-400">Fivetran re-syncs affected sources, auto-reconcile</p>
@@ -302,7 +305,7 @@ function TiltCard({ card, isTopCard, onClick }: {
 
         {/* TOP VALUE badge */}
         {isTopCard && (
-          <div className="absolute top-3 right-3 bg-gradient-to-r from-purple-600 to-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+          <div className="absolute top-3 right-3 bg-linear-to-r from-purple-600 to-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
             TOP VALUE
           </div>
         )}

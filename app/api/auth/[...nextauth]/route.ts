@@ -47,6 +47,7 @@ const authOptions: NextAuthOptions = {
           if (!isValid) return null;
           return { id: user._id.toString(), email: user.email, name: user.name };
         } catch (error) {
+          console.error('[NextAuth] authorize error:', error);
           return null;
         }
       },

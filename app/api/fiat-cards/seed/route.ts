@@ -85,7 +85,7 @@ const cards = [
     rewards_structure: {
       base_multiplier: 1,
       fixed_categories: [
-        { category: 'grocer', multiplier: 4, cap_amount_usd: 25000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
+        { category: 'grocery', multiplier: 4, cap_amount_usd: 25000, cap_period: 'calendar_year', current_spend_towards_cap: 0, post_cap_multiplier: 1 },
         { category: 'dining', multiplier: 4, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
         { category: 'flights', multiplier: 3, cap_amount_usd: null, cap_period: null, current_spend_towards_cap: 0, post_cap_multiplier: 1 },
       ],
@@ -593,6 +593,9 @@ export async function POST(request: Request) {
   }
 
   try {
+    const { userId } = await request.json();
+    const USER_ID = userId || process.env.DEFAULT_SEED_USER_ID || 'usr_88374';
+
     await connectDB();
     console.log('Connected to MongoDB');
 

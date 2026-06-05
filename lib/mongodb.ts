@@ -27,7 +27,7 @@ export async function connectDB() {
 
 declare global {
   var mongoose: {
-    conn: typeof mongoose | null;
-    promise: Promise<any> | null;
+    conn: mongoose.Mongoose | null;
+    promise: Promise<mongoose.Mongoose> | null;
   };
 }

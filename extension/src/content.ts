@@ -2,12 +2,16 @@
 import type { Product } from '@/types'
 
 // Immediate log to verify content script is loaded
-console.log('[OneCredit] Content script loaded - URL:', window.location.href)
+if (process.env.NODE_ENV === 'development') {
+  console.log('[OneCredit] Content script loaded - URL:', window.location.href)
+}
 
 // Global error handler to catch extension context invalidation errors
 window.addEventListener('error', (event) => {
   if (event.message && event.message.includes('Extension context')) {
-    console.log('[OneCredit] Extension context error caught:', event.message)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[OneCredit] Extension context error caught:', event.message)
+    }
     event.preventDefault()
     event.stopPropagation()
   }
@@ -159,18 +163,26 @@ function monitorPage() {
     lastSentUrl = product.url
     lastSentPrice = product.price
 
-    console.log('[OneCredit] Product detected:', product.name, product.price)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[OneCredit] Product detected:', product.name, product.price)
+    }
 
     try {
       chrome.runtime.sendMessage({ type: 'PRODUCT_DETECTED', data: product }, (response) => {
         if (chrome.runtime.lastError) {
-          console.log('[OneCredit] sendMessage error:', chrome.runtime.lastError.message)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[OneCredit] sendMessage error:', chrome.runtime.lastError.message)
+          }
         } else if (response?.success) {
-          console.log('[OneCredit] Product stored successfully')
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[OneCredit] Product stored successfully')
+          }
         }
       })
     } catch (e) {
-      console.log('[OneCredit] sendMessage threw:', e)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[OneCredit] sendMessage threw:', e)
+      }
     }
   }
 
@@ -201,9 +213,13 @@ if (document.readyState === 'loading') {
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'PRODUCT_DETECTED_UPDATE') {
-    console.log('[OneCredit] Product update received:', request.data)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[OneCredit] Product update received:', request.data)
+    }
     // Trigger any UI updates needed
   }
 })
 
-console.log('[OneCredit] Content script loaded')
+if (process.env.NODE_ENV === 'development') {
+  console.log('[OneCredit] Content script loaded')
+}

@@ -18,7 +18,8 @@ export function useWallet() {
 
   useEffect(() => {
     if (status === 'loading') return;
-    const email = session?.user?.email || 'demo@omniwallet.com';
+    const email = session?.user?.email;
+    if (!email) return; // Don't fetch if not authenticated
     fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())
       .then((data) => {

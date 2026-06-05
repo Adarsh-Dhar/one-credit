@@ -117,11 +117,11 @@ export interface UserContext {
 
 // ─── Main builder ─────────────────────────────────────────────────────────────
 
-export async function buildUserContext(userId: string): Promise<UserContext> {
+export async function buildUserContext(userId: string, preFetchedCards?: any[]): Promise<UserContext> {
   await connectDB()
 
-  // 1. Fetch all cards
-  const cards = await FiatCard.find({ user_id: userId }).lean()
+  // 1. Fetch all cards (or use pre-fetched)
+  const cards = preFetchedCards || await FiatCard.find({ user_id: userId }).lean()
 
   // 2. Fetch last 90 days of transactions
   const since = new Date()
@@ -207,7 +207,7 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
       currentBalanceOwed: owed,
       availableCredit: available,
       utilizationPct: utilization ? Math.round(utilization * 10) / 10 : null,
-      standardAprPct: card.financials.standard_apr,
+      standardAprPct: card.financials.standard_apr * 100,
       pointsBalance,
       pointsValueUsd,
       opTokenState,

@@ -110,7 +110,11 @@ export default function PayPage() {
   const [particlesDone, setParticlesDone] = useState(false);
   const [isProcessing, setIsProcessing]   = useState(false);
 
-  const userId = session?.user?.email || 'demo@omniwallet.com';
+  const userId = session?.user?.email;
+  if (!userId) {
+    // Handle unauthenticated case - redirect or show empty state
+    return <div>Please sign in to access this page</div>;
+  }
 
   // Fetch user cards once
   useEffect(() => {

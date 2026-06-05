@@ -1,17 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { runOPAgent } from '@/lib/op-agent'
+import { runOPAgent, CardKnowledge } from '@/lib/op-agent'
 import { connectDB } from '@/lib/mongodb'
 import { FiatCard } from '@/lib/models/FiatCard'
 import { buildUserContext } from '@/lib/userContext'
 import { inferCategory } from '@/lib/utils'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 
+// In-memory rate limiter
+const rateLimiter = new Map<string, { count: number; resetTime: number }>()
+const RATE_LIMIT = 10 // requests per minute
+const RATE_WINDOW = 60 * 1000 // 1 minute in ms
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const userLimit = rateLimiter.get(userId) || { count: 0, resetTime: now + RATE_WINDOW }
+
+  if (now > userLimit.resetTime) {
+    userLimit.count = 0
+    userLimit.resetTime = now + RATE_WINDOW
+  }
+
+  if (userLimit.count >= RATE_LIMIT) {
+    return false
+  }
+
+  userLimit.count++
+  rateLimiter.set(userId, userLimit)
+  return true
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Check API key first (fail fast)
+    const apiKey = process.env.GOOGLE_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ error: 'GOOGLE_API_KEY not set on server' }, { status: 500 })
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check rate limit
+    if (!checkRateLimit(session.user.id)) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
     const { product, userId } = await request.json()
@@ -29,71 +63,60 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const apiKey = process.env.GOOGLE_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'GOOGLE_API_KEY not set on server' }, { status: 500 })
-    }
+    // Build full user context (balances + behaviour)
+    // buildUserContext will fetch cards internally if not provided
+    const userContext = await buildUserContext(userId)
 
-    // Fetch user's cards from database
-    await connectDB()
-    const dbCards = await FiatCard.find({ user_id: userId }).lean()
-
-    if (!dbCards || dbCards.length === 0) {
-      return NextResponse.json({ error: 'No cards found for user' }, { status: 404 })
-    }
-
-    // Transform database cards to CardKnowledge format for the OP agent
-    const cardKnowledgeMap: Record<string, any> = {}
+    // Transform userContext.cards to CardKnowledge format for the OP agent
+    const cardKnowledgeMap: Record<string, CardKnowledge> = {}
     const cardKeys: string[] = []
 
-    for (const card of dbCards) {
-      const cardKey = card.card_id || card._id.toString()
+    for (const card of userContext.cards) {
+      const cardKey = card.cardId
       cardKeys.push(cardKey)
 
+      // Get the full card data from userContext to build earn rules
+      const dbCard = await FiatCard.findOne({ card_id: cardKey }).lean()
+      if (!dbCard) continue
+
       // Extract earn rules from rewards_structure
-      const earnRules: Array<{
-        merchant: string
-        rate: number
-        per: number
-        currency: string
-        notes?: string | null | undefined
-      }> = [
+      const earnRules: CardKnowledge['earnRules'] = [
         {
           merchant: 'all',
-          rate: card.rewards_structure.base_multiplier,
+          rate: dbCard.rewards_structure.base_multiplier,
           per: 100,
-          currency: card.currency_type.toLowerCase(),
+          currency: dbCard.currency_type.toLowerCase(),
           notes: 'Base earn rate',
         },
       ]
 
       // Add fixed category bonuses
-      if (card.rewards_structure.fixed_categories) {
-        for (const cat of card.rewards_structure.fixed_categories) {
+      if (dbCard.rewards_structure.fixed_categories) {
+        for (const cat of dbCard.rewards_structure.fixed_categories) {
           earnRules.push({
             merchant: cat.category,
             rate: cat.multiplier,
             per: 100,
-            currency: card.currency_type.toLowerCase(),
+            currency: dbCard.currency_type.toLowerCase(),
             ...(cat.cap_amount_usd ? { notes: `Cap: $${cat.cap_amount_usd}` } : {}),
           })
         }
       }
 
       // Extract redemption paths from transfer partners or points value
-      const redemptionPaths = []
-      if (card.benefits_and_credits.transfer_partners && card.benefits_and_credits.transfer_partners.length > 0) {
-        for (const partner of card.benefits_and_credits.transfer_partners) {
+      const redemptionPaths: CardKnowledge['redemptionPaths'] = []
+      if (dbCard.benefits_and_credits.transfer_partners && dbCard.benefits_and_credits.transfer_partners.length > 0) {
+        for (const partner of dbCard.benefits_and_credits.transfer_partners) {
           redemptionPaths.push({
             name: `${partner.program} transfer (${partner.ratio})`,
             ratePerPoint: partner.cpp_max,
             ratePerPointMin: partner.cpp_min,
           })
         }
-      } else if (card.points_value_cents) {
+      } else if (dbCard.points_value_cents) {
         redemptionPaths.push({
           name: 'Statement credit',
-          ratePerPoint: card.points_value_cents / 100,
+          ratePerPoint: dbCard.points_value_cents / 100,
         })
       } else {
         // Default for cashback cards
@@ -108,42 +131,42 @@ export async function POST(request: NextRequest) {
       , redemptionPaths[0])
 
       cardKnowledgeMap[cardKey] = {
-        name: card.display_name,
-        issuer: card.network,
-        annualFeeUsd: card.financials.annual_fee,
-        gstOnFee: 0.18,
+        name: dbCard.display_name,
+        issuer: dbCard.network,
+        annualFeeUsd: dbCard.financials.annual_fee,
+        gstOnFee: parseFloat(process.env.GST_RATE || '0.18'),
         earnRules,
-        emiEarnRate: 0,
-        monthlyCapPoints: null,
-        excludedCategories: [],
+        emiEarnRate: (dbCard.rewards_structure as any).emi_multiplier ?? 0,
+        monthlyCapPoints: (dbCard.rewards_structure as any).monthly_cap_points ?? null,
+        excludedCategories: (dbCard.rewards_structure as any).excluded_categories ?? [],
         redemptionPaths,
         bestRedemptionRatePerPoint: bestRedemption.ratePerPoint,
         bestRedemptionName: bestRedemption.name,
-        statementCredits: (card.benefits_and_credits.statement_credits ?? []).map(sc => ({
+        statementCredits: (dbCard.benefits_and_credits.statement_credits ?? []).map(sc => ({
           name: sc.name,
           annualValueUsd: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
           merchantCategories: sc.merchant_categories ?? [],
         })),
-        portalBonuses: (card.benefits_and_credits.portal_bonuses ?? []).map(pb => ({
+        portalBonuses: (dbCard.benefits_and_credits.portal_bonuses ?? []).map(pb => ({
           portalName: pb.portal_name,
           categories: pb.categories,
           bonusMultiplier: pb.bonus_multiplier,
           bonusType: pb.bonus_type,
         })),
-        rotatingCategory: card.rewards_structure.rotating_categories
+        rotatingCategory: dbCard.rewards_structure.rotating_categories
           ? {
-              isActive: card.rewards_structure.rotating_categories.is_active,
-              activeCategories: card.rewards_structure.rotating_categories.active_categories ?? [],
-              multiplier: card.rewards_structure.rotating_categories.multiplier ?? 1,
+              isActive: dbCard.rewards_structure.rotating_categories.is_active,
+              activeCategories: dbCard.rewards_structure.rotating_categories.active_categories ?? [],
+              multiplier: dbCard.rewards_structure.rotating_categories.multiplier ?? 1,
             }
           : null,
-        milestoneBonuses: (card.rewards_structure.milestone_bonuses ?? []).map(mb => ({
+        milestoneBonuses: (dbCard.rewards_structure.milestone_bonuses ?? []).map((mb: any) => ({
           spendThresholdUsd: mb.spend_threshold_usd,
           bonusPoints: mb.bonus_points,
           period: mb.period,
         })),
-        feeWaiverSpendUsd: card.financials.fee_waiver_spend_usd ?? null,
-        foreignTxnFeePct: card.financials.foreign_transaction_fee_pct ?? 0,
+        feeWaiverSpendUsd: dbCard.financials.fee_waiver_spend_usd ?? null,
+        foreignTxnFeePct: dbCard.financials.foreign_transaction_fee_pct ?? 0,
       }
     }
 
@@ -165,13 +188,13 @@ export async function POST(request: NextRequest) {
     // Infer category from product name
     const category = inferCategory(product.name || '', merchant)
 
-    // Build full user context (balances + behaviour)
-    const userContext = await buildUserContext(userId)
-
     // Use actual monthly txn count from behaviour, not hardcoded 10
+    const MIN_MONTHLY_TXNS = 5
+    const TXN_COUNT_DIVISOR = 3
+    const DEFAULT_MONTHLY_TXNS = 10
     const monthlyTxns = userContext.behaviour.monthlyAvgSpendUsd > 0
-      ? Math.max(5, Math.round(userContext.behaviour.categoryBreakdown.reduce((s, c) => s + c.txCount, 0) / 3))
-      : 10
+      ? Math.max(MIN_MONTHLY_TXNS, Math.round(userContext.behaviour.categoryBreakdown.reduce((s, c) => s + c.txCount, 0) / TXN_COUNT_DIVISOR))
+      : DEFAULT_MONTHLY_TXNS
 
     // Run the agent across user's cards
     const result = await runOPAgent(
@@ -180,9 +203,9 @@ export async function POST(request: NextRequest) {
         cards: cardKeys,
         cardKnowledgeMap,
         userMonthlyTxns: monthlyTxns,
-        riskFreeRatePercent: 7,
-        billingCycleDays: 30,
-        userContext,                    // ← pass full context
+        riskFreeRatePercent: parseFloat(process.env.RISK_FREE_RATE_PERCENT || '7'),
+        billingCycleDays: parseInt(process.env.BILLING_CYCLE_DAYS || '30'),
+        userContext,
       },
       apiKey
     )
@@ -194,7 +217,7 @@ export async function POST(request: NextRequest) {
       industryWinner: result.industryWinner,
       agentReasoning: result.agentReasoning,
       savings: result.cards.length > 1
-        ? result.cards[result.cards.length - 1].netCost - result.winner.netCost
+        ? Math.max(...result.cards.map(c => c.netCost)) - result.winner.netCost
         : 0,
     })
   } catch (error) {

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runFullSync, syncSource } from '@/lib/mock-apis/sync-engine';
 
 export async function POST(request: NextRequest) {
+  // Guard: only allow in development
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({}, { status: 404 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     const { source } = body;
@@ -23,10 +28,15 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  // Guard: only allow in development
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({}, { status: 404 });
+  }
+
   try {
     const { getLastSyncStatus } = await import('@/lib/fivetran/rewards-connector');
     const report = await getLastSyncStatus();
-    
+
     if (!report) {
       return NextResponse.json({
         message: 'No sync reports found. Run a sync first via POST /api/rewards/sync'
