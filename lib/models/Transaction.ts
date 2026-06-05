@@ -8,14 +8,14 @@ const TransactionSchema = new mongoose.Schema(
     type:        { type: String, enum: ['spend', 'earn', 'transfer'], required: true },
 
     // Real spend fields
-    amountInr:   { type: Number, required: true },        // actual INR amount spent
+    amountUsd:   { type: Number, required: true },        // actual USD amount spent
     category:    { type: String, required: true },        // 'grocery','travel','dining','electronics' etc
     merchant:    { type: String, default: '' },           // 'amazon.in', 'zomato', etc
     isEmi:       { type: Boolean, default: false },
 
     // Reward outcome
     pointsEarned:   { type: Number, default: 0 },
-    rewardValueInr: { type: Number, default: 0 },         // what those points were actually worth
+    rewardValueUsd: { type: Number, default: 0 },         // what those points were actually worth in USD
 
     // Keep old fields for backwards compat
     amountOp:    { type: Number, default: 0 },

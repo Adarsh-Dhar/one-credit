@@ -20,8 +20,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json();
   const {
-    userId, type, amountInr, cardId, category, merchant,
-    isEmi, pointsEarned, rewardValueInr,
+    userId, type, amountUsd, cardId, category, merchant,
+    isEmi, pointsEarned, rewardValueUsd,
     // legacy fields
     amountOp, cardDebits, description, metadata,
   } = body;
@@ -33,13 +33,13 @@ export async function POST(request: Request) {
   await connectDB();
   const transaction = await Transaction.create({
     userId, type,
-    amountInr: amountInr ?? 0,
+    amountUsd: amountUsd ?? 0,
     cardId: cardId ?? '',
     category: category ?? 'other',
     merchant: merchant ?? '',
     isEmi: isEmi ?? false,
     pointsEarned: pointsEarned ?? 0,
-    rewardValueInr: rewardValueInr ?? 0,
+    rewardValueUsd: rewardValueUsd ?? 0,
     // legacy
     amountOp: amountOp ?? 0,
     cardDebits, description, metadata,

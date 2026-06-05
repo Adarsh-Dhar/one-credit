@@ -20,7 +20,7 @@ export interface IFinancials {
   annual_fee: number;
   foreign_transaction_fee_pct: number;
   standard_apr: number;
-  fee_waiver_spend_inr?: number | null;
+  fee_waiver_spend_usd?: number | null;
   fee_waiver_period?: 'annual' | 'anniversary_year' | null;
   promos?: IPromos;
 }
@@ -42,7 +42,7 @@ export interface IRotatingCategories {
 }
 
 export interface IMilestoneBonus {
-  spend_threshold_inr: number;
+  spend_threshold_usd: number;
   bonus_points: number;
   period: 'annual' | 'anniversary_year';
 }
@@ -151,7 +151,7 @@ const FinancialsSchema = new Schema<IFinancials>(
     annual_fee:                   { type: Number, required: true, default: 0 },
     foreign_transaction_fee_pct:  { type: Number, required: true, default: 0 },
     standard_apr:                 { type: Number, required: true },
-    fee_waiver_spend_inr:         { type: Number, default: null },
+    fee_waiver_spend_usd:         { type: Number, default: null },
     fee_waiver_period:            { type: String, default: null },
     promos:                       { type: PromosSchema, default: null },
   },
@@ -182,7 +182,7 @@ const RotatingCategoriesSchema = new Schema<IRotatingCategories>(
 
 const MilestoneBonusSchema = new Schema<IMilestoneBonus>(
   {
-    spend_threshold_inr: { type: Number, required: true },
+    spend_threshold_usd: { type: Number, required: true },
     bonus_points:        { type: Number, required: true },
     period:              { type: String, required: true },
   },

@@ -133,5 +133,9 @@ chrome.runtime.onInstalled.addListener((details) => {
     chrome.runtime.openOptionsPage()
   } else if (details.reason === 'update') {
     console.log('[OneCredit] Extension updated')
+    // Clear cached product data to force re-detection with new conversion logic
+    chrome.storage.local.remove(['lastDetectedProduct', 'lastProductTime'], () => {
+      console.log('[OneCredit] Cleared cached product data')
+    })
   }
 })

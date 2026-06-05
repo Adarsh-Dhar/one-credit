@@ -59,12 +59,30 @@ export function Popup() {
 
       // Always load product separately — independent of session state
       chrome.storage.local.get(['lastDetectedProduct'], (local) => {
-        if (local.lastDetectedProduct) setProduct(local.lastDetectedProduct as DetectedProduct)
+        if (local.lastDetectedProduct) {
+          const rawProduct = local.lastDetectedProduct as DetectedProduct
+          // Convert price to USD if it's still in INR (fallback for cached data)
+          const productWithUsdPrice = {
+            ...rawProduct,
+            price: rawProduct.price > 10000 ? rawProduct.price / 90 : rawProduct.price,
+            originalPrice: rawProduct.originalPrice && rawProduct.originalPrice > 10000 ? rawProduct.originalPrice / 90 : rawProduct.originalPrice,
+          }
+          setProduct(productWithUsdPrice)
+        }
       })
     })
 
     const listener = (msg: any) => {
-      if (msg.type === 'PRODUCT_DETECTED_UPDATE' && msg.data) setProduct(msg.data)
+      if (msg.type === 'PRODUCT_DETECTED_UPDATE' && msg.data) {
+        const rawProduct = msg.data as DetectedProduct
+        // Convert price to USD if it's still in INR (fallback for cached data)
+        const productWithUsdPrice = {
+          ...rawProduct,
+          price: rawProduct.price > 10000 ? rawProduct.price / 90 : rawProduct.price,
+          originalPrice: rawProduct.originalPrice && rawProduct.originalPrice > 10000 ? rawProduct.originalPrice / 90 : rawProduct.originalPrice,
+        }
+        setProduct(productWithUsdPrice)
+      }
     }
     chrome.runtime.onMessage.addListener(listener)
     return () => chrome.runtime.onMessage.removeListener(listener)
@@ -84,8 +102,14 @@ export function Popup() {
     setCalculating(true)
     // Open sidepanel which performs the full analysis
     await handleOpenSidePanel()
+    // Convert price to USD if it's still in INR (fallback for cached data)
+    const productWithUsdPrice = {
+      ...product,
+      price: product.price > 10000 ? product.price / 90 : product.price, // Assume INR if > 10000
+      originalPrice: product.originalPrice && product.originalPrice > 10000 ? product.originalPrice / 90 : product.originalPrice,
+    }
     // Pass product context so SidePanel auto-triggers analysis
-    chrome.storage.local.set({ pendingAnalysis: product })
+    chrome.storage.local.set({ pendingAnalysis: productWithUsdPrice })
     setCalculating(false)
   }
 
@@ -140,7 +164,7 @@ export function Popup() {
             <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Detected on this page</p>
             <p className="text-sm font-medium text-white line-clamp-2 leading-snug">{product.name}</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-base font-bold text-white">₹{product.price.toLocaleString('en-IN')}</span>
+              <span className="text-base font-bold text-white">${product.price.toFixed(2)}</span>
             </div>
             <button
               onClick={handleCalculate}

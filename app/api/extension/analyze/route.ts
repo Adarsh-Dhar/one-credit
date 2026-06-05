@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
             rate: cat.multiplier,
             per: 100,
             currency: card.currency_type.toLowerCase(),
-            ...(cat.cap_amount_usd ? { notes: `Cap: ₹${cat.cap_amount_usd}` } : {}),
+            ...(cat.cap_amount_usd ? { notes: `Cap: $${cat.cap_amount_usd}` } : {}),
           })
         }
       }
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       cardKnowledgeMap[cardKey] = {
         name: card.display_name,
         issuer: card.network,
-        annualFeeInr: card.financials.annual_fee,
+        annualFeeUsd: card.financials.annual_fee,
         gstOnFee: 0.18,
         earnRules,
         emiEarnRate: 0,
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
         bestRedemptionName: bestRedemption.name,
         statementCredits: (card.benefits_and_credits.statement_credits ?? []).map(sc => ({
           name: sc.name,
-          annualValueInr: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
+          annualValueUsd: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
           merchantCategories: sc.merchant_categories ?? [],
         })),
         portalBonuses: (card.benefits_and_credits.portal_bonuses ?? []).map(pb => ({
@@ -146,11 +146,11 @@ export async function POST(request: NextRequest) {
             }
           : null,
         milestoneBonuses: (card.rewards_structure.milestone_bonuses ?? []).map(mb => ({
-          spendThresholdInr: mb.spend_threshold_inr,
+          spendThresholdUsd: mb.spend_threshold_usd,
           bonusPoints: mb.bonus_points,
           period: mb.period,
         })),
-        feeWaiverSpendInr: card.financials.fee_waiver_spend_inr ?? null,
+        feeWaiverSpendUsd: card.financials.fee_waiver_spend_usd ?? null,
         foreignTxnFeePct: card.financials.foreign_transaction_fee_pct ?? 0,
       }
     }
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
     const userContext = await buildUserContext(userId)
 
     // Use actual monthly txn count from behaviour, not hardcoded 10
-    const monthlyTxns = userContext.behaviour.monthlyAvgSpendInr > 0
+    const monthlyTxns = userContext.behaviour.monthlyAvgSpendUsd > 0
       ? Math.max(5, Math.round(userContext.behaviour.categoryBreakdown.reduce((s, c) => s + c.txCount, 0) / 3))
       : 10
 

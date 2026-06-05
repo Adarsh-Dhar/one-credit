@@ -17,10 +17,10 @@ interface CardResult {
   earnAudit: EarnAudit
   bestRedemptionName: string
   bestRedemptionRatePerPoint: number
-  trueRewardValueInr: number
+  trueRewardValueUsd: number
   industryRewardValue: number
-  feeBurdenInr: number
-  floatValueInr: number
+  feeBurdenUsd: number
+  floatValueUsd: number
   netCost: number
   industryCost: number
   savings: number
@@ -123,13 +123,13 @@ export function SidePanel() {
     })
   }
 
-  // For prices (MRP, industry cost) — show in ₹
+  // For prices (MRP, industry cost) — show in $
   const fmtPrice = (n: number) =>
-    '₹' + Math.round(n).toLocaleString('en-IN')
+    '$' + n.toFixed(2)
 
   // For net costs — show as score
   const fmt = (n: number) =>
-    Math.round(n).toLocaleString('en-IN')
+    '$' + n.toFixed(2)
 
   const pct = (n: number) => n.toFixed(1) + '%'
 
@@ -303,22 +303,22 @@ export function SidePanel() {
                               <span className="text-red-400 ml-1">⚠ excluded</span>
                             )}
                           </span>
-                          <span className="text-green-400">−{fmtPrice(card.trueRewardValueInr)}</span>
+                          <span className="text-green-400">−{fmtPrice(card.trueRewardValueUsd)}</span>
                         </div>
                         <div className="text-slate-500 pl-2 -mt-1">
-                          via {card.bestRedemptionName} @ ₹{card.bestRedemptionRatePerPoint}/pt
+                          via {card.bestRedemptionName} @ ${card.bestRedemptionRatePerPoint.toFixed(4)}/pt
                         </div>
 
-                        {card.feeBurdenInr > 0 && (
+                        {card.feeBurdenUsd > 0 && (
                           <div className="flex justify-between text-slate-400">
                             <span>Annual fee (per txn)</span>
-                            <span className="text-orange-400">+{fmtPrice(card.feeBurdenInr)}</span>
+                            <span className="text-orange-400">+{fmtPrice(card.feeBurdenUsd)}</span>
                           </div>
                         )}
 
                         <div className="flex justify-between text-slate-400">
                           <span>Float value (30d @ 7%)</span>
-                          <span className="text-green-400">−{fmtPrice(card.floatValueInr)}</span>
+                          <span className="text-green-400">−{fmtPrice(card.floatValueUsd)}</span>
                         </div>
 
                         <div className="border-t border-slate-700 pt-2 flex justify-between font-medium">

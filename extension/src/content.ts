@@ -65,10 +65,14 @@ function detectProduct(): Product | null {
     const title = titleElement?.textContent?.trim()
 
     if (price && title) {
+      // Convert INR to USD (1 USD = 90 INR)
+      const priceInUsd = parseFloat(price) / 90
+      const originalPriceInUsd = originalPrice ? originalPrice / 90 : null
+      
       product = {
         name: title,
-        price: parseFloat(price),
-        originalPrice,
+        price: priceInUsd,
+        originalPrice: originalPriceInUsd,
         url,
         category: 'electronics',
         source: 'amazon',

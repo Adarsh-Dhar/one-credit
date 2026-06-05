@@ -24,7 +24,7 @@ export interface CardLiveState {
 
   // Existing rewards
   pointsBalance: number                 // points/miles already in account
-  pointsValueInr: number                // what those points are worth right now
+  pointsValueUsd: number                // what those points are worth right now
 
   // Category cap progress this month
   categoryCapProgress: {
@@ -33,17 +33,17 @@ export interface CardLiveState {
     capLimit: number | null
     remainingCapRoom: number | null
   }[]
-  annualSpendInr: number   // total spend on this card in last 365 days
+  annualSpendUsd: number   // total spend on this card in last 365 days
 }
 
 export interface SpendingBehaviour {
   // Last 90 days category breakdown (% of total spend)
   categoryBreakdown: {
     category: string
-    totalSpentInr: number
+    totalSpentUsd: number
     txCount: number
     sharePct: number                    // % of total spend
-    avgTxSizeInr: number
+    avgTxSizeUsd: number
   }[]
 
   // Lifestyle signals
@@ -52,7 +52,7 @@ export interface SpendingBehaviour {
   isFrequentDiner: boolean              // dining > 12% of spend
   isOnlineShopper: boolean              // shopping/electronics > 20% of spend
   isGroceryDominant: boolean            // grocery > 20% of spend
-  monthlyAvgSpendInr: number
+  monthlyAvgSpendUsd: number
 
   // Redemption behaviour
   actualAvgCppAchieved: number | null   // avg CPP user has actually redeemed at historically
@@ -99,7 +99,7 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
   // Build per-card annual spend map
   const annualSpendByCard: Record<string, number> = {}
   for (const tx of annualTxns) {
-    annualSpendByCard[tx.cardId] = (annualSpendByCard[tx.cardId] ?? 0) + (tx.amountInr ?? 0)
+    annualSpendByCard[tx.cardId] = (annualSpendByCard[tx.cardId] ?? 0) + (tx.amountUsd ?? 0)
   }
 
   const cardStates: CardLiveState[] = cards.map(card => {
@@ -122,7 +122,7 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
 
     // Points value
     const pointsBalance = card.points_balance ?? 0
-    const pointsValueInr = pointsBalance * ((card.points_value_cents ?? 100) / 100)
+    const pointsValueUsd = parseFloat((pointsBalance * ((card.points_value_cents ?? 100) / 100) / 90).toFixed(2))
 
     return {
       cardId: card.card_id,
@@ -133,16 +133,16 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
       utilizationPct: utilization ? Math.round(utilization * 10) / 10 : null,
       standardAprPct: card.financials.standard_apr,
       pointsBalance,
-      pointsValueInr: Math.round(pointsValueInr),
+      pointsValueUsd,
       categoryCapProgress,
-      annualSpendInr: Math.round(annualSpendByCard[card.card_id] ?? 0),
+      annualSpendUsd: parseFloat(((annualSpendByCard[card.card_id] ?? 0) / 90).toFixed(2)),
     }
   })
 
   // ── Spending behaviour ────────────────────────────────────────────────────
 
-  const totalSpend = txns.reduce((sum, t) => sum + (t.amountInr ?? 0), 0)
-  const monthlyAvgSpendInr = txns.length > 0 ? Math.round(totalSpend / 3) : 0
+  const totalSpend = txns.reduce((sum, t) => sum + (t.amountUsd ?? 0), 0)
+  const monthlyAvgSpendUsd = txns.length > 0 ? parseFloat((totalSpend / 3).toFixed(2)) : 0
 
   // Group by category
   const categoryMap: Record<string, { total: number; count: number }> = {}
@@ -151,7 +151,7 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
   for (const tx of txns) {
     const cat = tx.category ?? 'other'
     if (!categoryMap[cat]) categoryMap[cat] = { total: 0, count: 0 }
-    categoryMap[cat].total += tx.amountInr ?? 0
+    categoryMap[cat].total += tx.amountUsd ?? 0
     categoryMap[cat].count += 1
     if (tx.isEmi) emiCount++
   }
@@ -159,12 +159,12 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
   const categoryBreakdown = Object.entries(categoryMap)
     .map(([category, data]) => ({
       category,
-      totalSpentInr: Math.round(data.total),
+      totalSpentUsd: parseFloat(data.total.toFixed(2)),
       txCount: data.count,
       sharePct: totalSpend > 0 ? Math.round((data.total / totalSpend) * 100 * 10) / 10 : 0,
-      avgTxSizeInr: Math.round(data.total / data.count),
+      avgTxSizeUsd: parseFloat((data.total / data.count).toFixed(2)),
     }))
-    .sort((a, b) => b.totalSpentInr - a.totalSpentInr)
+    .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
 
   const topCategory = categoryBreakdown[0]?.category ?? 'shopping'
 
@@ -172,9 +172,9 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
     categoryBreakdown.find(c => c.category === cat)?.sharePct ?? 0
 
   // Actual CPP achieved from past redemptions
-  const redemptions = txns.filter(t => (t.rewardValueInr ?? 0) > 0 && (t.pointsEarned ?? 0) > 0)
+  const redemptions = txns.filter(t => (t.rewardValueUsd ?? 0) > 0 && (t.pointsEarned ?? 0) > 0)
   const actualAvgCpp = redemptions.length > 0
-    ? redemptions.reduce((sum, t) => sum + (t.rewardValueInr / t.pointsEarned), 0) / redemptions.length
+    ? redemptions.reduce((sum, t) => sum + (t.rewardValueUsd / t.pointsEarned), 0) / redemptions.length
     : null
 
   const behaviour: SpendingBehaviour = {
@@ -184,7 +184,7 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
     isFrequentDiner: getShare('dining') > 12,
     isOnlineShopper: (getShare('shopping') + getShare('electronics')) > 20,
     isGroceryDominant: getShare('grocery') > 20,
-    monthlyAvgSpendInr,
+    monthlyAvgSpendUsd,
     actualAvgCppAchieved: actualAvgCpp ? Math.round(actualAvgCpp * 100) / 100 : null,
     emiTransactionPct: txns.length > 0 ? Math.round((emiCount / txns.length) * 100) : 0,
   }
