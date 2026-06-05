@@ -546,7 +546,7 @@ export const affiliateStore = new AffiliateStore();
 export function handleAffiliateRequest(
   method: string,
   path: string,
-  query?: any,
+  query?: Record<string, unknown>,
 ): AffiliateApiResponse {
   try {
     if (method === 'POST' && path === '/v2/sync') {
@@ -558,7 +558,7 @@ export function handleAffiliateRequest(
       const network = query?.network as AffiliateNetwork | undefined;
       const vertical = query?.vertical as DealVertical | undefined;
       const activeOnly = query?.activeOnly === 'true';
-      const minEpc = query?.minEpc ? parseFloat(query.minEpc) : undefined;
+      const minEpc = query?.minEpc ? parseFloat(String(query.minEpc)) : undefined;
 
       const deals = affiliateStore.listDeals({ network, vertical, activeOnly, minEpc });
 
@@ -576,7 +576,7 @@ export function handleAffiliateRequest(
       // Impact shape
       const vertical = query?.vertical as DealVertical | undefined;
       const activeOnly = query?.activeOnly === 'true';
-      const minEpc = query?.minEpc ? parseFloat(query.minEpc) : undefined;
+      const minEpc = query?.minEpc ? parseFloat(String(query.minEpc)) : undefined;
 
       const deals = affiliateStore.listDeals({
         network: 'impact',

@@ -8,6 +8,7 @@
  */
 
 import { runRewardsSync } from './rewards-connector';
+import logger from '@/lib/logger';
 
 let timer: NodeJS.Timeout | null = null;
 let isRunning = false;
@@ -36,13 +37,13 @@ export function stopRewardsScheduler(): void {
   if (timer) {
     clearInterval(timer);
     timer = null;
-    console.log('[FivetranScheduler] Stopped');
+    logger.info('[FivetranScheduler] Stopped');
   }
 }
 
 async function runRewardsSyncCycle(): Promise<void> {
   if (isRunning) {
-    console.log('[FivetranScheduler] Previous sync still running — skipping');
+    logger.warn('[FivetranScheduler] Previous sync still running — skipping');
     return;
   }
   isRunning = true;
@@ -51,11 +52,11 @@ async function runRewardsSyncCycle(): Promise<void> {
     const summary = report.connectors
       .map((c) => `${c.source}:${c.recordsUpserted}`)
       .join(', ');
-    console.log(
+    logger.info(
       `[FivetranScheduler] Sync ${report.syncId.slice(0, 8)} — ${summary} (${report.totalMs}ms)`
     );
   } catch (err) {
-    console.error('[FivetranScheduler] Sync error:', err);
+    logger.error({ error: err }, '[FivetranScheduler] Sync error');
   } finally {
     isRunning = false;
   }

@@ -8,6 +8,8 @@ import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
 import { FiatCard } from '@/lib/models/FiatCard';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { ValidationError, toErrorResponse } from '@/lib/errors';
+import logger from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,11 +30,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const cards = await FiatCard.find({ user_id: userId }).lean();
+    const cards = await FiatCard.find({ user_id: userId })
+      .select({
+        card_id: 1,
+        display_name: 1,
+        network: 1,
+        card_type: 1,
+        currency_type: 1,
+        credit_token_balance: 1,
+        points_balance: 1,
+        points_value_cents: 1,
+        current_balance_owed: 1,
+        credit_limit: 1,
+        rewards_structure: 1,
+        benefits_and_credits: 1,
+        financials: 1,
+        card_image_url: 1,
+        card_description: 1,
+        pros: 1,
+        cons: 1,
+        features: 1,
+      })
+      .lean();
     return NextResponse.json({ cards });
   } catch (err) {
     console.error('[GET /api/fiat-cards]', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const { error: errResponse, status } = toErrorResponse(err);
+    return NextResponse.json(errResponse, { status });
   }
 }
 
@@ -65,11 +89,12 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({ card }, { status: 201 });
-  } catch (err: any) {
-    if (err.code === 11000) {
-      return NextResponse.json({ error: 'Card already exists for this user' }, { status: 409 });
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
+      throw new ValidationError('Card already exists for this user');
     }
-    console.error('[POST /api/fiat-cards]', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logger.error({ error: err }, '[POST /api/fiat-cards]');
+    const { error: errResponse, status } = toErrorResponse(err);
+    return NextResponse.json(errResponse, { status });
   }
 }

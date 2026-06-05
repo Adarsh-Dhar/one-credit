@@ -544,7 +544,7 @@ export const networkOfferStore = new NetworkOfferStore();
 export function handleNetworkOfferRequest(
   method: string,
   path: string,
-  query?: any,
+  query?: Record<string, unknown>,
 ): NetworkApiResponse {
   try {
     if (method === 'POST' && path === '/v2/sync') {

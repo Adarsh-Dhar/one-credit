@@ -52,6 +52,9 @@ export interface IRewardsStructure {
   fixed_categories?: IFixedCategory[];
   rotating_categories?: IRotatingCategories;
   milestone_bonuses?: IMilestoneBonus[];
+  emi_multiplier?: number;
+  monthly_cap_points?: number | null;
+  excluded_categories?: string[];
 }
 
 export interface IStatementCredit {
@@ -206,6 +209,9 @@ const RewardsStructureSchema = new Schema<IRewardsStructure>(
     fixed_categories:    { type: [FixedCategorySchema], default: [] },
     rotating_categories: { type: RotatingCategoriesSchema, default: { is_active: false } },
     milestone_bonuses:   { type: [MilestoneBonusSchema], default: [] },
+    emi_multiplier:      { type: Number, default: null },
+    monthly_cap_points:  { type: Number, default: null },
+    excluded_categories: { type: [String], default: [] },
   },
   { _id: false }
 );
@@ -317,6 +323,9 @@ const FiatCardSchema = new Schema<IFiatCard>(
 
 // Compound index: one user should not have duplicate card_ids
 FiatCardSchema.index({ user_id: 1, card_id: 1 }, { unique: true });
+
+// Index for user queries - improves performance for user-specific card fetches
+FiatCardSchema.index({ user_id: 1 });
 
 // ─── Model export ─────────────────────────────────────────────────────────────
 

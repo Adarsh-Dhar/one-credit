@@ -215,11 +215,11 @@ export function Popup() {
 
         {/* Footer Links */}
         <div className="pt-4 border-t border-slate-700 space-y-2">
-          <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer"
+          <a href={process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'} target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-between text-xs text-slate-400 hover:text-slate-300 transition-colors py-2">
             <span>Visit OneCredit</span><ExternalLink className="w-3 h-3" />
           </a>
-          <a href="http://localhost:3000/help" target="_blank" rel="noopener noreferrer"
+          <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/help`} target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-between text-xs text-slate-400 hover:text-slate-300 transition-colors py-2">
             <span>Help & Support</span><ExternalLink className="w-3 h-3" />
           </a>

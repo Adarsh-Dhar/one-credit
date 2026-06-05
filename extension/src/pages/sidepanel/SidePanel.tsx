@@ -45,7 +45,7 @@ export function SidePanel() {
   const [selectedCard, setSelectedCard] = useState<string | null>(null)
   const [pendingProduct, setPendingProduct] = useState<any>(null)
 
-  const API_BASE = 'http://localhost:3000'
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
   const runAnalysis = useCallback(async (product: any) => {
     setLoading(true)

@@ -587,9 +587,10 @@ const cards = [
 ];
 
 export async function POST(request: Request) {
-  // Guard: only allow in development
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Seed endpoint is not available in production' }, { status: 403 });
+  // Guard: require secret token
+  const secret = request.headers.get('x-seed-secret')
+  if (secret !== process.env.SEED_SECRET) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   try {

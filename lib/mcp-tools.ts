@@ -294,7 +294,7 @@ async function getUserBalances(userId: string) {
 
   const user = await User.findOne({
     $or: [{ _id: userId }, { email: userId }],
-  }).lean() as any;
+  }).lean();
 
   if (!user) return { error: 'User not found' };
 
@@ -311,7 +311,7 @@ async function getUserBalances(userId: string) {
 
   // Per-card breakdown for Gemini to reason over
   const cardBreakdown = CARDS.map((card) => {
-    const fiatCard = fiatCardMap.get(card.key) as any;
+    const fiatCard = fiatCardMap.get(card.key);
     const benefits = fiatCard?.benefits_and_credits || {};
     const opRedemption = fiatCard?.op_redemption || null;
     const tokenBalance = fiatCard?.credit_token_balance ?? 0;

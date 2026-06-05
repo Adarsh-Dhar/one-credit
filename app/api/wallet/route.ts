@@ -5,6 +5,8 @@ import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models/User';
 import { FiatCard, IFiatCard } from '@/lib/models/FiatCard';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { UnauthorizedError, toErrorResponse } from '@/lib/errors';
+import logger from '@/lib/logger';
 
 function getCardColor(cardType: string, network: string): string {
   const typeColors: Record<string, string> = {
@@ -52,29 +54,32 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
-
-    if (!email) {
-      return NextResponse.json({ error: 'Email required' }, { status: 400 });
-    }
-
-    // Verify the requested email matches the authenticated user
-    if (session.user.email !== email) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     await connectDB();
 
-    const user = await User.findOne({ email }).lean();
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Get fiat cards from database with actual balances using the user's actual ID
-    const userId = user._id?.toString();
-    const fiatCards = await FiatCard.find({ user_id: userId }).lean() as IFiatCard[];
+    // Use session.user.id directly (already in JWT via jwt callback)
+    const userId = session.user.id;
+    const fiatCards = await FiatCard.find({ user_id: userId })
+      .select({
+        card_id: 1,
+        display_name: 1,
+        network: 1,
+        card_type: 1,
+        currency_type: 1,
+        credit_token_balance: 1,
+        points_balance: 1,
+        points_value_cents: 1,
+        current_balance_owed: 1,
+        credit_limit: 1,
+        rewards_structure: 1,
+        benefits_and_credits: 1,
+        financials: 1,
+        card_image_url: 1,
+        card_description: 1,
+        pros: 1,
+        cons: 1,
+        features: 1,
+      })
+      .lean() as IFiatCard[];
 
     // Calculate total value from credit_token_balance (rewards) not current_balance_owed (debt)
     let totalValue = 0;
@@ -93,67 +98,13 @@ export async function GET(request: Request) {
 
       totalValue += value;
 
-      // Extract earn rates from rewards structure
-      const rewardsStructure = card.rewards_structure || {};
-      const earnRates = {
-        flights: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'flights'),
-        hotel: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'hotel'),
-        dining: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'dining'),
-        groceries: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'groceries'),
-        fuel: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'fuel'),
-        shopping: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'shopping'),
-        pharmacy: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'pharmacy'),
-        electronics: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'electronics'),
-        streaming: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'streaming'),
-        general: rewardsStructure.base_multiplier,
-      };
-
-      // Build points program info for POINTS-type cards
-      let pointsProgram = null;
-      if (card.currency_type === 'POINTS' || card.currency_type === 'MILES') {
-        const transferPartners = card.benefits_and_credits?.transfer_partners || [];
-        const cppMin = transferPartners.length > 0 ? Math.min(...transferPartners.map((p: any) => p.cpp_min)) : pointsValueCents;
-        const cppMax = transferPartners.length > 0 ? Math.max(...transferPartners.map((p: any) => p.cpp_max)) : pointsValueCents;
-        pointsProgram = {
-          name: card.points_program_name || 'Unknown',
-          cppMin,
-          cppMax,
-        };
-      }
-
-      return {
-        key: card.card_id,
-        name: card.display_name,
-        issuer: card.network,
-        type: card.card_type,
-        color: getCardColor(card.card_type, card.network),
-        currency: card.currency_type.toLowerCase(),
-        balance: card.current_balance_owed || 0, // Debt (what you owe)
-        limit: card.credit_limit || 0,
-        value: value, // Rewards (what you can spend) in USD
-        earnRates,
-        redemptionRate: card.redemption_rate_display || (card.currency_type === 'USD' ? '$1.00' : `1 Point = $${(pointsValueCents / 100).toFixed(2)}`),
-        statementCredits: card.benefits_and_credits?.statement_credits || [],
-        portalBonuses: card.benefits_and_credits?.portal_bonuses || [],
-        protections: card.benefits_and_credits?.purchase_protections || null,
-        transferPartners: card.benefits_and_credits?.transfer_partners || [],
-        pointsProgram,
-        perks: [
-          ...(card.benefits_and_credits?.airline_perks || []),
-          ...(card.benefits_and_credits?.general_perks || []),
-        ],
-        annualFee: card.financials?.annual_fee || 0,
-        cardImageUrl: card.card_image_url,
-        cardDescription: card.card_description,
-        pros: card.pros,
-        cons: card.cons,
-        features: card.features,
-      };
+      return transformFiatCardToWalletDetail(card, value);
     });
 
     return NextResponse.json({ totalValue, cards: cardDetails });
   } catch (error) {
-    console.error('[GET /api/wallet]', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logger.error({ error }, '[GET /api/wallet]');
+    const { error: errResponse, status } = toErrorResponse(error);
+    return NextResponse.json(errResponse, { status });
   }
 }

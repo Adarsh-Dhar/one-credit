@@ -2,6 +2,7 @@
 
 import { connectDB } from './mongodb';
 import { FiatCard, IFiatCard } from './models/FiatCard';
+import logger from '@/lib/logger';
 
 export type CardKey = string;
 
@@ -162,11 +163,32 @@ export async function getCard(key: CardKey, userId: string): Promise<CardDefinit
   }
   try {
     await connectDB();
-    const fiatCard = await FiatCard.findOne({ user_id: userId, card_id: key }).lean();
+    const fiatCard = await FiatCard.findOne({ user_id: userId, card_id: key })
+      .select({
+        card_id: 1,
+        display_name: 1,
+        network: 1,
+        card_type: 1,
+        currency_type: 1,
+        credit_token_balance: 1,
+        points_balance: 1,
+        points_value_cents: 1,
+        current_balance_owed: 1,
+        credit_limit: 1,
+        rewards_structure: 1,
+        benefits_and_credits: 1,
+        financials: 1,
+        card_image_url: 1,
+        card_description: 1,
+        pros: 1,
+        cons: 1,
+        features: 1,
+      })
+      .lean();
     if (!fiatCard) return undefined;
     return transformFiatCard(fiatCard);
   } catch (error) {
-    console.error('Error fetching card from database:', error);
+    logger.error({ error }, 'Error fetching card from database');
     return undefined;
   }
 }

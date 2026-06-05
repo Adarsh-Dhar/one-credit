@@ -1,33 +1,27 @@
 import { callGeminiWithTools, MCPTools } from '@/lib/mcp-tools';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { z } from 'zod';
+import { ratelimit } from '@/lib/rateLimit';
+import { UnauthorizedError, ValidationError, toErrorResponse } from '@/lib/errors';
+import logger from '@/lib/logger';
 
-// In-memory rate limiter
-const rateLimiter = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT = 10; // requests per minute
-const RATE_WINDOW = 60 * 1000; // 1 minute in ms
-
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const userLimit = rateLimiter.get(userId) || { count: 0, resetTime: now + RATE_WINDOW };
-
-  if (now > userLimit.resetTime) {
-    userLimit.count = 0;
-    userLimit.resetTime = now + RATE_WINDOW;
-  }
-
-  if (userLimit.count >= RATE_LIMIT) {
-    return false;
-  }
-
-  userLimit.count++;
-  rateLimiter.set(userId, userLimit);
-  return true;
-}
+// Zod schema for request validation
+const AnalyzeSchema = z.object({
+  prompt: z.string().max(5000),
+  apiKey: z.string().optional(),
+});
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { prompt, apiKey } = body;
+    // Validate request body with Zod
+    const parsed = AnalyzeSchema.safeParse(await request.json())
+    if (!parsed.success) {
+      throw new ValidationError('Invalid request body', { details: parsed.error.flatten() })
+    }
+
+    const { prompt, apiKey } = parsed.data;
 
     // Prefer server-side env key; fall back to user-supplied key for dev
     const resolvedKey = process.env.GOOGLE_API_KEY || apiKey;
@@ -39,18 +33,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
     }
 
-    // Check rate limit using API key as identifier
-    if (!checkRateLimit(resolvedKey)) {
-      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    // Check authentication
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new UnauthorizedError();
+    }
+
+    // Check rate limit using session user ID
+    const { success } = await ratelimit.limit(session.user.id);
+    if (!success) {
+      throw new ValidationError('Rate limit exceeded');
     }
 
     const result = await callGeminiWithTools(resolvedKey, prompt, MCPTools);
     return NextResponse.json(result);
   } catch (error) {
-    console.error('[analyze]', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to call Gemini' },
-      { status: 500 }
-    );
+    logger.error({ error }, '[analyze]');
+    const { error: errResponse, status } = toErrorResponse(error);
+    return NextResponse.json(errResponse, { status });
   }
 }

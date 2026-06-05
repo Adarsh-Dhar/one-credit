@@ -231,12 +231,13 @@ export async function POST(request: NextRequest) {
       savings: result.cards.length > 1
         ? Math.max(...result.cards.map(c => c.netCost)) - result.winner.netCost
         : 0,
+  }
     })
   } catch (error) {
     logger.error({ error }, '[OP Agent] Error');
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Agent failed' },
       { status: 500 }
     )
+    const { error: errResponse, status } = toErrorResponse(error)
+    return NextResponse.json(errResponse, { status })
   }
 }

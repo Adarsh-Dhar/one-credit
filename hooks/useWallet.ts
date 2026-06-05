@@ -9,6 +9,7 @@ export function useWallet() {
   const [wallet, setWallet] = useState(0);
   const [cards, setCards] = useState<WalletCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -20,15 +21,19 @@ export function useWallet() {
     if (status === 'loading') return;
     const email = session?.user?.email;
     if (!email) return; // Don't fetch if not authenticated
+    setError(null);
     fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())
       .then((data) => {
         setWallet(data.totalValue ?? 1500);
         setCards(data.cards ?? []);
       })
-      .catch(() => setWallet(1500))
+      .catch((err) => {
+        console.error('[useWallet] fetch failed:', err);
+        setError('Failed to load wallet. Please refresh.');
+      })
       .finally(() => setLoading(false));
   }, [session, status]);
 
-  return { wallet, cards, loading, session };
+  return { wallet, cards, loading, error, session };
 }

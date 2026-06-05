@@ -41,7 +41,7 @@ export interface CardlyticsApiResponse {
   success: boolean;
   data?: CardlyticsOffer[];
   offer?: CardlyticsOffer;
-  enrichedReceipt?: any;
+  enrichedReceipt?: BanyanSku & { enrichedAt: string };
   error?: string;
 }
 
@@ -621,7 +621,7 @@ export const cardlyticsStore = new CardlyticsStore();
 export function handleCardlyticsRequest(
   method: string,
   path: string,
-  body?: any,
+  body?: Record<string, unknown>,
 ): CardlyticsApiResponse {
   try {
     if (method === 'GET' && path === '/v2/offers') {
@@ -656,15 +656,20 @@ export function handleCardlyticsRequest(
 
     if (method === 'POST' && path === '/v1/receipts') {
       // Banyan enrichment endpoint
-      const { merchantName } = body;
+      const { merchantName } = body as { merchantName?: string };
       const skuKey = Array.from(BANYAN_SKUS.keys()).find(
         key => BANYAN_SKUS.get(key)!.merchantName === merchantName,
       );
       if (skuKey) {
+        const sku = BANYAN_SKUS.get(skuKey)!;
         return {
           success: true,
           enrichedReceipt: {
-            ...BANYAN_SKUS.get(skuKey),
+            skuId: sku.skuId,
+            merchantName: sku.merchantName,
+            category: sku.category,
+            typicalPrice: sku.typicalPrice,
+            receiptDataFields: sku.receiptDataFields,
             enrichedAt: new Date().toISOString(),
           },
         };

@@ -20,27 +20,29 @@ export interface FullSyncReport {
 }
 
 // Lazy-load mongoose to avoid circular imports
-let mongoose: any = null;
+let mongooseConnection: Awaited<ReturnType<typeof connectDB>> | null = null;
 
 async function getMongoose() {
-  if (!mongoose) {
-    const db = await connectDB();
-    mongoose = db;
+  if (!mongooseConnection) {
+    mongooseConnection = await connectDB();
   }
-  return mongoose;
+  return mongooseConnection;
 }
 
 async function getCollection(collectionName: string) {
   const mg = await getMongoose();
+  if (!mg?.connection?.db) {
+    throw new Error('Database connection not established');
+  }
   return mg.connection.db.collection(collectionName);
 }
 
 // Generic bulk upsert using MongoDB bulkWrite
-async function upsertMany(collectionName: string, documents: any[], keyField: string): Promise<number> {
+async function upsertMany<T extends Record<string, unknown>>(collectionName: string, documents: T[], keyField: string): Promise<number> {
   if (documents.length === 0) return 0;
 
   const collection = await getCollection(collectionName);
-  
+
   const bulkOps = documents.map(doc => ({
     updateOne: {
       filter: { [keyField]: doc[keyField] },
@@ -322,9 +324,9 @@ export async function getNetworkDeals(filters?: {
   network?: string;
   country?: string;
   activeOnly?: boolean;
-}): Promise<any[]> {
+}): Promise<Record<string, unknown>[]> {
   const collection = await getCollection('offers_network');
-  const query: any = {};
+  const query: Record<string, unknown> = {};
 
   if (filters?.network) {
     query.network = filters.network.toUpperCase();
@@ -343,9 +345,9 @@ export async function getAffiliateDeals(filters?: {
   vertical?: string;
   network?: string;
   minEpc?: number;
-}): Promise<any[]> {
+}): Promise<Record<string, unknown>[]> {
   const collection = await getCollection('offers_affiliate');
-  const query: any = {};
+  const query: Record<string, unknown> = {};
 
   if (filters?.vertical) {
     query.vertical = filters.vertical;

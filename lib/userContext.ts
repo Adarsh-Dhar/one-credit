@@ -121,7 +121,23 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
   await connectDB()
 
   // 1. Fetch all cards (or use pre-fetched)
-  const cards = preFetchedCards || await FiatCard.find({ user_id: userId }).lean()
+  const cards = preFetchedCards || await FiatCard.find({ user_id: userId })
+    .select({
+      card_id: 1,
+      display_name: 1,
+      network: 1,
+      card_type: 1,
+      currency_type: 1,
+      credit_token_balance: 1,
+      points_balance: 1,
+      points_value_cents: 1,
+      current_balance_owed: 1,
+      credit_limit: 1,
+      rewards_structure: 1,
+      benefits_and_credits: 1,
+      financials: 1,
+    })
+    .lean()
 
   // 2. Fetch last 90 days of transactions
   const since = new Date()
@@ -130,14 +146,30 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
     userId,
     type: 'spend',
     createdAt: { $gte: since },
-  }).lean()
+  })
+    .select({
+      userId: 1,
+      cardId: 1,
+      amountUsd: 1,
+      category: 1,
+      merchant: 1,
+      createdAt: 1,
+    })
+    .lean()
 
   // 3. Fetch last 90 days of REDEMPTION transactions separately
   const redemptionTxns = await Transaction.find({
     userId,
     type: 'redemption',
     createdAt: { $gte: since },
-  }).lean()
+  })
+    .select({
+      userId: 1,
+      cardId: 1,
+      amountUsd: 1,
+      createdAt: 1,
+    })
+    .lean()
 
   // 2b. Fetch last 365 days of transactions for annual spend
   const since365 = new Date()
@@ -146,7 +178,14 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
     userId,
     type: 'spend',
     createdAt: { $gte: since365 },
-  }).lean()
+  })
+    .select({
+      userId: 1,
+      cardId: 1,
+      amountUsd: 1,
+      createdAt: 1,
+    })
+    .lean()
 
   // ── Card live states ──────────────────────────────────────────────────────
 

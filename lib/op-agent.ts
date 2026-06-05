@@ -6,6 +6,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { UserContext } from './userContext'
 
+// Sanitize user-controlled strings before prompt interpolation
+function sanitizeForPrompt(s: string, maxLen = 200): string {
+  return s.replace(/[`${}\\]/g, '').slice(0, maxLen)
+}
+
 export interface CardKnowledge {
   name: string
   issuer: string
@@ -119,6 +124,11 @@ export interface OPAgentResult {
   cards: CardOPResult[]
   winner: CardOPResult
   industryWinner: CardOPResult
+  agentReasoning: string
+}
+
+interface GeminiResponse {
+  cards: CardOPResult[]
   agentReasoning: string
 }
 
@@ -331,7 +341,7 @@ If momSpendChangePct is not null AND fastestGrowingCategory is not null:
 For EACH card, reason through all 5 steps and produce a JSON result.
 
 ### Step 1 — EarnAudit
-- Check if the merchant (${input.product.merchant}) is excluded
+- Check if the merchant (${sanitizeForPrompt(input.product.merchant)}) is excluded
 - Check if payment is EMI (use emiEarnRate if so)
 - Find the matching earnRule for this merchant
 - Confirm no monthly cap issue (assume this is the first transaction of the month)
@@ -424,7 +434,7 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
   })
   const text = result.response.text()
 
-  let parsed: { cards: any[]; agentReasoning: string }
+  let parsed: GeminiResponse
   try {
     parsed = JSON.parse(text)
   } catch (e) {
@@ -438,7 +448,7 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
 
   // Industry winner = lowest industryCost
   const industrySorted = [...parsed.cards].sort(
-    (a: any, b: any) => a.industryCost - b.industryCost
+    (a: CardOPResult, b: CardOPResult) => a.industryCost - b.industryCost
   )
 
   return {
