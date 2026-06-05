@@ -163,6 +163,7 @@ continue
         })),
         portalBonuses: (dbCard.benefits_and_credits.portal_bonuses ?? []).map(pb => ({
           portalName: pb.portal_name,
+          portalUrl: pb.portal_url,
           categories: pb.categories,
           bonusMultiplier: pb.bonus_multiplier,
           bonusType: pb.bonus_type,
@@ -213,7 +214,7 @@ continue
     // Run the agent across user's cards
     const result = await runOPAgent(
       {
-        product: { name: sanitizeForPrompt(product.name || ''), price: product.price, category, merchant, isEmi, isForeignMerchant },
+        product: { name: sanitizeForPrompt(product.name || ''), price: product.price, url: product.url, category, merchant, isEmi, isForeignMerchant },
         cards: cardKeys,
         cardKnowledgeMap,
         userMonthlyTxns: monthlyTxns,

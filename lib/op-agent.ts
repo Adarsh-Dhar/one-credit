@@ -40,6 +40,7 @@ export interface CardKnowledge {
   }[]
   portalBonuses: {
     portalName: string
+    portalUrl: string
     categories: string[]
     bonusMultiplier: number
     bonusType: 'multiplier' | 'flat_pct'
@@ -62,6 +63,7 @@ export interface OPAgentInput {
   product: {
     name: string
     price: number
+    url: string | undefined
     category: string
     merchant: string
     isEmi: boolean
@@ -112,6 +114,7 @@ export interface CardOPResult {
   milestoneCreditUsd: number
   portalBonusApplied: boolean
   portalBonusName: string | null
+  portalBonusUrl: string | null
   rotatingBonusApplied: boolean
   feeWaiverActive: boolean
   feeWaiverNote: string | null
@@ -296,7 +299,8 @@ RULE 12 — Portal bonus:
 After computing actualPointsEarned in Step 1, check portalBonuses.
 If any portalBonus.categories includes the purchase category AND bonusType = "multiplier":
   actualPointsEarned = actualPointsEarned * bonusMultiplier.
-  Set portalBonusApplied = true, portalBonusName = portalBonus.portalName.
+  Set portalBonusApplied = true, portalBonusName = portalBonus.portalName,
+  portalBonusUrl = portalBonus.portalUrl.
   Note in reasoning: "Requires routing through [portalName]."
 
 RULE 13 — OP opportunity cost:
@@ -415,6 +419,7 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
       "milestoneCreditUsd": number,
       "portalBonusApplied": boolean,
       "portalBonusName": null or "string",
+      "portalBonusUrl": null or "string",
       "rotatingBonusApplied": boolean,
       "feeWaiverActive": boolean,
       "feeWaiverNote": null or "string",

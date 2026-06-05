@@ -26,15 +26,25 @@ interface CardResult {
   savings: number
   effectiveDiscountPercent: number
   reasoning: string
+  portalBonusApplied: boolean
+  portalBonusName: string | null
+  portalBonusUrl: string | null
 }
 
 interface AnalysisResult {
-  product: { name: string; price: number }
+  product: { name: string; price: number; url?: string }
   cards: CardResult[]
   winner: CardResult
   industryWinner: CardResult
   agentReasoning: string
   savings: number
+}
+
+function buildPortalDeepLink(portalUrl: string, productUrl?: string): string {
+  if (!productUrl) return portalUrl
+  const encoded = encodeURIComponent(productUrl)
+  // Chase, Amex, Capital One all accept a ref/destination param
+  return `${portalUrl}?destination=${encoded}`
 }
 
 export function SidePanel() {
@@ -90,16 +100,13 @@ export function SidePanel() {
   useEffect(() => {
     // Poll for pendingAnalysis set by Popup
     const checkPending = () => {
-      chrome.storage.local.get(['pendingAnalysis', 'selectedCards'], (stored) => {
+      chrome.storage.local.get(['pendingAnalysis'], (stored) => {
         if (stored.pendingAnalysis) {
           // Consume the pending product and run analysis
           const product = stored.pendingAnalysis
           chrome.storage.local.remove('pendingAnalysis')
           setPendingProduct(product)
           runAnalysis(product)
-        } else if (stored.selectedCards && !result) {
-          // Restore previous result if available
-          setResult(stored.selectedCards as AnalysisResult)
         }
       })
     }
@@ -231,6 +238,25 @@ export function SidePanel() {
               </div>
             )}
 
+            {winner.portalBonusApplied && winner.portalBonusUrl && (
+              <a
+                href={buildPortalDeepLink(winner.portalBonusUrl, result.product.url)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2.5"
+              >
+                <div>
+                  <p className="text-xs font-semibold text-yellow-300">
+                    Shop via {winner.portalBonusName}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Earn {winner.earnAudit.rate}x instead of base rate
+                  </p>
+                </div>
+                <span className="text-yellow-400 text-xs font-bold flex-shrink-0">→ Go</span>
+              </a>
+            )}
+
             <button
               onClick={() => handleCardSelect(winner.cardKey)}
               disabled={selectedCard === winner.cardKey}
@@ -342,6 +368,25 @@ export function SidePanel() {
                         <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-2.5">
                           <p className="text-xs text-red-300">⚠ {card.earnAudit.exclusionReason}</p>
                         </div>
+                      )}
+
+                      {card.portalBonusApplied && card.portalBonusUrl && (
+                        <a
+                          href={buildPortalDeepLink(card.portalBonusUrl, result.product.url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-between gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2.5"
+                        >
+                          <div>
+                            <p className="text-xs font-semibold text-yellow-300">
+                              Shop via {card.portalBonusName}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              Earn {card.earnAudit.rate}x instead of base rate
+                            </p>
+                          </div>
+                          <span className="text-yellow-400 text-xs font-bold flex-shrink-0">→ Go</span>
+                        </a>
                       )}
 
                       <button
