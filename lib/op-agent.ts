@@ -269,6 +269,8 @@ export interface CardOPResult {
   rotatingBonusApplied: boolean
   feeWaiverActive: boolean
   feeWaiverNote: string | null
+  opConservationPenalty: number      // penalty added to netCost when tokens < minRedeemThreshold
+  opVelocityBonus: number            // discount applied when near a redemption tier
 }
 
 export interface OPAgentResult {
@@ -336,6 +338,7 @@ ${JSON.stringify(input.userContext.cards.map(c => ({
   aprPct: c.standardAprPct,
   pointsBalance: c.pointsBalance,
   pointsValueUsd: c.pointsValueUsd,
+  opTokenState: c.opTokenState,           // ← add this line
   categoryCapProgress: c.categoryCapProgress,
   annualSpendUsd: c.annualSpendUsd,
 })), null, 2)}
@@ -350,6 +353,10 @@ ${JSON.stringify(input.userContext.cards.map(c => ({
 - EMI transaction rate: ${input.userContext.behaviour.emiTransactionPct}%
 - Actual avg CPP achieved historically: ${input.userContext.behaviour.actualAvgCppAchieved ?? 'no redemption history'}
 - Category breakdown: ${JSON.stringify(input.userContext.behaviour.categoryBreakdown, null, 2)}
+
+### Cross-card OP token pool
+- totalOpTokens: ${input.userContext.totalOpTokens}
+- totalOpBalanceUsd: $${input.userContext.totalOpBalanceUsd}
 
 ### Rules you MUST apply using the above data
 
@@ -424,6 +431,27 @@ If any portalBonus.categories includes the purchase category AND bonusType = "mu
   actualPointsEarned = actualPointsEarned * bonusMultiplier.
   Set portalBonusApplied = true, portalBonusName = portalBonus.portalName.
   Note in reasoning: "Requires routing through [portalName]."
+
+RULE 13 — OP opportunity cost:
+For any card where opTokenState is not null:
+  If opTokenState.tokenBalance < opTokenState.minRedeemThreshold (isTokenLow = true):
+    Compute opConservationPenalty = opTokenState.tokenValueUsd * 0.10
+    Add opConservationPenalty to netCost for this card.
+    Include a note in reasoning: "OP balance (X tokens) is below the X-token redemption threshold — conservation penalty applied."
+  If isTokenLow = false: no penalty — tokens are freely redeemable.
+  Set opConservationPenalty in the output (0 if no penalty).
+
+RULE 14 — OP token pooling:
+Use the cross-card totalOpTokens from the user context.
+For each card where opTokenState is not null AND opTokenState.minRedeemThreshold > 0:
+  If totalOpTokens >= (opTokenState.minRedeemThreshold * 0.80):
+    This card is in "near-tier" mode — the user is within 20% of unlocking redemption.
+    Compute tokensFromThisPurchase = price * opTokenState.token_velocity.
+    Compute velocityBonus = tokensFromThisPurchase * (opTokenState.opCentsPerToken / 100) * 0.25
+    Subtract velocityBonus from netCost for this card (floor netCost at 0).
+    Set opVelocityBonus = velocityBonus in output.
+    Note in reasoning: "Near OP redemption tier — prioritising highest token velocity to reach threshold faster."
+  Else: opVelocityBonus = 0.
 ` : ''}
 
 ## Your task
@@ -506,7 +534,9 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
       "portalBonusName": null or "string",
       "rotatingBonusApplied": boolean,
       "feeWaiverActive": boolean,
-      "feeWaiverNote": null or "string"
+      "feeWaiverNote": null or "string",
+      "opConservationPenalty": number,
+      "opVelocityBonus": number
     }
   ],
   "agentReasoning": "One paragraph summary of the overall analysis and why the winner wins"

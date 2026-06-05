@@ -711,6 +711,13 @@ function buildCards(userId: string) {
         airline_perks: [],
         general_perks: ['Best-in-class grocery cashback rate', '0% intro APR 12 months'],
       },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 2500,
+        redeem_categories: ['cashback', 'statement_credit'],
+        token_velocity: 1.0,
+        appreciation_model: 'fixed',
+      },
     },
 
     // ── 8. Citi Double Cash ───────────────────────────────────────────────────
@@ -779,6 +786,13 @@ function buildCards(userId: string) {
         transfer_partners: [],
         airline_perks: [],
         general_perks: ['No annual fee', '2% flat rate — zero category management'],
+      },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 2500,
+        redeem_categories: ['cashback', 'statement_credit', 'check'],
+        token_velocity: 2.0,
+        appreciation_model: 'fixed',
       },
     },
 
@@ -851,6 +865,13 @@ function buildCards(userId: string) {
         transfer_partners: [],
         airline_perks: [],
         general_perks: ['No annual fee', 'Cell phone protection $600', '0% intro APR 15 months'],
+      },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 2500,
+        redeem_categories: ['cashback', 'atm', 'statement_credit'],
+        token_velocity: 2.0,
+        appreciation_model: 'fixed',
       },
     },
 
@@ -936,6 +957,13 @@ function buildCards(userId: string) {
         transfer_partners: [],
         airline_perks: [],
         general_perks: ['No annual fee', 'No foreign transaction fees', 'Cashback Match year one', 'Free FICO score'],
+      },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 0,
+        redeem_categories: ['cashback', 'amazon_checkout', 'gift_cards', 'charity'],
+        token_velocity: 1.0,
+        appreciation_model: 'fixed',
       },
     },
 
@@ -1094,6 +1122,13 @@ function buildCards(userId: string) {
         transfer_partners: [],
         airline_perks: [],
         general_perks: ['No annual fee', 'Employee cards free', 'Pools with premium Chase cards'],
+      },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 0,
+        redeem_categories: ['cashback', 'statement_credit', 'gift_cards'],
+        token_velocity: 1.5,
+        appreciation_model: 'fixed',
       },
     },
 
@@ -1418,6 +1453,13 @@ function buildCards(userId: string) {
         airline_perks: ['2 EarlyBird Check-Ins per year', 'Points count toward Companion Pass'],
         general_perks: ['No foreign transaction fees', 'No blackout dates'],
       },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 2500,
+        redeem_categories: ['cashback', 'statement_credit'],
+        token_velocity: 1.0,
+        appreciation_model: 'fixed',
+      },
     },
 
     // ── 17. Amex Blue Cash Everyday ────────────────────────────────────────────
@@ -1656,6 +1698,13 @@ function buildCards(userId: string) {
         airline_perks: [],
         general_perks: ['No annual fee', 'No foreign transaction fees', 'First late fee waived', 'Cashback Match year one', 'Free FICO score'],
       },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 0,
+        redeem_categories: ['cashback', 'amazon_checkout', 'gift_cards', 'charity'],
+        token_velocity: 1.0,
+        appreciation_model: 'fixed',
+      },
     },
 
     // ── 20. Wells Fargo Reflect ────────────────────────────────────────────────
@@ -1728,6 +1777,13 @@ function buildCards(userId: string) {
         transfer_partners: [],
         airline_perks: [],
         general_perks: ['No annual fee', '0% APR up to 21 months', 'Cell phone protection $600', 'Best balance transfer card available'],
+      },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 2500,
+        redeem_categories: ['cashback'],
+        token_velocity: 0,
+        appreciation_model: 'fixed',
       },
     },
 

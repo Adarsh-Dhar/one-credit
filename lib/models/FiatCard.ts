@@ -95,6 +95,16 @@ export interface IBenefitsAndCredits {
   general_perks?: string[];
 }
 
+// ─── OP redemption catalog sub-document ──────────────────────────────────────
+
+export interface IOpRedemption {
+  op_cents_per_token: number;        // USD value of 1 OP token (e.g. 1.0 = 1¢)
+  min_redeem_tokens: number;         // minimum tokens needed before redemption unlocks
+  redeem_categories: string[];       // what tokens can be redeemed for, e.g. ['cashback','travel','merchandise']
+  token_velocity: number;            // tokens earned per $1 spent (earn rate)
+  appreciation_model: string;        // e.g. 'fixed' | 'tiered' | 'dynamic'
+}
+
 // ─── Top-level document interface ────────────────────────────────────────────
 
 export interface IFiatCard extends Document {
@@ -128,6 +138,7 @@ export interface IFiatCard extends Document {
   financials: IFinancials;
   rewards_structure: IRewardsStructure;
   benefits_and_credits: IBenefitsAndCredits;
+  op_redemption?: IOpRedemption;     // OP token redemption catalog (USD cards only)
 
   createdAt: Date;
   updatedAt: Date;
@@ -255,6 +266,19 @@ const BenefitsAndCreditsSchema = new Schema<IBenefitsAndCredits>(
   { _id: false }
 );
 
+// ─── OP redemption sub-schema ─────────────────────────────────────────────────
+
+const OpRedemptionSchema = new Schema<IOpRedemption>(
+  {
+    op_cents_per_token: { type: Number, required: true, default: 1.0 },
+    min_redeem_tokens:  { type: Number, required: true, default: 0 },
+    redeem_categories:  { type: [String], default: [] },
+    token_velocity:     { type: Number, required: true, default: 1.0 },
+    appreciation_model: { type: String, default: 'fixed' },
+  },
+  { _id: false }
+);
+
 // ─── Root schema ──────────────────────────────────────────────────────────────
 
 const FiatCardSchema = new Schema<IFiatCard>(
@@ -286,6 +310,7 @@ const FiatCardSchema = new Schema<IFiatCard>(
     financials:            { type: FinancialsSchema,          required: true },
     rewards_structure:     { type: RewardsStructureSchema,    required: true },
     benefits_and_credits:  { type: BenefitsAndCreditsSchema,  required: true },
+    op_redemption:         { type: OpRedemptionSchema,        default: null },
   },
   { timestamps: true }
 );

@@ -18,13 +18,22 @@ export interface CardLiveState {
   // Credit health
   creditLimit: number | null
   currentBalanceOwed: number
-  availableCredit: number | null        // creditLimit - currentBalanceOwed
-  utilizationPct: number | null         // currentBalanceOwed / creditLimit * 100
-  standardAprPct: number                // e.g. 42 = 42% APR
+  availableCredit: number | null
+  utilizationPct: number | null
+  standardAprPct: number
 
   // Existing rewards
-  pointsBalance: number                 // points/miles already in account
-  pointsValueUsd: number                // what those points are worth right now
+  pointsBalance: number
+  pointsValueUsd: number
+
+  // OP token state (USD cards only — null when not applicable)
+  opTokenState: {
+    tokenBalance: number                // raw OP token count (= credit_token_balance)
+    tokenValueUsd: number               // tokenBalance * op_cents_per_token / 100
+    opCentsPerToken: number             // redemption rate for this card
+    minRedeemThreshold: number          // min tokens needed to redeem
+    isTokenLow: boolean                 // tokenBalance < minRedeemThreshold
+  } | null
 
   // Category cap progress this month
   categoryCapProgress: {
@@ -33,7 +42,7 @@ export interface CardLiveState {
     capLimit: number | null
     remainingCapRoom: number | null
   }[]
-  annualSpendUsd: number   // total spend on this card in last 365 days
+  annualSpendUsd: number
 }
 
 export interface SpendingBehaviour {
@@ -66,6 +75,8 @@ export interface UserContext {
   userId: string
   cards: CardLiveState[]
   behaviour: SpendingBehaviour
+  totalOpTokens: number        // sum of credit_token_balance across all USD cards
+  totalOpBalanceUsd: number    // sum of each card's tokenBalance * op_cents_per_token / 100
 }
 
 // ─── Main builder ─────────────────────────────────────────────────────────────
@@ -120,9 +131,31 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
           : null,
       }))
 
-    // Points value
+    // Points value — for USD cards use credit_token_balance * op_cents_per_token
     const pointsBalance = card.points_balance ?? 0
-    const pointsValueUsd = parseFloat((pointsBalance * ((card.points_value_cents ?? 100) / 100) / 90).toFixed(2))
+    let pointsValueUsd: number
+    if (card.currency_type === 'USD' && card.op_redemption && (card.credit_token_balance ?? 0) > 0) {
+      pointsValueUsd = parseFloat(
+        ((card.credit_token_balance ?? 0) * (card.op_redemption.op_cents_per_token / 100)).toFixed(2)
+      )
+    } else {
+      pointsValueUsd = parseFloat((pointsBalance * ((card.points_value_cents ?? 100) / 100)).toFixed(2))
+    }
+
+    // OP token state (USD cards with op_redemption configured)
+    let opTokenState: CardLiveState['opTokenState'] = null
+    if (card.currency_type === 'USD' && card.op_redemption) {
+      const tokenBalance = card.credit_token_balance ?? 0
+      const centsPerToken = card.op_redemption.op_cents_per_token
+      const minThreshold = card.op_redemption.min_redeem_tokens
+      opTokenState = {
+        tokenBalance,
+        tokenValueUsd: parseFloat((tokenBalance * (centsPerToken / 100)).toFixed(2)),
+        opCentsPerToken: centsPerToken,
+        minRedeemThreshold: minThreshold,
+        isTokenLow: tokenBalance < minThreshold,
+      }
+    }
 
     return {
       cardId: card.card_id,
@@ -134,8 +167,10 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
       standardAprPct: card.financials.standard_apr,
       pointsBalance,
       pointsValueUsd,
+      opTokenState,
       categoryCapProgress,
-      annualSpendUsd: parseFloat(((annualSpendByCard[card.card_id] ?? 0) / 90).toFixed(2)),
+      // Fix: annualSpendUsd was dividing by 90 instead of using the raw 365-day total
+      annualSpendUsd: parseFloat((annualSpendByCard[card.card_id] ?? 0).toFixed(2)),
     }
   })
 
@@ -189,5 +224,13 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
     emiTransactionPct: txns.length > 0 ? Math.round((emiCount / txns.length) * 100) : 0,
   }
 
-  return { userId, cards: cardStates, behaviour }
+  // ── Cross-card OP token totals ─────────────────────────────────────────────
+  const totalOpTokens = cardStates.reduce(
+    (sum, c) => sum + (c.opTokenState?.tokenBalance ?? 0), 0
+  )
+  const totalOpBalanceUsd = parseFloat(
+    cardStates.reduce((sum, c) => sum + (c.opTokenState?.tokenValueUsd ?? 0), 0).toFixed(2)
+  )
+
+  return { userId, cards: cardStates, behaviour, totalOpTokens, totalOpBalanceUsd }
 }

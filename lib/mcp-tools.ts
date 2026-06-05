@@ -288,7 +288,7 @@ async function refreshRates() {
 // Stage 3: Real MongoDB read
 async function getUserBalances(userId: string) {
   await connectDB();
-  const { getCards, computeTotalOp } = await import('@/lib/cards');
+  const { getCards } = await import('@/lib/cards');
   const CARDS = await getCards(userId);
   const { FiatCard } = await import('@/lib/models/FiatCard');
 
@@ -311,8 +311,33 @@ async function getUserBalances(userId: string) {
 
   // Per-card breakdown for Gemini to reason over
   const cardBreakdown = CARDS.map((card) => {
-    const fiatCard = fiatCardMap.get(card.key);
+    const fiatCard = fiatCardMap.get(card.key) as any;
     const benefits = fiatCard?.benefits_and_credits || {};
+    const opRedemption = fiatCard?.op_redemption || null;
+    const tokenBalance = fiatCard?.credit_token_balance ?? 0;
+
+    // Build opTokenState for USD cards that have an op_redemption catalog
+    const opTokenState = opRedemption
+      ? {
+          tokenBalance,
+          tokenValueUsd: parseFloat((tokenBalance * (opRedemption.op_cents_per_token / 100)).toFixed(2)),
+          opCentsPerToken: opRedemption.op_cents_per_token,
+          minRedeemThreshold: opRedemption.min_redeem_tokens,
+          isTokenLow: tokenBalance < opRedemption.min_redeem_tokens,
+          tokenVelocity: opRedemption.token_velocity,
+        }
+      : null;
+
+    // OP redemption catalog — what tokens unlock for this card
+    const opRedemptionCatalog = opRedemption
+      ? {
+          opCentsPerToken: opRedemption.op_cents_per_token,
+          minRedeemTokens: opRedemption.min_redeem_tokens,
+          redeemCategories: opRedemption.redeem_categories,
+          tokenVelocity: opRedemption.token_velocity,
+          appreciationModel: opRedemption.appreciation_model,
+        }
+      : null;
 
     return {
       key:      card.key,
@@ -322,8 +347,10 @@ async function getUserBalances(userId: string) {
       value:    balances[card.key],
       currency: card.currency,
       earnRates: card.earnRates,
+      opTokenState,
+      opRedemptionCatalog,
       statementCredits: (benefits.statement_credits || []).filter((c: any) =>
-        c.merchant_categories?.includes('travel') || // Default to showing travel credits
+        c.merchant_categories?.includes('travel') ||
         c.merchant_categories?.includes('dining') ||
         c.merchant_categories?.includes('groceries') ||
         c.merchant_categories?.includes('shopping') ||
@@ -336,9 +363,19 @@ async function getUserBalances(userId: string) {
     };
   });
 
+  // Cross-card OP totals for Gemini
+  const totalOpTokens = cardBreakdown.reduce(
+    (sum, c) => sum + (c.opTokenState?.tokenBalance ?? 0), 0
+  );
+  const totalOpValueUsd = parseFloat(
+    cardBreakdown.reduce((sum, c) => sum + (c.opTokenState?.tokenValueUsd ?? 0), 0).toFixed(2)
+  );
+
   return {
     cards:    cardBreakdown,
     totalValue: CARDS.reduce((sum, card) => sum + (balances[card.key] ?? 0), 0),
+    totalOpTokens,
+    totalOpValueUsd,
     lastSync: new Date().toISOString(),
   };
 }
