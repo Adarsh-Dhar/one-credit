@@ -4,6 +4,7 @@
 // Each step is a focused reasoning pass. The final step assembles the result.
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import type { UserContext } from './userContext'
 
 // ─── Indian card knowledge base ──────────────────────────────────────────────
 // This is what the agent reasons over. Add more cards here as needed.
@@ -159,11 +160,12 @@ export interface OPAgentInput {
     merchant: string
     isEmi: boolean
   }
-  cards: string[]           // card keys
-  cardKnowledgeMap?: Record<string, CardKnowledge>  // optional override for INDIAN_CARD_KB
-  userMonthlyTxns?: number  // for fee amortization, default 10
-  riskFreeRatePercent?: number  // for float calc, default 7
-  billingCycleDays?: number     // default 30
+  cards: string[]
+  cardKnowledgeMap?: Record<string, CardKnowledge>
+  userMonthlyTxns?: number
+  riskFreeRatePercent?: number
+  billingCycleDays?: number
+  userContext?: UserContext              // ← new: real user state
 }
 
 export interface CardOPResult {
@@ -248,6 +250,75 @@ costs MORE than a no-fee card — that is the honest truth.
 ## Card knowledge base
 ${JSON.stringify(cardKBSubset, null, 2)}
 
+${input.userContext ? `
+## User's real financial state
+Use this to override any assumption you'd otherwise make about a generic user.
+
+### Per-card live state
+${JSON.stringify(input.userContext.cards.map(c => ({
+  cardId: c.cardId,
+  name: c.displayName,
+  availableCredit: c.availableCredit,
+  utilizationPct: c.utilizationPct,
+  aprPct: c.standardAprPct,
+  pointsBalance: c.pointsBalance,
+  pointsValueInr: c.pointsValueInr,
+  categoryCapProgress: c.categoryCapProgress,
+})), null, 2)}
+
+### Spending behaviour (last 90 days)
+- Top category: ${input.userContext.behaviour.topCategory}
+- Monthly avg spend: ₹${input.userContext.behaviour.monthlyAvgSpendInr}
+- Frequent traveller: ${input.userContext.behaviour.isFrequentTraveller}
+- Frequent diner: ${input.userContext.behaviour.isFrequentDiner}
+- Online shopper: ${input.userContext.behaviour.isOnlineShopper}
+- Grocery dominant: ${input.userContext.behaviour.isGroceryDominant}
+- EMI transaction rate: ${input.userContext.behaviour.emiTransactionPct}%
+- Actual avg CPP achieved historically: ${input.userContext.behaviour.actualAvgCppAchieved ?? 'no redemption history'}
+- Category breakdown: ${JSON.stringify(input.userContext.behaviour.categoryBreakdown, null, 2)}
+
+### Rules you MUST apply using the above data
+
+RULE 1 — Available credit gate:
+If availableCredit for a card is not null AND availableCredit < ₹${input.product.price},
+set confirmedEarn = false, set exclusionReason = "Insufficient available credit (₹X available)",
+and set trueRewardValueInr = 0. Do not rank this card as usable.
+
+RULE 2 — Utilization penalty:
+If utilizationPct > 70, add a utilizationWarning field to the card result:
+"High utilization (X%) — using this card may hurt your credit score."
+Do not zero out rewards, but include the warning in the reasoning.
+
+RULE 3 — APR risk flag:
+If aprPct > 36, add an aprWarning: "APR is X% — one missed payment erases Y months of rewards."
+Compute Y as: trueRewardValueInr / (price * aprPct/100 / 12), rounded to 1 decimal.
+
+RULE 4 — Realistic CPP (most important):
+Do NOT use bestRedemptionRatePerPoint blindly.
+Instead, pick the realistic CPP based on the user's behaviour:
+- If isFrequentTraveller = true → use bestRedemptionRatePerPoint (user can actually redeem flights/business class)
+- If isFrequentTraveller = false AND bestRedemptionName involves 'flight' or 'airline' or 'business class' → use redemptionPaths[1].ratePerPoint if it exists, else redemptionPaths[0].ratePerPoint
+- If actualAvgCppAchieved is not null → use max(actualAvgCppAchieved, redemptionPaths[0].ratePerPoint) as a floor
+This realistic CPP is what you use for trueRewardValueInr. Label it realisticCpp in your output.
+
+RULE 5 — Category cap remaining:
+For each card, check categoryCapProgress for the current purchase category.
+If remainingCapRoom is not null AND remainingCapRoom < price:
+- Earn only on remainingCapRoom at the bonus rate
+- Earn on (price - remainingCapRoom) at post_cap_multiplier rate (default 1x)
+- Set capBreached = true and note it in exclusionReason
+
+RULE 6 — Existing points bonus:
+If pointsBalance > 0, add an existingPoints field:
+{ balance: N, valueInr: X, note: "You already have X worth of points on this card" }
+This is informational — do not add it to trueRewardValueInr (those are existing, not new).
+
+RULE 7 — EMI penalty:
+If isEmi = true OR user's emiTransactionPct > 40 (habitual EMI user) and price > ₹30,000:
+set actualPointsEarned = price * emiEarnRate (usually 0), set confirmedEarn = false,
+exclusionReason = "EMI transactions earn 0 points on this card."
+` : ''}
+
 ## Your task
 For EACH card, reason through all 5 steps and produce a JSON result.
 
@@ -302,6 +373,7 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
       "bestRedemptionName": "string",
       "bestRedemptionRatePerPoint": number,
       "trueRewardValueInr": number,
+      "realisticCpp": number,
       "industryRewardValue": number,
       "feeBurdenInr": number,
       "floatValueInr": number,
@@ -309,7 +381,11 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
       "industryCost": number,
       "savings": number,
       "effectiveDiscountPercent": number,
-      "reasoning": "string"
+      "reasoning": "string",
+      "utilizationWarning": null or "string",
+      "aprWarning": null or "string",
+      "existingPoints": { "balance": number, "valueInr": number, "note": "string" } or null,
+      "capBreached": boolean
     }
   ],
   "agentReasoning": "One paragraph summary of the overall analysis and why the winner wins"

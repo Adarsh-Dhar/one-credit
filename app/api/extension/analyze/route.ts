@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runOPAgent } from '@/lib/op-agent'
 import { connectDB } from '@/lib/mongodb'
 import { FiatCard } from '@/lib/models/FiatCard'
+import { buildUserContext } from '@/lib/userContext'
 
 // Infer category intelligently from product name
 function inferCategory(productName: string, merchant: string): string {
@@ -143,21 +144,24 @@ export async function POST(request: NextRequest) {
     // Infer category from product name
     const category = inferCategory(product.name || '', merchant)
 
+    // Build full user context (balances + behaviour)
+    const userContext = await buildUserContext(userId)
+
+    // Use actual monthly txn count from behaviour, not hardcoded 10
+    const monthlyTxns = userContext.behaviour.monthlyAvgSpendInr > 0
+      ? Math.max(5, Math.round(userContext.behaviour.categoryBreakdown.reduce((s, c) => s + c.txCount, 0) / 3))
+      : 10
+
     // Run the agent across user's cards
     const result = await runOPAgent(
       {
-        product: {
-          name: product.name,
-          price: product.price,
-          category,
-          merchant,
-          isEmi,
-        },
+        product: { name: product.name, price: product.price, category, merchant, isEmi },
         cards: cardKeys,
-        cardKnowledgeMap, // Pass user's actual card data
-        userMonthlyTxns: 10,
+        cardKnowledgeMap,
+        userMonthlyTxns: monthlyTxns,
         riskFreeRatePercent: 7,
         billingCycleDays: 30,
+        userContext,                    // ← pass full context
       },
       apiKey
     )
