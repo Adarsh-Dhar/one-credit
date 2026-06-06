@@ -231,7 +231,12 @@ continue
       winner: result.winner,
       industryWinner: result.industryWinner,
       agentReasoning: result.agentReasoning,
-      savings: result.cards.length > 1
+      userBehaviour: {
+        actualAvgCppAchieved: userContext.behaviour.actualAvgCppAchieved,
+        redemptionCount90d: userContext.behaviour.redemptionCount90d,
+      },
+      savingsVsIndustryUsd: result.winner.industryCost - result.winner.netCost,
+      savingsVsBestAlternativeUsd: result.cards.length > 1
         ? Math.max(...result.cards.map(c => c.netCost)) - result.winner.netCost
         : 0,
     })

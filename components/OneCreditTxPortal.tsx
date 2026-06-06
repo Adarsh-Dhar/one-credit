@@ -31,6 +31,22 @@ const mockCards = [
     rank: 1,
     reasoning: 'Although only 1x earn, your UR points are worth 2.1¢ each via Hyatt transfer — spending them here at 1¢ is a waste. But among all your cards, this still comes out lowest because of your high balance creating offset value.',
     bestAlternativeUse: 'Transfer to World of Hyatt — 2.1¢/point',
+    realisticCpp: 1.8,
+    conservativeCpp: 1.0,
+    industryAssumedCpp: 1.0,
+    basePointsEarned: 1999,
+    bonusPointsEarned: 0,
+    utilizationWarning: null,
+    aprWarning: null,
+    existingPoints: null,
+    statementCreditApplied: 0,
+    milestoneCreditUsd: 0,
+    feeWaiverActive: false,
+    feeWaiverNote: null,
+    rotatingBonusApplied: false,
+    opConservationPenalty: 0,
+    opVelocityBonus: 0,
+    foreignFeeUsd: 0,
   },
   {
     key: 'amex_gold',
@@ -49,6 +65,22 @@ const mockCards = [
     rank: 2,
     reasoning: 'MR points have a best redemption of 1.8¢ via Air France/KLM transfer. Spending here costs you that premium.',
     bestAlternativeUse: 'Transfer to Air France Flying Blue — 1.8¢/point',
+    realisticCpp: 1.5,
+    conservativeCpp: 1.0,
+    industryAssumedCpp: 1.0,
+    basePointsEarned: 1999,
+    bonusPointsEarned: 0,
+    utilizationWarning: null,
+    aprWarning: null,
+    existingPoints: null,
+    statementCreditApplied: 0,
+    milestoneCreditUsd: 0,
+    feeWaiverActive: false,
+    feeWaiverNote: null,
+    rotatingBonusApplied: false,
+    opConservationPenalty: 0,
+    opVelocityBonus: 0,
+    foreignFeeUsd: 0,
   },
   {
     key: 'citi-double-cash',
@@ -67,6 +99,22 @@ const mockCards = [
     rank: 3,
     reasoning: 'Cash is cash — no opportunity cost penalty. But 2% on a $2k purchase still leaves you paying most of it in raw dollars.',
     bestAlternativeUse: 'Cash back — no transfer bonus available',
+    realisticCpp: 1.0,
+    conservativeCpp: 1.0,
+    industryAssumedCpp: 1.0,
+    basePointsEarned: 39.98,
+    bonusPointsEarned: 0,
+    utilizationWarning: null,
+    aprWarning: null,
+    existingPoints: null,
+    statementCreditApplied: 0,
+    milestoneCreditUsd: 0,
+    feeWaiverActive: false,
+    feeWaiverNote: null,
+    rotatingBonusApplied: false,
+    opConservationPenalty: 0,
+    opVelocityBonus: 0,
+    foreignFeeUsd: 0,
   },
   {
     key: 'apple_card',
@@ -85,6 +133,22 @@ const mockCards = [
     rank: 4,
     reasoning: 'Apple Card gives 3% at Apple.com but only 1% at Amazon. Low earn rate and no transfer bonus makes this the costliest option.',
     bestAlternativeUse: 'Use at Apple.com directly for 3% back',
+    realisticCpp: 1.0,
+    conservativeCpp: 1.0,
+    industryAssumedCpp: 1.0,
+    basePointsEarned: 19.99,
+    bonusPointsEarned: 0,
+    utilizationWarning: null,
+    aprWarning: null,
+    existingPoints: null,
+    statementCreditApplied: 0,
+    milestoneCreditUsd: 0,
+    feeWaiverActive: false,
+    feeWaiverNote: null,
+    rotatingBonusApplied: false,
+    opConservationPenalty: 0,
+    opVelocityBonus: 0,
+    foreignFeeUsd: 0,
   },
 ];
 
@@ -474,10 +538,14 @@ function CardRow({ card, isExpanded, onToggle }: any) {
             <p className="text-slate-400 text-xs">{card.issuer}</p>
           </div>
 
-          {/* OP Cost */}
+          {/* Rewards + Range */}
           <div className="flex-shrink-0 text-right">
-            <p className="text-white font-bold text-lg">{card.netCost}</p>
-            <p className="text-slate-400 text-xs">OP</p>
+            <p className="text-white font-bold text-lg">
+              {card.rewardsEarned.toLocaleString()} pts → ~${card.netDollarCost.toFixed(0)}–${(card.netDollarCost + 10).toFixed(0)}
+            </p>
+            <p className="text-slate-400 text-xs">
+              {card.conservativeCpp === card.bestRedemptionCpp ? '(guaranteed)' : '(estimated)'}
+            </p>
           </div>
 
           {/* Chevron */}

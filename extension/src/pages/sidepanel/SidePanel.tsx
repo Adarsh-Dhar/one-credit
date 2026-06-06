@@ -29,6 +29,22 @@ interface CardResult {
   portalBonusApplied: boolean
   portalBonusName: string | null
   portalBonusUrl: string | null
+  realisticCpp: number
+  conservativeCpp: number
+  industryAssumedCpp: number
+  basePointsEarned: number
+  bonusPointsEarned: number
+  utilizationWarning: string | null
+  aprWarning: string | null
+  existingPoints: { balance: number; valueUsd: number; note: string } | null
+  statementCreditApplied: number
+  milestoneCreditUsd: number
+  feeWaiverActive: boolean
+  feeWaiverNote: string | null
+  rotatingBonusApplied: boolean
+  opConservationPenalty: number
+  opVelocityBonus: number
+  foreignFeeUsd: number
 }
 
 interface AnalysisResult {
@@ -37,7 +53,12 @@ interface AnalysisResult {
   winner: CardResult
   industryWinner: CardResult
   agentReasoning: string
-  savings: number
+  savingsVsIndustryUsd: number
+  savingsVsBestAlternativeUsd: number
+  userBehaviour: {
+    actualAvgCppAchieved: number | null
+    redemptionCount90d: number
+  }
 }
 
 function buildPortalDeepLink(portalUrl: string, productUrl?: string): string {
@@ -45,6 +66,18 @@ function buildPortalDeepLink(portalUrl: string, productUrl?: string): string {
   const encoded = encodeURIComponent(productUrl)
   // Chase, Amex, Capital One all accept a ref/destination param
   return `${portalUrl}?destination=${encoded}`
+}
+
+function isGuaranteedRate(card: CardResult): boolean {
+  return card.conservativeCpp === card.bestRedemptionRatePerPoint
+}
+
+function effectiveCostRange(card: CardResult, price: number) {
+  const low = price - (card.actualPointsEarned * card.bestRedemptionRatePerPoint / 100)
+             + card.feeBurdenUsd - card.floatValueUsd
+  const high = price - (card.actualPointsEarned * card.conservativeCpp / 100)
+              + card.feeBurdenUsd - card.floatValueUsd
+  return { low, high }
 }
 
 export function SidePanel() {
@@ -204,7 +237,7 @@ export function SidePanel() {
 
         {/* Winner banner */}
         <div className="p-4 space-y-3">
-          <div className="bg-purple-900/40 border border-purple-500/40 rounded-xl p-4 space-y-3">
+          <div className="bg-purple-900/40 border border-purple-500/40 rounded-xl p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-yellow-400" />
               <span className="text-xs font-medium text-yellow-400 uppercase tracking-wide">Best card</span>
@@ -214,29 +247,140 @@ export function SidePanel() {
               <p className="text-xs text-slate-400">{winner.issuer}</p>
             </div>
 
-            {/* Net cost vs industry */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-slate-800/60 rounded-lg p-2.5">
-                <p className="text-xs text-slate-400 mb-1">Net cost</p>
-                <p className="text-lg font-bold text-purple-300">{fmt(winner.netCost)}</p>
-                <p className="text-xs text-green-400">{pct(winner.effectiveDiscountPercent)} off</p>
+            {/* Zone 1: Charged today + Points earned */}
+            <div className="bg-slate-800/60 rounded-lg p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Charged today</span>
+                <span className="text-sm font-bold text-white">{fmtPrice(result.product.price)}</span>
               </div>
-              <div className="bg-slate-800/60 rounded-lg p-2.5">
-                <p className="text-xs text-slate-400 mb-1">Industry says</p>
-                <p className="text-lg font-bold text-slate-400 line-through">{fmtPrice(winner.industryCost)}</p>
-                <p className="text-xs text-slate-500">their number</p>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">You earn</span>
+                <span className="text-sm font-bold text-green-400">
+                  {winner.actualPointsEarned.toLocaleString()} pts @ {winner.earnAudit.rate}x
+                </span>
               </div>
             </div>
 
-            {/* Savings from industry */}
-            {winner.savings > 0 && (
-              <div className="flex items-center gap-2 bg-green-900/30 border border-green-500/30 rounded-lg px-3 py-2">
-                <TrendingDown className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                <p className="text-xs text-green-300">
-                  Bank understated your benefit by <span className="font-bold">{fmtPrice(winner.savings)}</span>
-                </p>
+            {/* Zone 2: Points breakdown */}
+            <div className="bg-slate-800/60 rounded-lg p-3 space-y-2">
+              <p className="text-xs text-slate-400 font-medium">Points breakdown</p>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between text-slate-300">
+                  <span>Base points</span>
+                  <span>{winner.basePointsEarned.toLocaleString()} pts</span>
+                </div>
+                {winner.bonusPointsEarned > 0 && (
+                  <div className="flex justify-between text-green-300">
+                    <span>Bonus points</span>
+                    <span>+{winner.bonusPointsEarned.toLocaleString()} pts</span>
+                  </div>
+                )}
+                {(winner.rotatingBonusApplied || winner.portalBonusApplied) && (
+                  <div className="flex gap-1 mt-1">
+                    {winner.rotatingBonusApplied && (
+                      <span className="bg-purple-500/20 text-purple-300 text-xs px-2 py-0.5 rounded">Rotating</span>
+                    )}
+                    {winner.portalBonusApplied && (
+                      <span className="bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5 rounded">Portal</span>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* CPP range */}
+              <div className="mt-2 pt-2 border-t border-slate-700 space-y-1 text-xs">
+                <div className="flex justify-between text-slate-400">
+                  <span>Conservative</span>
+                  <span>{winner.conservativeCpp.toFixed(2)}¢/pt</span>
+                </div>
+                <div className="flex justify-between text-purple-300 font-medium">
+                  <span>Realistic ←</span>
+                  <span>{winner.realisticCpp.toFixed(2)}¢/pt</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Best case</span>
+                  <span>{winner.bestRedemptionRatePerPoint.toFixed(2)}¢/pt</span>
+                </div>
+              </div>
+
+              {/* Confidence signal */}
+              {result.userBehaviour.redemptionCount90d > 0 && (
+                <p className="text-xs text-slate-500 mt-1">
+                  based on your {result.userBehaviour.redemptionCount90d} redemptions
+                </p>
+              )}
+            </div>
+
+            {/* Zone 3: Adjustments */}
+            <div className="bg-slate-800/60 rounded-lg p-3 space-y-2">
+              <p className="text-xs text-slate-400 font-medium">Adjustments</p>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between text-slate-300">
+                  <span>Points value back</span>
+                  <span className="text-green-400">−{fmtPrice(winner.trueRewardValueUsd)}</span>
+                </div>
+                {winner.feeBurdenUsd > 0 && (
+                  <div className="flex justify-between text-slate-300">
+                    <span>
+                      Fee per txn
+                      {winner.feeWaiverNote && <span className="text-slate-500 ml-1">({winner.feeWaiverNote})</span>}
+                    </span>
+                    <span className="text-orange-400">+{fmtPrice(winner.feeBurdenUsd)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-slate-300">
+                  <span>Float value (30d)</span>
+                  <span className="text-green-400">−{fmtPrice(winner.floatValueUsd)}</span>
+                </div>
+                {winner.statementCreditApplied > 0 && (
+                  <div className="flex justify-between text-slate-300">
+                    <span>Statement credit</span>
+                    <span className="text-green-400">−{fmtPrice(winner.statementCreditApplied)}</span>
+                  </div>
+                )}
+                {winner.milestoneCreditUsd > 0 && (
+                  <div className="flex justify-between text-slate-300">
+                    <span>Milestone credit</span>
+                    <span className="text-green-400">−{fmtPrice(winner.milestoneCreditUsd)}</span>
+                  </div>
+                )}
+                {winner.opConservationPenalty > 0 && (
+                  <div className="flex justify-between text-slate-300">
+                    <span>OP conservation penalty</span>
+                    <span className="text-red-400">+{fmtPrice(winner.opConservationPenalty)}</span>
+                  </div>
+                )}
+                {winner.opVelocityBonus > 0 && (
+                  <div className="flex justify-between text-slate-300">
+                    <span>OP velocity bonus</span>
+                    <span className="text-green-400">−{fmtPrice(winner.opVelocityBonus)}</span>
+                  </div>
+                )}
+                {winner.foreignFeeUsd > 0 && (
+                  <div className="flex justify-between text-slate-300">
+                    <span>Foreign transaction fee</span>
+                    <span className="text-orange-400">+{fmtPrice(winner.foreignFeeUsd)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Effective cost */}
+              <div className="mt-2 pt-2 border-t border-slate-700">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-400">Effective cost</span>
+                  <span className="text-lg font-bold text-purple-300">
+                    {isGuaranteedRate(winner) ? '' : '~'}{fmt(winner.netCost)}
+                  </span>
+                </div>
+                {isGuaranteedRate(winner) && (
+                  <p className="text-xs text-green-400 mt-0.5">(guaranteed)</p>
+                )}
+                <div className="flex justify-between text-xs text-slate-500 mt-1">
+                  <span>vs industry assumes {winner.industryAssumedCpp.toFixed(2)}¢/pt</span>
+                  <span>→ {fmtPrice(winner.industryCost)}</span>
+                </div>
+              </div>
+            </div>
 
             {winner.portalBonusApplied && winner.portalBonusUrl && (
               <a
@@ -302,8 +446,13 @@ export function SidePanel() {
                     </div>
 
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-white">{fmt(card.netCost)}</p>
-                      <p className="text-xs text-slate-400">Net cost</p>
+                      <p className="text-sm font-bold text-white">
+                        {card.actualPointsEarned.toLocaleString()} pts → {isGuaranteedRate(card) ? '' : '~'}
+                        {effectiveCostRange(card, result.product.price).low.toFixed(0)}–${effectiveCostRange(card, result.product.price).high.toFixed(0)}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {isGuaranteedRate(card) ? '(guaranteed)' : '(estimated)'}
+                      </p>
                     </div>
 
                     <ChevronDown
@@ -315,46 +464,53 @@ export function SidePanel() {
                   {expandedCard === card.cardKey && (
                     <div className="border-t border-slate-700 p-3 space-y-3 bg-slate-900/40">
 
-                      {/* Step-by-step breakdown */}
+                      {/* Compact Zone 2: Points breakdown */}
                       <div className="space-y-2 text-xs">
-                        <div className="flex justify-between text-slate-400">
-                          <span>List price</span>
-                          <span className="text-white font-medium">{fmtPrice(result.product.price)}</span>
+                        <div className="flex justify-between text-slate-300">
+                          <span>Base points</span>
+                          <span>{card.basePointsEarned.toLocaleString()} pts</span>
                         </div>
-
+                        {card.bonusPointsEarned > 0 && (
+                          <div className="flex justify-between text-green-300">
+                            <span>Bonus points</span>
+                            <span>+{card.bonusPointsEarned.toLocaleString()} pts</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-slate-400 pt-1 border-t border-slate-700">
+                          <span>Conservative</span>
+                          <span>{card.conservativeCpp.toFixed(2)}¢/pt</span>
+                        </div>
+                        <div className="flex justify-between text-purple-300 font-medium">
+                          <span>Realistic ←</span>
+                          <span>{card.realisticCpp.toFixed(2)}¢/pt</span>
+                        </div>
                         <div className="flex justify-between text-slate-400">
-                          <span>
-                            Points earned ({card.actualPointsEarned} pts)
-                            {card.earnAudit.exclusionReason && (
-                              <span className="text-red-400 ml-1">⚠ excluded</span>
-                            )}
-                          </span>
+                          <span>Best case</span>
+                          <span>{card.bestRedemptionRatePerPoint.toFixed(2)}¢/pt</span>
+                        </div>
+                      </div>
+
+                      {/* Compact Zone 3: Key adjustments */}
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between text-slate-300">
+                          <span>Points value</span>
                           <span className="text-green-400">−{fmtPrice(card.trueRewardValueUsd)}</span>
                         </div>
-                        <div className="text-slate-500 pl-2 -mt-1">
-                          via {card.bestRedemptionName} @ ${card.bestRedemptionRatePerPoint.toFixed(4)}/pt
-                        </div>
-
                         {card.feeBurdenUsd > 0 && (
-                          <div className="flex justify-between text-slate-400">
-                            <span>Annual fee (per txn)</span>
+                          <div className="flex justify-between text-slate-300">
+                            <span>Fee per txn</span>
                             <span className="text-orange-400">+{fmtPrice(card.feeBurdenUsd)}</span>
                           </div>
                         )}
-
-                        <div className="flex justify-between text-slate-400">
-                          <span>Float value (30d @ 7%)</span>
+                        <div className="flex justify-between text-slate-300">
+                          <span>Float value</span>
                           <span className="text-green-400">−{fmtPrice(card.floatValueUsd)}</span>
                         </div>
-
-                        <div className="border-t border-slate-700 pt-2 flex justify-between font-medium">
-                          <span className="text-slate-300">True net cost</span>
-                          <span className="text-purple-300">{fmt(card.netCost)}</span>
-                        </div>
-
-                        <div className="flex justify-between text-slate-500">
-                          <span>Industry would say</span>
-                          <span className="line-through">{fmtPrice(card.industryCost)}</span>
+                        <div className="flex justify-between font-medium pt-1 border-t border-slate-700">
+                          <span className="text-slate-300">Effective cost</span>
+                          <span className="text-purple-300">
+                            {isGuaranteedRate(card) ? '' : '~'}{fmt(card.netCost)}
+                          </span>
                         </div>
                       </div>
 

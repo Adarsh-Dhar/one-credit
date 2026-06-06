@@ -96,6 +96,10 @@ export interface CardOPResult {
   bestRedemptionName: string
   bestRedemptionRatePerPoint: number
   trueRewardValueUsd: number
+  realisticCpp: number
+  conservativeCpp: number
+  industryRewardValue: number
+  industryAssumedCpp: number
 
   // Step 3 outputs
   feeBurdenUsd: number
@@ -109,6 +113,11 @@ export interface CardOPResult {
   savings: number
   effectiveDiscountPercent: number
   reasoning: string
+  utilizationWarning: string | null
+  aprWarning: string | null
+  existingPoints: { balance: number; valueUsd: number; note: string } | null
+  basePointsEarned: number
+  bonusPointsEarned: number
   foreignFeeUsd: number
   statementCreditApplied: number
   milestoneCreditUsd: number
@@ -355,6 +364,9 @@ For EACH card, reason through all 5 steps and produce a JSON result.
 // Round to 2 decimal places in your output.
 // Apply RULE 11 (rotating category) before picking earnRule.
 // Apply RULE 12 (portal bonus) after computing actualPointsEarned.
+- Compute: basePointsEarned = (price / per) * base_rate (using earnRules[0] — the 'all' merchant rule)
+- Compute: bonusPointsEarned = actualPointsEarned - basePointsEarned
+  (this is the extra from category bonus, rotating bonus, or portal multiplier)
 
 ### Step 2 — RedemptionValue  
 - List all redemption paths for this card
@@ -402,7 +414,9 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
       "bestRedemptionRatePerPoint": number,
       "trueRewardValueUsd": number,
       "realisticCpp": number,
+      "conservativeCpp": number,
       "industryRewardValue": number,
+      "industryAssumedCpp": number,
       "feeBurdenUsd": number,
       "floatValueUsd": number,
       "netCost": number,
@@ -413,6 +427,8 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
       "utilizationWarning": null or "string",
       "aprWarning": null or "string",
       "existingPoints": { "balance": number, "valueUsd": number, "note": "string" } or null,
+      "basePointsEarned": number,
+      "bonusPointsEarned": number,
       "capBreached": boolean,
       "foreignFeeUsd": number,
       "statementCreditApplied": number,
