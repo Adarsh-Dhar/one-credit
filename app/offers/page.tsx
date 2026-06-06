@@ -61,13 +61,11 @@ const ROTATING_CATEGORIES: RotatingCategory[] = [
 ];
 
 export default function OffersPage() {
-  const { trackTabClick, trackRageClick, trackCardView } = useRUM();
+  const { trackTabClick, trackCardView } = useRUM();
   const { startDwell, endDwell } = useDwellTime('offers');
   const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
   const [categories, setCategories] = useState(ROTATING_CATEGORIES);
   const [activatingId, setActivatingId] = useState<string | null>(null);
-  const [rageClickCount, setRageClickCount] = useState(0);
-  const [lastClickTime, setLastClickTime] = useState(0);
   const { trackEvent } = useRUM();
 
   // Track tab click on mount
@@ -87,19 +85,6 @@ export default function OffersPage() {
   }, [trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking, activatingId, trackEvent]);
 
   const handleActivate = async (categoryId: string) => {
-    // Rage click detection
-    const now = Date.now();
-    if (now - lastClickTime < 400) {
-      setRageClickCount(prev => prev + 1);
-      if (rageClickCount >= 2) {
-        trackRageClick('activate-button', `#${categoryId}`);
-        setRageClickCount(0);
-      }
-    } else {
-      setRageClickCount(0);
-    }
-    setLastClickTime(now);
-    
     // Track category view
     trackCardView(categoryId);
 

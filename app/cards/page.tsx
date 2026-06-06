@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { CardDetailModal } from '@/components/CardDetailModal';
@@ -152,11 +152,9 @@ function SpendingRing({ cap }: RingProps) {
 export default function CardsPage() {
   const { data: session } = useSession();
   const { cards, loading } = useWallet();
-  const { 
-    trackTabClick, 
-    trackCardView, 
-    trackRageClick, 
-    trackCalculateBestCardClick,
+  const {
+    trackTabClick,
+    trackCardView,
     trackEvent
   } = useRUM();
   const { startDwell: startCashbackDwell, endDwell: endCashbackDwell } = useDwellTime('cashbackCards');
@@ -167,7 +165,6 @@ export default function CardsPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'cashback' | 'travel'>('all');
-  const clickTimes = useRef<number[]>([]);
 
   const userId = session?.user?.email;
 
@@ -194,7 +191,13 @@ export default function CardsPage() {
 
   const handleTabChange = (tab: 'all' | 'cashback' | 'travel') => {
     setActiveTab(tab);
-    trackTabClick(tab === 'travel' ? 'transfer_partners' : tab);
+    if (tab === 'travel') {
+      trackTabClick('transfer_partners');
+    } else if (tab === 'cashback') {
+      trackTabClick('cashback');
+    } else {
+      trackTabClick('offers');
+    }
   };
 
   // Filter and sort cards based on persona and tab
@@ -207,7 +210,7 @@ export default function CardsPage() {
       }
     }
     if (activeTab === 'travel') {
-      const hasTravel = card.transferPartners?.length > 0 || card.protections?.trip_cancellation;
+      const hasTravel = (card.transferPartners?.length ?? 0) > 0 || card.protections?.trip_cancellation;
       if (!hasTravel) {
         return false;
       }
@@ -247,8 +250,6 @@ export default function CardsPage() {
       return;
     }
     
-    trackCalculateBestCardClick();
-    
     const t0 = Date.now();
     
     try {
@@ -265,12 +266,6 @@ export default function CardsPage() {
   };
 
   const handleCardClick = (card: any) => {
-    const now = Date.now();
-    clickTimes.current = [...clickTimes.current.filter(t => now - t < 1000), now];
-    if (clickTimes.current.length >= 3) {
-      trackRageClick('card_expansion', `#${card.key}`);
-      clickTimes.current = [];
-    }
     trackCardView(card.key);
   };
 
@@ -447,7 +442,6 @@ export default function CardsPage() {
                                   </div>
                                 );
                               })}
-                              {trackRedemptionTypeView('statement_credit')}
                             </div>
                           )}
 
@@ -462,7 +456,6 @@ export default function CardsPage() {
                                     href={bonus.portal_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    onClick={() => trackRedemptionTypeView('travel_portal')}
                                     className="inline-flex items-center gap-1 text-xs bg-slate-700 hover:bg-slate-600 text-purple-300 px-2 py-1 rounded-md transition-colors"
                                   >
                                     {bonus.portal_name}

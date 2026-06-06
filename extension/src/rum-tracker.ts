@@ -33,7 +33,7 @@ function flushBuffer() {
 }
 
 // Add event to buffer
-function trackEvent(event: RUMEvent) {
+export function trackEvent(event: RUMEvent) {
   eventBuffer.push(event)
   
   if (eventBuffer.length >= BUFFER_MAX_SIZE) {

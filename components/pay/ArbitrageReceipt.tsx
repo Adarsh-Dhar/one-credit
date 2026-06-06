@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Trophy, TrendingDown, Receipt, ExternalLink, Shield, Sparkles } from 'lucide-react';
 import { computeTotalValue } from '@/lib/op-conversion';
-import { useRUM } from '@/hooks/useRUM';
 
 interface GeminiRecommendation {
   bestCard: string;
@@ -25,7 +24,6 @@ interface ArbitrageReceiptProps {
 }
 
 export function ArbitrageReceipt({ merchant, amount, recommendation, txHash, onReset, allCards, categoryKey }: ArbitrageReceiptProps) {
-  const { trackRedemptionTypeView } = useRUM();
   const confettiRef = useRef<HTMLDivElement>(null);
 
   // Standard cost = what you'd pay with no optimization (no rewards, full price)

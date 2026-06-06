@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -99,7 +99,7 @@ type Step = 'category' | 'merchant' | 'amount' | 'analyzing' | 'approval' | 'suc
 
 export default function PayPage() {
   const { data: session } = useSession();
-  const { trackEvent, trackTabClick, trackCardView, trackRageClick } = useRUM();
+  const { trackEvent, trackTabClick, trackCardView } = useRUM();
   const { startDwell, endDwell } = useDwellTime('paymentFlow');
   const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
   const [step, setStep]                   = useState<Step>('category');
@@ -110,7 +110,6 @@ export default function PayPage() {
   const [recommendation, setRec]          = useState<GeminiRecommendation | null>(null);
   const [txHash, setTxHash]               = useState('');
   const [isProcessing, setIsProcessing]   = useState(false);
-  const clickTimes = useRef<number[]>([]);
 
   const userId = session?.user?.email;
 
@@ -161,14 +160,6 @@ export default function PayPage() {
   };
 
   const handleAmountSubmit = async () => {
-    // Rage click detection on submit
-    const now = Date.now();
-    clickTimes.current = [...clickTimes.current.filter(t => now - t < 1000), now];
-    if (clickTimes.current.length >= 3) {
-      trackRageClick('amount_submit', '#amount-submit');
-      clickTimes.current = [];
-    }
-
     const parsedAmount = parseFloat(amount);
     if (!amount || parsedAmount <= 0 || parsedAmount > 10000) {
       return;

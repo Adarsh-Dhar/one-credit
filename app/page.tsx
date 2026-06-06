@@ -8,12 +8,10 @@ import { Sparkles, DollarSign, TrendingUp, Calculator } from 'lucide-react';
 import Link from 'next/link';
 import { CardDefinition } from '@/lib/cards';
 import { useWallet } from '@/hooks/useWallet';
-import { useRUM } from '@/hooks/useRUM';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 
 export default function Dashboard() {
   const { wallet, cards, loading, session } = useWallet();
-  const { trackCalculateBestCardClick } = useRUM();
   const [selectedCard, setSelectedCard] = useState<CardDefinition | null>(null);
   const [cardDetails, setCardDetails] = useState<any>(null);
 
@@ -41,7 +39,6 @@ export default function Dashboard() {
   };
 
   const handleCalculateBestCard = () => {
-    trackCalculateBestCardClick();
     window.location.href = '/pay';
   };
 

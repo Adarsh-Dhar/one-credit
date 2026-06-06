@@ -27,12 +27,8 @@ export interface RUMSignals {
   sessionId?: string;
 
   // Click & interaction telemetry
-  rageClicksOnRotatingCategory: number;
   transferPartnerTabClicks: number;
-  cashbackTabClicks: number;
-  offersTabClicks: number;
   cardDetailExpansions: number;
-  calculateBestCardClicks: number;
 
   // Dwell time (seconds)
   dwellOnTransferGuides: number;
@@ -43,23 +39,19 @@ export interface RUMSignals {
   dwellOnAnnualFeeField: number;
 
   // Scroll depth signals
-  scrolledPastFinePrint: boolean;
   scrolledPastAnnualFee: boolean;
+  scrollDepthMax: number;
 
   // Flow / funnel
   abandonedRotatingActivation: boolean;
-  abandonedCardComparison: boolean;
   backNavAfterRecommendation: boolean;
 
   // Custom business events (pushed from Next.js)
-  cardsViewed: string[];
-  cardsCompared: string[];
+  cardViewCounts: Record<string, number>;
   extensionFireCount: number;
-  redemptionTypesViewed: string[];
   transferPartnersClicked: string[];
   cardAddedToWallet: string | null;
 
   // Infrastructure signals from Dynatrace APM
   extensionAnalyzeApiCallCount: number;
-  aiAnalyzeAvgResponseMs: number;
 }

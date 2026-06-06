@@ -38,23 +38,13 @@ export async function POST(request: Request) {
 
     for (const event of events) {
       switch (event.eventType) {
-        case 'rage_click':
-          incOps.rageClicksOnRotatingCategory = (incOps.rageClicksOnRotatingCategory || 0) + 1;
-          break;
         case 'tab_click':
           if (event.data?.tab === 'transfer_partners') {
             incOps.transferPartnerTabClicks = (incOps.transferPartnerTabClicks || 0) + 1;
-          } else if (event.data?.tab === 'cashback') {
-            incOps.cashbackTabClicks = (incOps.cashbackTabClicks || 0) + 1;
-          } else if (event.data?.tab === 'offers') {
-            incOps.offersTabClicks = (incOps.offersTabClicks || 0) + 1;
           }
           break;
         case 'card_detail_expansion':
           incOps.cardDetailExpansions = (incOps.cardDetailExpansions || 0) + 1;
-          break;
-        case 'calculate_best_card_click':
-          incOps.calculateBestCardClicks = (incOps.calculateBestCardClicks || 0) + 1;
           break;
         case 'dwell_time':
           if (event.section) {
@@ -66,9 +56,6 @@ export async function POST(request: Request) {
         case 'scroll_depth':
           if (event.data?.depth) {
             const depth = event.data.depth as number;
-            if (depth >= 25) {
-              setOps.scrolledPastFinePrint = true;
-            }
             if (depth >= 50) {
               setOps.scrolledPastAnnualFee = true;
             }
@@ -81,14 +68,7 @@ export async function POST(request: Request) {
           break;
         case 'card_view':
           if (event.data?.cardId) {
-            addToSetOps.cardsViewed = addToSetOps.cardsViewed || [];
-            addToSetOps.cardsViewed.push(event.data.cardId);
-          }
-          break;
-        case 'card_compare':
-          if (event.data?.cardId) {
-            addToSetOps.cardsCompared = addToSetOps.cardsCompared || [];
-            addToSetOps.cardsCompared.push(event.data.cardId);
+            incOps[`cardViewCounts.${event.data.cardId}`] = (incOps[`cardViewCounts.${event.data.cardId}`] as number || 0) + 1;
           }
           break;
         case 'wallet_add':
@@ -105,12 +85,6 @@ export async function POST(request: Request) {
         case 'extension_fire':
           incOps.extensionFireCount = (incOps.extensionFireCount || 0) + 1;
           break;
-        case 'redemption_type_view':
-          if (event.data?.type) {
-            addToSetOps.redemptionTypesViewed = addToSetOps.redemptionTypesViewed || [];
-            addToSetOps.redemptionTypesViewed.push(event.data.type);
-          }
-          break;
         case 'card_recommendation_view':
           // Track when user views card recommendations - can be used for funnel analysis
           // No specific field to update, just log the event for now
@@ -118,17 +92,8 @@ export async function POST(request: Request) {
         case 'abandoned_rotating_activation':
           setOps.abandonedRotatingActivation = true;
           break;
-        case 'abandoned_card_comparison':
-          setOps.abandonedCardComparison = true;
-          break;
         case 'extension_analyze_api_call':
           incOps.extensionAnalyzeApiCallCount = (incOps.extensionAnalyzeApiCallCount || 0) + 1;
-          break;
-        case 'ai_analyze_response_time':
-          if (event.data?.responseTime) {
-            // Use $max to keep the average response time
-            maxOps.aiAnalyzeAvgResponseMs = (event.data.responseTime as number) || 0;
-          }
           break;
         case 'spend_category_entered':
           // Track spend category amounts - could be stored as an array or separate fields

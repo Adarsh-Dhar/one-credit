@@ -13,6 +13,12 @@ const UserSchema = new mongoose.Schema(
       cards:        { type: mongoose.Schema.Types.Mixed, default: {} },
       lastSyncTime: Date,
     },
+    profile: {
+      homeAirport: String,
+      topSpendCategories: [{ type: String, enum: ['dining', 'groceries', 'travel', 'gas', 'streaming', 'other'] }],
+      cardsOwned: [String],
+      carryBalance: { type: String, enum: ['yes', 'sometimes', 'never'] },
+    },
   },
   { timestamps: true }
 );

@@ -22,10 +22,9 @@ function CompareContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { cards } = useWallet();
-  const { trackCardCompare, trackBackNavigation, trackCardView, trackTabClick, trackRageClick, trackDwellTime, trackScrollDepth, trackEvent } = useRUM();
+  const { trackBackNavigation, trackCardView, trackTabClick, trackDwellTime, trackScrollDepth, trackEvent } = useRUM();
   const { startDwell, endDwell } = useDwellTime('cardComparison');
   const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
-  const clickTimes = useRef<number[]>([]);
   const annualFeeRef = useRef<HTMLDivElement>(null);
   const annualFeeVisibleTime = useRef<number | null>(null);
   const annualFeeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -106,7 +105,6 @@ function CompareContent() {
       
       // Track comparison
       cardsToCompare.forEach(card => {
-        trackCardCompare(card.key);
         trackCardView(card.key);
       });
     }
@@ -125,7 +123,7 @@ function CompareContent() {
       stopScrollTracking();
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [cardIds, cards, trackCardCompare, trackBackNavigation, trackCardView, trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking]);
+  }, [cardIds, cards, trackBackNavigation, trackCardView, trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking]);
 
   const removeCard = (cardKey: string) => {
     trackCardView(cardKey);
@@ -133,12 +131,6 @@ function CompareContent() {
   };
 
   const handleCardClick = (cardKey: string) => {
-    const now = Date.now();
-    clickTimes.current = [...clickTimes.current.filter(t => now - t < 1000), now];
-    if (clickTimes.current.length >= 3) {
-      trackRageClick('card_comparison', `#${cardKey}`);
-      clickTimes.current = [];
-    }
     trackCardView(cardKey);
   };
 

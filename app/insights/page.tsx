@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
@@ -10,13 +10,12 @@ import type { RUMAgentResult } from '@/lib/rum-agent';
 
 export default function InsightsPage() {
   const { data: session } = useSession();
-  const { trackEvent, trackTabClick, trackRageClick } = useRUM();
+  const { trackEvent, trackTabClick } = useRUM();
   const { startDwell, endDwell } = useDwellTime('cardRecommendation');
   const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
   const [loading, setLoading] = useState(true);
   const [personaResult, setPersonaResult] = useState<RUMAgentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const clickTimes = useRef<number[]>([]);
 
   const userId = session?.user?.email;
 
@@ -66,14 +65,6 @@ export default function InsightsPage() {
   const handleRefresh = () => {
     if (!userId) {
       return;
-    }
-    
-    // Rage click detection on refresh button
-    const now = Date.now();
-    clickTimes.current = [...clickTimes.current.filter(t => now - t < 1000), now];
-    if (clickTimes.current.length >= 3) {
-      trackRageClick('refresh_button', '#refresh-insights');
-      clickTimes.current = [];
     }
     
     setLoading(true);

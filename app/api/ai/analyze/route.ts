@@ -6,7 +6,6 @@ import { z } from 'zod';
 import { ratelimit } from '@/lib/rateLimit';
 import { UnauthorizedError, ValidationError, toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
-import { RUMSignals } from '@/lib/models/RUMSignals';
 
 // Zod schema for request validation
 const AnalyzeSchema = z.object({
@@ -43,23 +42,8 @@ export async function POST(request: Request) {
       throw new ValidationError('Rate limit exceeded');
     }
 
-    // Run the RUM persona agent with timing measurement
-    const t0 = Date.now();
+    // Run the RUM persona agent
     const result = await runRUMAgent(userId || session.user.id, resolvedKey);
-    const responseTime = Date.now() - t0;
-
-    // Track AI analyze response time to RUM
-    try {
-      await RUMSignals.updateOne(
-        { userId: userId || session.user.id },
-        {
-          $max: { aiAnalyzeAvgResponseMs: responseTime }
-        },
-        { upsert: true }
-      );
-    } catch (err) {
-      logger.error({ err }, '[analyze] Failed to track response time to RUM');
-    }
 
     return NextResponse.json(result);
   } catch (error) {

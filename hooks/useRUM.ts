@@ -101,16 +101,8 @@ export function useRUM() {
     trackEvent('card_view', { cardId });
   }, [trackEvent]);
 
-  const trackCardCompare = useCallback((cardId: string) => {
-    trackEvent('card_compare', { cardId });
-  }, [trackEvent]);
-
   const trackCardDetailExpansion = useCallback(() => {
     trackEvent('card_detail_expansion');
-  }, [trackEvent]);
-
-  const trackCalculateBestCardClick = useCallback(() => {
-    trackEvent('calculate_best_card_click');
   }, [trackEvent]);
 
   const trackDwellTime = useCallback((section: string, duration: number) => {
@@ -133,28 +125,17 @@ export function useRUM() {
     trackEvent('transfer_partner_click', { partner });
   }, [trackEvent]);
 
-  const trackRedemptionTypeView = useCallback((type: string) => {
-    trackEvent('redemption_type_view', { type });
-  }, [trackEvent]);
-
-  const trackRageClick = useCallback((element: string, selector: string) => {
-    trackEvent('rage_click', { element, selector });
-  }, [trackEvent]);
 
   return {
     trackEvent,
     trackTabClick,
     trackCardView,
-    trackCardCompare,
     trackCardDetailExpansion,
-    trackCalculateBestCardClick,
     trackDwellTime,
     trackScrollDepth,
     trackBackNavigation,
     trackWalletAdd,
     trackTransferPartnerClick,
-    trackRedemptionTypeView,
-    trackRageClick,
   };
 }
 

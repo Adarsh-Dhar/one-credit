@@ -254,31 +254,23 @@ function mockRUMSignals(userId: string): RUMSignals {
   return {
     userId,
     sessionId: 'mock-session-001',
-    rageClicksOnRotatingCategory: 3,
     transferPartnerTabClicks: 0,
-    cashbackTabClicks: 5,
-    offersTabClicks: 1,
     cardDetailExpansions: 2,
-    calculateBestCardClicks: 1,
     dwellOnTransferGuides: 4,
     dwellOnTravelCards: 8,
     dwellOnCashbackCards: 45,
     dwellOnLoungeDetails: 2,
     dwellOnAprSection: 3,
     dwellOnAnnualFeeField: 12,
-    scrolledPastFinePrint: false,
     scrolledPastAnnualFee: false,
+    scrollDepthMax: 0,
     abandonedRotatingActivation: true,
-    abandonedCardComparison: false,
     backNavAfterRecommendation: false,
-    cardsViewed: ['Chase Freedom Unlimited', 'Citi Double Cash'],
-    cardsCompared: ['Chase Freedom Unlimited', 'Citi Double Cash'],
+    cardViewCounts: { 'Chase Freedom Unlimited': 3, 'Citi Double Cash': 2 },
     extensionFireCount: 1,
-    redemptionTypesViewed: ['cashback'],
     transferPartnersClicked: [],
     cardAddedToWallet: null,
     extensionAnalyzeApiCallCount: 1,
-    aiAnalyzeAvgResponseMs: 820,
   }
 }
 
@@ -386,6 +378,11 @@ async function runRUMAgentWithModel(
     tools: [{ functionDeclarations: DynatraceTools } as Tool],
   });
 
+  // Fetch user profile from MongoDB
+  const User = (await import('@/lib/models/User')).User;
+  const user = await User.findOne({ email: userId });
+  const userProfile = user?.profile || null;
+
   // ── Agentic loop: Gemini may call DT tools multiple times ─────────────────
 
   const systemPrompt = `
@@ -402,20 +399,29 @@ Call dt_get_custom_events to get card.viewed, card.compared, transfer_partner.cl
 Call dt_get_apm_metrics to get backend API call frequency and response times.
 Call all three tools before inferring the persona.
 
+## USER PROFILE DATA
+You will also receive the user's self-reported profile data:
+- homeAirport: User's home airport code (e.g., JFK, LHR, BOM)
+- topSpendCategories: Top 2 spending categories (dining, groceries, travel, gas, streaming, other)
+- cardsOwned: List of cards the user already owns
+- carryBalance: Whether user carries a balance (yes, sometimes, never)
+
+Use this profile data to cross-check and strengthen your persona inference.
+
 ## PERSONA DECISION TABLE
 Map the signals you retrieve to exactly ONE persona label:
 
 | Persona           | Key signals                                                        |
 |-------------------|--------------------------------------------------------------------|
-| Maximizer         | dwellOnTransferGuides > 30s + transferPartnersClicked not empty    |
-| Simplifier        | rageClicksOnRotatingCategory >= 2 + cashbackTabClicks dominant     |
-| CarryProne        | dwellOnAprSection > 20s                                            |
+| Maximizer         | dwellOnTransferGuides > 30s + transferPartnersClicked not empty + homeAirport matches transfer partners |
+| Simplifier        | dwellOnCashbackCards dominant + dwellOnTransferGuides near zero      |
+| CarryProne        | carryBalance = yes/sometimes OR dwellOnAprSection > 20s             |
 | CreditHarvester   | cardDetailExpansions high, repeated views of credit/benefit detail |
 | AmazonAnchored    | extensionFireCount >= 3                                            |
 | VolumeSpender     | extensionAnalyzeApiCallCount high + low dwell on benefits          |
 | LoungeSeeker      | dwellOnLoungeDetails > 20s every session                           |
 | FeeInsensitive    | scrolledPastAnnualFee = true without pause                         |
-| FeeAverse         | dwellOnAnnualFeeField > 10s + abandonedCardComparison = true       |
+| FeeAverse         | dwellOnAnnualFeeField > 10s + backNavAfterRecommendation = true    |
 
 If signals are ambiguous or missing, return label "Unknown" with confidence < 0.4.
 
@@ -441,7 +447,13 @@ After calling the tools, respond ONLY with a JSON object — no markdown, no pre
 }
 `.trim()
 
-  const userMessage = `Infer the persona for userId: ${userId}. Call the Dynatrace tools now.`
+  const userMessage = `Infer the persona for userId: ${userId}. Call the Dynatrace tools now.
+
+${userProfile ? `
+## USER PROFILE
+${JSON.stringify(userProfile, null, 2)}
+` : '(No profile data available)'}
+`
 
   // Start with the initial message
   let contents: any = [
