@@ -29,6 +29,10 @@ export async function POST(request: Request) {
     const maxOps: Record<string, number> = {};
     const addToSetOps: Record<string, unknown[]> = {};
     const setOps: Record<string, boolean> = {};
+    const stringSetOps: Record<string, string> = {};
+
+    // Type assertion for $set to allow additional properties
+    const $set = updateOps.$set as Record<string, unknown>;
 
     for (const event of events) {
       switch (event.eventType) {
@@ -85,7 +89,7 @@ export async function POST(request: Request) {
           break;
         case 'wallet_add':
           if (event.data?.cardId) {
-            setOps.cardAddedToWallet = event.data.cardId;
+            stringSetOps.cardAddedToWallet = event.data.cardId as string;
           }
           break;
         case 'transfer_partner_click':
@@ -101,6 +105,18 @@ export async function POST(request: Request) {
           if (event.data?.type) {
             addToSetOps.redemptionTypesViewed = addToSetOps.redemptionTypesViewed || [];
             addToSetOps.redemptionTypesViewed.push(event.data.type);
+          }
+          break;
+        case 'abandoned_rotating_activation':
+          setOps.abandonedRotatingActivation = true;
+          break;
+        case 'extension_analyze_api_call':
+          incOps.extensionAnalyzeApiCallCount = (incOps.extensionAnalyzeApiCallCount || 0) + 1;
+          break;
+        case 'ai_analyze_response_time':
+          if (event.data?.responseTime) {
+            // Use $max to keep the average response time
+            maxOps.aiAnalyzeAvgResponseMs = (event.data.responseTime as number) || 0;
           }
           break;
         default:
@@ -119,7 +135,10 @@ export async function POST(request: Request) {
       updateOps.$addToSet = addToSetOps;
     }
     if (Object.keys(setOps).length > 0) {
-      Object.assign(updateOps.$set, setOps);
+      Object.assign($set, setOps);
+    }
+    if (Object.keys(stringSetOps).length > 0) {
+      Object.assign($set, stringSetOps);
     }
 
     // Upsert to MongoDB

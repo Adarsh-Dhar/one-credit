@@ -8,6 +8,7 @@ import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink, X
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useWallet } from '@/hooks/useWallet';
+import { useRUM } from '@/hooks/useRUM';
 
 // ── Spending-cap config per card (issuer/category) ─────────────────────────
 // These caps mirror the reward structure limits (e.g., Amex $6k grocery cap).
@@ -149,11 +150,13 @@ function SpendingRing({ cap }: RingProps) {
 export default function CardsPage() {
   const { data: session } = useSession();
   const { cards, loading } = useWallet();
+  const { trackRedemptionTypeView } = useRUM();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [redeemModalOpen, setRedeemModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [pointsBurned, setPointsBurned] = useState('');
   const [valueReceived, setValueReceived] = useState('');
+  const [redemptionType, setRedemptionType] = useState<'travel_portal' | 'statement_credit' | 'gift_card' | 'cash'>('cash');
   const [isRedeeming, setIsRedeeming] = useState(false);
 
   const userId = session?.user?.email;
@@ -167,6 +170,9 @@ export default function CardsPage() {
     if (!selectedCard || !userId || !pointsBurned || !valueReceived) {
       return;
     }
+
+    // Track redemption type view
+    trackRedemptionTypeView(redemptionType);
 
     setIsRedeeming(true);
     try {
@@ -182,6 +188,7 @@ export default function CardsPage() {
           merchant: '',
           pointsRedeemed: parseFloat(pointsBurned),
           valueReceivedUsd: parseFloat(valueReceived),
+          metadata: { redemptionType },
         }),
       });
 
@@ -189,6 +196,7 @@ export default function CardsPage() {
       setPointsBurned('');
       setValueReceived('');
       setSelectedCard(null);
+      setRedemptionType('cash');
     } catch (error) {
       console.error('Redemption failed:', error);
     } finally {
@@ -480,6 +488,52 @@ export default function CardsPage() {
               <div className="mb-4">
                 <p className="text-slate-400 text-sm mb-1">Card</p>
                 <p className="text-white font-semibold">{selectedCard.name}</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="text-slate-400 text-sm mb-2 block">Redemption Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setRedemptionType('travel_portal')}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      redemptionType === 'travel_portal'
+                        ? 'bg-purple-600 border-purple-500 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    ✈️ Travel Portal
+                  </button>
+                  <button
+                    onClick={() => setRedemptionType('statement_credit')}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      redemptionType === 'statement_credit'
+                        ? 'bg-purple-600 border-purple-500 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    💳 Statement Credit
+                  </button>
+                  <button
+                    onClick={() => setRedemptionType('gift_card')}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      redemptionType === 'gift_card'
+                        ? 'bg-purple-600 border-purple-500 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    🎁 Gift Card
+                  </button>
+                  <button
+                    onClick={() => setRedemptionType('cash')}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      redemptionType === 'cash'
+                        ? 'bg-purple-600 border-purple-500 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                    }`}
+                  >
+                    💵 Cash Back
+                  </button>
+                </div>
               </div>
 
               <div className="mb-4">

@@ -1,5 +1,7 @@
-import { X, DollarSign, Star, TrendingUp } from 'lucide-react';
+import { X, DollarSign, Star, TrendingUp, Armchair } from 'lucide-react';
 import { CardDefinition } from '@/lib/cards';
+import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
+import { useEffect, useRef } from 'react';
 
 interface CardDetailModalProps {
   selectedCard: CardDefinition;
@@ -8,6 +10,83 @@ interface CardDetailModalProps {
 }
 
 export function CardDetailModal({ selectedCard, cardDetails, onClose }: CardDetailModalProps) {
+  const { trackCardView, trackWalletAdd } = useRUM();
+  const { startDwell: startLoungeDwell, endDwell: endLoungeDwell } = useDwellTime('loungeDetails');
+  const { startDwell: startAprDwell, endDwell: endAprDwell } = useDwellTime('aprSection');
+  const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
+  const loungeSectionRef = useRef<HTMLDivElement>(null);
+  const aprSectionRef = useRef<HTMLDivElement>(null);
+
+  // Track card view on mount
+  useEffect(() => {
+    trackCardView(selectedCard.key);
+  }, [selectedCard.key, trackCardView]);
+
+  // Track dwell time on lounge section
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            startLoungeDwell();
+          } else {
+            endLoungeDwell();
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    if (loungeSectionRef.current) {
+      observer.observe(loungeSectionRef.current);
+    }
+
+    return () => {
+      if (loungeSectionRef.current) {
+        observer.unobserve(loungeSectionRef.current);
+      }
+    };
+  }, [startLoungeDwell, endLoungeDwell]);
+
+  // Track dwell time on APR section
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            startAprDwell();
+          } else {
+            endAprDwell();
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    if (aprSectionRef.current) {
+      observer.observe(aprSectionRef.current);
+    }
+
+    return () => {
+      if (aprSectionRef.current) {
+        observer.unobserve(aprSectionRef.current);
+      }
+    };
+  }, [startAprDwell, endAprDwell]);
+
+  // Track scroll depth when modal is open
+  useEffect(() => {
+    startScrollTracking();
+    return () => {
+      stopScrollTracking();
+    };
+  }, [startScrollTracking, stopScrollTracking]);
+
+  const handleAddToWallet = () => {
+    trackWalletAdd(selectedCard.key);
+    // Add wallet add logic here (e.g., API call to add card to user's wallet)
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700" role="dialog" aria-modal="true">
@@ -262,6 +341,60 @@ export function CardDetailModal({ selectedCard, cardDetails, onClose }: CardDeta
             <p className="text-slate-400 text-xs mt-1">On all other purchases</p>
           </div>
 
+          {/* Lounge Access Details */}
+          <div ref={loungeSectionRef} className="bg-slate-700/50 rounded-lg p-4 border border-purple-500/30" data-section="lounge-details">
+            <div className="flex items-center gap-2 mb-3">
+              <Armchair className="w-5 h-5 text-purple-400" />
+              <h4 className="text-lg font-semibold text-white">Lounge Access</h4>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Priority Pass</span>
+                <span className="text-white font-medium">Included</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Centurion Lounge</span>
+                <span className="text-white font-medium">Included</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Guests</span>
+                <span className="text-white font-medium">2 per visit</span>
+              </div>
+              <p className="text-slate-400 text-xs mt-2">
+                Access to 1,400+ lounges worldwide with complimentary food, beverages, and Wi-Fi.
+              </p>
+            </div>
+          </div>
+
+          {/* APR / Financing Section */}
+          <div ref={aprSectionRef} className="bg-slate-700/50 rounded-lg p-4 border border-yellow-500/30" data-section="apr-financing">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-5 h-5 text-yellow-400" />
+              <h4 className="text-lg font-semibold text-white">APR & Financing</h4>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Purchase APR</span>
+                <span className="text-white font-medium">18.49% - 28.49% Variable</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Balance Transfer APR</span>
+                <span className="text-white font-medium">18.49% - 28.49% Variable</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Cash Advance APR</span>
+                <span className="text-white font-medium">29.49% Variable</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Intro APR</span>
+                <span className="text-white font-medium">0% for 15 months</span>
+              </div>
+              <p className="text-slate-400 text-xs mt-2">
+                0% intro APR on purchases and balance transfers for 15 months. After that, variable APR applies.
+              </p>
+            </div>
+          </div>
+
           {/* Card Perks */}
           {cardDetails.benefits_and_credits.general_perks && cardDetails.benefits_and_credits.general_perks.length > 0 && (
             <div>
@@ -275,6 +408,16 @@ export function CardDetailModal({ selectedCard, cardDetails, onClose }: CardDeta
               </div>
             </div>
           )}
+
+          {/* Add to Wallet CTA */}
+          <div className="mt-6 pt-6 border-t border-slate-700">
+            <button
+              onClick={handleAddToWallet}
+              className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold py-3 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all"
+            >
+              Add to My Wallet
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -4,14 +4,16 @@ import { useState, useEffect, useMemo } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { CardDetailModal } from '@/components/CardDetailModal';
-import { Sparkles, DollarSign, TrendingUp } from 'lucide-react';
+import { Sparkles, DollarSign, TrendingUp, Calculator } from 'lucide-react';
 import Link from 'next/link';
 import { CardDefinition } from '@/lib/cards';
 import { useWallet } from '@/hooks/useWallet';
+import { useRUM } from '@/hooks/useRUM';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 
 export default function Dashboard() {
   const { wallet, cards, loading, session } = useWallet();
+  const { trackCalculateBestCardClick } = useRUM();
   const [selectedCard, setSelectedCard] = useState<CardDefinition | null>(null);
   const [cardDetails, setCardDetails] = useState<any>(null);
 
@@ -36,6 +38,11 @@ export default function Dashboard() {
   const closeCardDetails = () => {
     setSelectedCard(null);
     setCardDetails(null);
+  };
+
+  const handleCalculateBestCard = () => {
+    trackCalculateBestCardClick();
+    window.location.href = '/pay';
   };
 
   // Scroll lock for modal
@@ -63,8 +70,12 @@ export default function Dashboard() {
           </p>
 
           <div className="flex gap-3 flex-wrap">
+            <Button onClick={handleCalculateBestCard} className="bg-linear-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white border-0">
+              <Calculator className="w-4 h-4 mr-2" />
+              Calculate Best Card
+            </Button>
             <Link href="/pay">
-              <Button className="bg-linear-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white border-0">
+              <Button variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
                 <Sparkles className="w-4 h-4 mr-2" />
                 Test Interchange
               </Button>

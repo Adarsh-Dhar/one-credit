@@ -149,7 +149,7 @@ function calculateCardResult(
   product: OPAgentInput['product'],
   userMonthlyTxns: number,
   riskFreeRatePercent: number,
-  billingCycleDays: number,
+  _billingCycleDays: number,
   userContext: any
 ): CardResult {
   const price = product.price

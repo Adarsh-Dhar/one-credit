@@ -36,6 +36,16 @@ export function Navigation() {
                 Cards
               </Button>
             </Link>
+            <Link href="/offers">
+              <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/offers' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
+                Offers
+              </Button>
+            </Link>
+            <Link href="/insights">
+              <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/insights' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
+                Insights
+              </Button>
+            </Link>
             <Link href="/pay">
               <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/pay' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Pay
@@ -80,6 +90,16 @@ export function Navigation() {
             <Link href="/cards">
               <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/cards' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Cards
+              </Button>
+            </Link>
+            <Link href="/offers">
+              <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/offers' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
+                Offers
+              </Button>
+            </Link>
+            <Link href="/insights">
+              <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/insights' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
+                Insights
               </Button>
             </Link>
             <Link href="/pay">

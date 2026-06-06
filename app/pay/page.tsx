@@ -14,6 +14,7 @@ import { WalletCard } from '@/lib/types';
 import { StepIndicator } from '@/components/pay/StepIndicator';
 import { AITerminal } from '@/components/pay/TerminalAnalyzer';
 import { ArbitrageReceipt } from '@/components/pay/ArbitrageReceipt';
+import { useRUM } from '@/hooks/useRUM';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Merchant {
@@ -98,6 +99,7 @@ type Step = 'category' | 'merchant' | 'amount' | 'analyzing' | 'approval' | 'suc
 
 export default function PayPage() {
   const { data: session } = useSession();
+  const { trackEvent } = useRUM();
   const [step, setStep]                   = useState<Step>('category');
   const [selectedCategory, setCategory]   = useState<typeof CATEGORIES[0] | null>(null);
   const [selectedMerchant, setMerchant]   = useState<Merchant | null>(null);
@@ -132,6 +134,8 @@ export default function PayPage() {
   const handleCategorySelect = (cat: typeof CATEGORIES[0]) => {
     setCategory(cat);
     setStep('merchant');
+    // Track transaction categorized event
+    trackEvent('transaction.categorized', { category: cat.id, label: cat.label });
   };
 
   const handleMerchantSelect = (merchant: Merchant) => {
