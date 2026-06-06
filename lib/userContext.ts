@@ -166,7 +166,8 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
     .select({
       userId: 1,
       cardId: 1,
-      amountUsd: 1,
+      pointsRedeemed: 1,
+      valueReceivedUsd: 1,
       createdAt: 1,
     })
     .lean()

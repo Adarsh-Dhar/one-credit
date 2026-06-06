@@ -233,15 +233,18 @@ return;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userId,                                       // ← required by the POST handler
           type: 'spend',
+          amountUsd:  parseFloat(amount),               // ← top-level, indexed field
+          cardId:     recommendation.bestCardKey,       // ← top-level, indexed field
+          category:   selectedCategory?.id ?? 'other', // ← top-level, indexed field
+          merchant:   selectedMerchant?.name ?? '',     // ← top-level, indexed field
+          isEmi:      false,
+          pointsEarned:   Math.round(recommendation.nativeReward * 100), // ← cents as points proxy; adjust to real points if Gemini returns them
+          rewardValueUsd: recommendation.nativeReward,  // ← USD value of reward earned
+          // keep these for UI back-compat
           description: `${selectedMerchant?.name} — $${amount}`,
-          metadata: {
-            merchant:  selectedMerchant?.name,
-            category:  selectedCategory?.id,
-            amount:    parseFloat(amount),
-            card:      recommendation.bestCard,
-            offerSource: recommendation.offerSource,
-          },
+          metadata: { offerSource: recommendation.offerSource },
         }),
       });
 

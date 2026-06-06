@@ -45,6 +45,7 @@ export async function POST(request: Request) {
     const {
       userId, type, amountUsd, cardId, category, merchant,
       isEmi, pointsEarned, rewardValueUsd,
+      pointsRedeemed, valueReceivedUsd,
     } = body;
 
     if (!userId || !type) {
@@ -66,6 +67,8 @@ export async function POST(request: Request) {
       isEmi: isEmi ?? false,
       pointsEarned: pointsEarned ?? 0,
       rewardValueUsd: rewardValueUsd ?? 0,
+      pointsRedeemed:   pointsRedeemed   ?? 0,
+      valueReceivedUsd: valueReceivedUsd ?? 0,
     });
 
     return NextResponse.json({ transaction });

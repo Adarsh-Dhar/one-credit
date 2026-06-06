@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink } from 'lucide-react';
+import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink, X } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useWallet } from '@/hooks/useWallet';
@@ -146,8 +147,54 @@ function SpendingRing({ cap }: RingProps) {
 
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function CardsPage() {
+  const { data: session } = useSession();
   const { cards, loading } = useWallet();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [redeemModalOpen, setRedeemModalOpen] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [pointsBurned, setPointsBurned] = useState('');
+  const [valueReceived, setValueReceived] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
+
+  const userId = session?.user?.email;
+
+  const handleRedeemClick = (card: any) => {
+    setSelectedCard(card);
+    setRedeemModalOpen(true);
+  };
+
+  const handleRedeemSubmit = async () => {
+    if (!selectedCard || !userId || !pointsBurned || !valueReceived) {
+      return;
+    }
+
+    setIsRedeeming(true);
+    try {
+      await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          type: 'redemption',
+          amountUsd: 0,
+          cardId: selectedCard.key,
+          category: 'redemption',
+          merchant: '',
+          pointsRedeemed: parseFloat(pointsBurned),
+          valueReceivedUsd: parseFloat(valueReceived),
+        }),
+      });
+
+      setRedeemModalOpen(false);
+      setPointsBurned('');
+      setValueReceived('');
+      setSelectedCard(null);
+    } catch (error) {
+      console.error('Redemption failed:', error);
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -358,6 +405,12 @@ export default function CardsPage() {
                             <p className="text-sm font-semibold text-white">${card.balance?.toFixed(2) || '0.00'}</p>
                           </div>
                         </div>
+                        <button
+                          onClick={() => handleRedeemClick(card)}
+                          className="mt-3 w-full bg-gradient-to-r from-purple-600 to-yellow-500 text-white text-sm font-bold py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all"
+                        >
+                          Redeem Points
+                        </button>
                       </div>
 
                       {/* Hover particles */}
@@ -403,6 +456,70 @@ export default function CardsPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Redemption Modal */}
+        {redeemModalOpen && selectedCard && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-white">Redeem Points</h3>
+                <button
+                  onClick={() => setRedeemModalOpen(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-slate-400 text-sm mb-1">Card</p>
+                <p className="text-white font-semibold">{selectedCard.name}</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="text-slate-400 text-sm mb-2 block">Points to Redeem</label>
+                <input
+                  type="number"
+                  value={pointsBurned}
+                  onChange={(e) => setPointsBurned(e.target.value)}
+                  placeholder="e.g., 10000"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="text-slate-400 text-sm mb-2 block">Value Received (USD)</label>
+                <input
+                  type="number"
+                  value={valueReceived}
+                  onChange={(e) => setValueReceived(e.target.value)}
+                  placeholder="e.g., 100.00"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRedeemModalOpen(false)}
+                  className="flex-1 border border-slate-600 text-slate-300 hover:bg-slate-700 rounded-lg py-2 font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRedeemSubmit}
+                  disabled={!pointsBurned || !valueReceived || isRedeeming}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isRedeeming ? 'Redeeming...' : 'Confirm'}
+                </button>
+              </div>
+            </motion.div>
           </div>
         )}
       </main>
