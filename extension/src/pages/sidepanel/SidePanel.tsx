@@ -45,6 +45,7 @@ interface CardResult {
   opConservationPenalty: number
   opVelocityBonus: number
   foreignFeeUsd: number
+  rewardType: 'points' | 'miles' | 'cashback'
 }
 
 interface AnalysisResult {
@@ -87,6 +88,7 @@ export function SidePanel() {
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [selectedCard, setSelectedCard] = useState<string | null>(null)
   const [pendingProduct, setPendingProduct] = useState<any>(null)
+  const [sortMode, setSortMode] = useState<'cost' | 'points'>('cost')
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
@@ -118,6 +120,27 @@ export function SidePanel() {
       }
 
       const data: AnalysisResult = await response.json()
+
+      // Defensive: agent sometimes returns trueRewardValueUsd in cents (not divided by 100).
+      // A reward can never exceed the purchase price — if it does, divide by 100.
+      const price = data.product.price
+      data.cards = data.cards.map(card => {
+        if (card.trueRewardValueUsd > price) {
+          card.trueRewardValueUsd = card.trueRewardValueUsd / 100
+          card.industryRewardValue = card.industryRewardValue / 100
+          // Recompute netCost and industryCost from corrected reward value
+          card.netCost = price - card.trueRewardValueUsd + card.feeBurdenUsd - card.floatValueUsd + card.foreignFeeUsd
+          card.industryCost = price - card.industryRewardValue + card.feeBurdenUsd - card.floatValueUsd + card.foreignFeeUsd
+          card.savings = card.industryCost - card.netCost
+          card.effectiveDiscountPercent = ((price - card.netCost) / price) * 100
+        }
+        return card
+      })
+      // Re-sort after correction
+      data.cards.sort((a, b) => a.netCost - b.netCost)
+      data.winner = data.cards[0]
+      data.industryWinner = [...data.cards].sort((a, b) => a.industryCost - b.industryCost)[0]
+
       setResult(data)
       setExpandedCard(data.winner.cardKey)
 
@@ -164,14 +187,19 @@ export function SidePanel() {
   }
 
   // For prices (MRP, industry cost) — show in $
-  const fmtPrice = (n: number) =>
+  const fmtUsd = (n: number) =>
     '$' + n.toFixed(2)
 
-  // For net costs — show as score
-  const fmt = (n: number) =>
-    '$' + n.toFixed(2)
+  // Primary formatter — shows pts count, secondary dollar context in muted span
+  const fmtPts = (pts: number, usd?: number) =>
+    usd !== undefined
+      ? `${pts.toLocaleString()} pts` // caller appends dollar secondary
+      : `${pts.toLocaleString()} pts`
 
   const pct = (n: number) => n.toFixed(1) + '%'
+
+  // Keep fmtPrice as alias for product price (stays in $)
+  const fmtPrice = fmtUsd
 
   // ── Loading state ──
   if (loading) {
@@ -256,7 +284,10 @@ export function SidePanel() {
               <div className="flex justify-between items-center">
                 <span className="text-xs text-slate-400">You earn</span>
                 <span className="text-sm font-bold text-green-400">
-                  {winner.actualPointsEarned.toLocaleString()} pts @ {winner.earnAudit.rate}x
+                  {winner.rewardType === 'cashback'
+                    ? `$${winner.trueRewardValueUsd.toFixed(2)} back (${winner.earnAudit.rate}%)`
+                    : `${winner.actualPointsEarned.toLocaleString()} pts @ ${winner.earnAudit.rate}x`
+                  }
                 </span>
               </div>
             </div>
@@ -317,7 +348,14 @@ export function SidePanel() {
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between text-slate-300">
                   <span>Points value back</span>
-                  <span className="text-green-400">−{fmtPrice(winner.trueRewardValueUsd)}</span>
+                  <span className="text-green-400">
+                    {winner.rewardType === 'cashback'
+                      ? `−${fmtUsd(winner.trueRewardValueUsd)}`
+                      : <>−{winner.actualPointsEarned.toLocaleString()} pts
+                          <span className="text-slate-500 ml-1 text-xs">(≈ {fmtUsd(winner.trueRewardValueUsd)})</span>
+                        </>
+                    }
+                  </span>
                 </div>
                 {winner.feeBurdenUsd > 0 && (
                   <div className="flex justify-between text-slate-300">
@@ -367,17 +405,23 @@ export function SidePanel() {
               {/* Effective cost */}
               <div className="mt-2 pt-2 border-t border-slate-700">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Effective cost</span>
-                  <span className="text-lg font-bold text-purple-300">
-                    {isGuaranteedRate(winner) ? '' : '~'}{fmt(winner.netCost)}
-                  </span>
+                  <span className="text-xs text-slate-400">You pay (after pts)</span>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-purple-300">
+                      {fmtUsd(winner.netCost)}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      after redeeming {winner.actualPointsEarned.toLocaleString()} pts
+                      @ {winner.realisticCpp.toFixed(2)}¢/pt
+                    </p>
+                  </div>
                 </div>
                 {isGuaranteedRate(winner) && (
                   <p className="text-xs text-green-400 mt-0.5">(guaranteed)</p>
                 )}
                 <div className="flex justify-between text-xs text-slate-500 mt-1">
-                  <span>vs industry assumes {winner.industryAssumedCpp.toFixed(2)}¢/pt</span>
-                  <span>→ {fmtPrice(winner.industryCost)}</span>
+                  <span>Industry values same pts @ {winner.industryAssumedCpp.toFixed(2)}¢</span>
+                  <span>→ {fmtUsd(winner.industryCost)}</span>
                 </div>
               </div>
             </div>
@@ -420,9 +464,37 @@ export function SidePanel() {
 
           {/* All cards */}
           <div>
-            <p className="text-xs font-medium text-slate-400 mb-2 px-1">ALL CARDS RANKED</p>
+            <div className="flex items-center justify-between mb-2 px-1">
+              <p className="text-xs font-medium text-slate-400">ALL CARDS RANKED</p>
+              <div className="flex bg-slate-800 border border-slate-700 rounded-lg p-0.5 gap-0.5">
+                <button
+                  onClick={() => setSortMode('cost')}
+                  className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
+                    sortMode === 'cost'
+                      ? 'bg-purple-600 text-white'
+                      : 'text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  $ Price
+                </button>
+                <button
+                  onClick={() => setSortMode('points')}
+                  className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
+                    sortMode === 'points'
+                      ? 'bg-purple-600 text-white'
+                      : 'text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  ✦ Points
+                </button>
+              </div>
+            </div>
             <div className="space-y-2">
-              {result.cards.map((card, idx) => (
+              {[...result.cards].sort((a, b) =>
+                sortMode === 'cost'
+                  ? a.netCost - b.netCost
+                  : b.actualPointsEarned - a.actualPointsEarned
+              ).map((card, idx) => (
                 <div
                   key={card.cardKey}
                   className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden"
@@ -446,13 +518,31 @@ export function SidePanel() {
                     </div>
 
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-white">
-                        {card.actualPointsEarned.toLocaleString()} pts → {isGuaranteedRate(card) ? '' : '~'}
-                        {effectiveCostRange(card, result.product.price).low.toFixed(0)}–${effectiveCostRange(card, result.product.price).high.toFixed(0)}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {isGuaranteedRate(card) ? '(guaranteed)' : '(estimated)'}
-                      </p>
+                      {sortMode === 'cost' ? (
+                        <>
+                          <p className="text-sm font-bold text-white">
+                            {card.rewardType === 'cashback'
+                              ? `+${fmtUsd(card.trueRewardValueUsd)}`
+                              : `+${card.actualPointsEarned.toLocaleString()} pts`
+                            }
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            net {isGuaranteedRate(card) ? '' : '~'}{fmtUsd(card.netCost)}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold text-green-400">
+                            {card.rewardType === 'cashback'
+                              ? `+${fmtUsd(card.trueRewardValueUsd)}`
+                              : `+${card.actualPointsEarned.toLocaleString()} pts`
+                            }
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            net {isGuaranteedRate(card) ? '' : '~'}{fmtUsd(card.netCost)}
+                          </p>
+                        </>
+                      )}
                     </div>
 
                     <ChevronDown
@@ -494,7 +584,14 @@ export function SidePanel() {
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between text-slate-300">
                           <span>Points value</span>
-                          <span className="text-green-400">−{fmtPrice(card.trueRewardValueUsd)}</span>
+                          <span className="text-green-400">
+                            {card.rewardType === 'cashback'
+                              ? `−${fmtUsd(card.trueRewardValueUsd)}`
+                              : <>−{card.actualPointsEarned.toLocaleString()} pts
+                                  <span className="text-slate-500 ml-1 text-xs">({fmtUsd(card.trueRewardValueUsd)})</span>
+                                </>
+                            }
+                          </span>
                         </div>
                         {card.feeBurdenUsd > 0 && (
                           <div className="flex justify-between text-slate-300">
@@ -509,7 +606,7 @@ export function SidePanel() {
                         <div className="flex justify-between font-medium pt-1 border-t border-slate-700">
                           <span className="text-slate-300">Effective cost</span>
                           <span className="text-purple-300">
-                            {isGuaranteedRate(card) ? '' : '~'}{fmt(card.netCost)}
+                            {isGuaranteedRate(card) ? '' : '~'}{fmtUsd(card.netCost)}
                           </span>
                         </div>
                       </div>

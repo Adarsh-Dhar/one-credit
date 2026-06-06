@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Settings, LogOut, CreditCard } from 'lucide-react';
+import { Menu, X, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSession, signOut } from 'next-auth/react';
 
@@ -39,12 +39,6 @@ export function Navigation() {
             <Link href="/pay">
               <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/pay' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Pay
-              </Button>
-            </Link>
-            <Link href="/extension">
-              <Button variant="ghost" className={`text-slate-300 hover:text-white ${pathname === '/extension' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
-                <CreditCard className="w-4 h-4 mr-2" />
-                Extension
               </Button>
             </Link>
           </div>
@@ -91,12 +85,6 @@ export function Navigation() {
             <Link href="/pay">
               <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/pay' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
                 Pay
-              </Button>
-            </Link>
-            <Link href="/extension">
-              <Button variant="ghost" className={`w-full justify-start text-slate-300 ${pathname === '/extension' ? 'text-white bg-slate-700/50 rounded' : ''}`}>
-                <CreditCard className="w-4 h-4 mr-2" />
-                Extension
               </Button>
             </Link>
           </div>

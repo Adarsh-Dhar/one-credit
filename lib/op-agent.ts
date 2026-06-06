@@ -57,6 +57,7 @@ export interface CardKnowledge {
   }[]
   feeWaiverSpendUsd: number | null
   foreignTxnFeePct: number
+  rewardType: 'points' | 'miles' | 'cashback'
 }
 
 export interface OPAgentInput {
@@ -260,6 +261,8 @@ Instead, pick the realistic CPP based on the user's behaviour:
 - If isFrequentTraveller = false AND bestRedemptionName involves 'flight' or 'airline' or 'business class' → use ratePerPointMin from that redemption path (not redemptionPaths[1])
 - If actualAvgCppAchieved is not null → use max(actualAvgCppAchieved, redemptionPaths[0].ratePerPoint) as a floor
 This realistic CPP is what you use for trueRewardValueUsd. Label it realisticCpp in your output.
+IMPORTANT: realisticCpp is in cents per point. When computing trueRewardValueUsd, always divide by 100:
+  trueRewardValueUsd = (actualPointsEarned * realisticCpp) / 100
 
 RULE 5 — Category cap remaining:
 For each card, check categoryCapProgress for the current purchase category.
@@ -295,7 +298,7 @@ Else if feeWaiverSpendUsd is not null:
 
 RULE 10 — Milestone bonuses:
 For each milestone in milestoneBonuses where annualSpendUsd >= spendThresholdUsd:
-  milestoneCreditUsd += (bonusPoints * realisticCpp) / userTxnsPerYear
+  milestoneCreditUsd += (bonusPoints * realisticCpp / 100) / userTxnsPerYear
 Subtract milestoneCreditUsd from feeBurdenUsd (floor at 0).
 
 RULE 11 — Rotating category bonus:
@@ -353,26 +356,51 @@ If momSpendChangePct is not null AND fastestGrowingCategory is not null:
 ## Your task
 For EACH card, reason through all 5 steps and produce a JSON result.
 
+### UNIT RULES — read before computing anything
+- 'per' is always 1 (per $1 spent)
+- 'rate' means different things by rewardType:
+    cashback → rate is a percentage: rate=2 means 2% = earn $0.02 per $1 spent
+    points   → rate is a multiplier: rate=2 means 2x = earn 2 points per $1 spent
+    miles    → rate is a multiplier: rate=2 means 2x = earn 2 miles per $1 spent
+- 'ratePerPoint' is always in CENTS per point (e.g. 1.50 = 1.5¢/pt = $0.015/pt)
+- all *Usd output fields are in DOLLARS
+
 ### Step 1 — EarnAudit
 - Check if the merchant (${sanitizeForPrompt(input.product.merchant)}) is excluded
 - Check if payment is EMI (use emiEarnRate if so)
 - Find the matching earnRule for this merchant
 - Confirm no monthly cap issue (assume this is the first transaction of the month)
 - Compute: actualPointsEarned = (price / per) * rate
-// Do NOT use floor(). Cards earn proportionally on every dollar spent.
-// e.g. 5% cashback on $50 = $2.50 earned, not $0.
-// Round to 2 decimal places in your output.
-// Apply RULE 11 (rotating category) before picking earnRule.
-// Apply RULE 12 (portal bonus) after computing actualPointsEarned.
-- Compute: basePointsEarned = (price / per) * base_rate (using earnRules[0] — the 'all' merchant rule)
+  // per is always 1, so this simplifies to: price * rate
+  // cashback example: $2777.67 * 2 = 5555.34 "cashback points" (each worth 1¢)
+  // points example:   $2777.67 * 2 = 5555.34 points (each worth realisticCpp¢)
+  // Do NOT floor(). Round to 2 decimal places.
+- Compute: basePointsEarned = price * earnRules[0].rate  (the 'all' merchant base rule)
 - Compute: bonusPointsEarned = actualPointsEarned - basePointsEarned
   (this is the extra from category bonus, rotating bonus, or portal multiplier)
+// Apply RULE 11 (rotating category) before picking earnRule.
+// Apply RULE 12 (portal bonus) after computing actualPointsEarned.
 
-### Step 2 — RedemptionValue  
+### Step 2 — RedemptionValue
 - List all redemption paths for this card
 - Pick the highest ratePerPoint as bestRedemptionRatePerPoint
-- Compute: trueRewardValueUsd = actualPointsEarned * bestRedemptionRatePerPoint
-- Also compute industryRewardValue = actualPointsEarned * redemptionPaths[0].ratePerPoint (cheapest path — what banks advertise)
+- Compute: trueRewardValueUsd = (actualPointsEarned * realisticCpp) / 100
+  // ratePerPoint is in CENTS → divide by 100 to get dollars
+  // cashback example: 5555.34 pts × 1.0¢ / 100 = $55.55
+  // points example:   5555.34 pts × 1.3¢ / 100 = $72.22
+- Compute: industryRewardValue = (actualPointsEarned * redemptionPaths[0].ratePerPoint) / 100
+
+SANITY CHECK — before writing JSON verify:
+  trueRewardValueUsd must be < price
+  trueRewardValueUsd ≈ price × (earnRate / 100) for cashback, or price × rate × (cpp/100) for points
+  Example: 2% cashback on $2777 = $55.55. If your number is far from this, you have a unit error.
+  realisticCpp must be between 0.50 and 3.00 — never 100
+  actualPointsEarned must be between price×0.5 and price×10 — never price÷100
+
+DISPLAY NOTE for cashback cards (rewardType = 'cashback'):
+  These cards earn "cashback points" where 1 pt = $0.01.
+  conservativeCpp = realisticCpp = bestRedemptionRatePerPoint = 1.0 always.
+  Do not set cpp to 100. cpp is 1.0. The /100 in the formula handles conversion.
 
 ### Step 3 — FeeAmortization
 - Apply RULE 8 (statement credits) to reduce effective annual fee
