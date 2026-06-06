@@ -110,6 +110,9 @@ export async function POST(request: Request) {
         case 'abandoned_rotating_activation':
           setOps.abandonedRotatingActivation = true;
           break;
+        case 'abandoned_card_comparison':
+          setOps.abandonedCardComparison = true;
+          break;
         case 'extension_analyze_api_call':
           incOps.extensionAnalyzeApiCallCount = (incOps.extensionAnalyzeApiCallCount || 0) + 1;
           break;

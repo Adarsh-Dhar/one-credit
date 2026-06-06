@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
+import { CardDetailModal } from '@/components/CardDetailModal';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink, X, Brain } from 'lucide-react';
+import { ArrowLeft, CreditCard, AlertTriangle, Shield, ExternalLink, Brain } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useWallet } from '@/hooks/useWallet';
@@ -154,24 +155,17 @@ export default function CardsPage() {
   const { 
     trackTabClick, 
     trackCardView, 
-    trackCardCompare, 
     trackRageClick, 
-    trackWalletAdd, 
     trackCalculateBestCardClick,
-    trackRedemptionTypeView 
+    trackEvent
   } = useRUM();
   const { startDwell: startCashbackDwell, endDwell: endCashbackDwell } = useDwellTime('cashbackCards');
   const { startDwell: startTravelDwell, endDwell: endTravelDwell } = useDwellTime('travelCards');
-  const { startDwell: startLoungeDwell, endDwell: endLoungeDwell } = useDwellTime('loungeDetails');
   const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
   const { persona, setPersona, isLoading: isPersonaLoading } = usePersona();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-  const [redeemModalOpen, setRedeemModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any>(null);
-  const [pointsBurned, setPointsBurned] = useState('');
-  const [valueReceived, setValueReceived] = useState('');
-  const [redemptionType, setRedemptionType] = useState<'travel_portal' | 'statement_credit' | 'gift_card' | 'cash'>('cash');
-  const [isRedeeming, setIsRedeeming] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'cashback' | 'travel'>('all');
   const clickTimes = useRef<number[]>([]);
 
@@ -189,9 +183,39 @@ export default function CardsPage() {
     };
   }, [trackTabClick, startCashbackDwell, endCashbackDwell, startScrollTracking, stopScrollTracking]);
 
-  // Filter and sort cards based on persona
+  // Track travel tab dwell time
+  useEffect(() => {
+    if (activeTab === 'travel') {
+      startTravelDwell();
+    } else {
+      endTravelDwell();
+    }
+  }, [activeTab, startTravelDwell, endTravelDwell]);
+
+  const handleTabChange = (tab: 'all' | 'cashback' | 'travel') => {
+    setActiveTab(tab);
+    trackTabClick(tab === 'travel' ? 'transfer_partners' : tab);
+  };
+
+  // Filter and sort cards based on persona and tab
   const filteredCards = cards.filter(card => {
-    if (persona?.filterPremiumCards && card.annualFee && card.annualFee > 0) return false;
+    // Filter by tab
+    if (activeTab === 'cashback') {
+      const hasCashback = card.earnRates?.groceries || card.earnRates?.general || card.currency === 'usd';
+      if (!hasCashback) {
+        return false;
+      }
+    }
+    if (activeTab === 'travel') {
+      const hasTravel = card.transferPartners?.length > 0 || card.protections?.trip_cancellation;
+      if (!hasTravel) {
+        return false;
+      }
+    }
+    // Filter by persona
+    if (persona?.filterPremiumCards && card.annualFee && card.annualFee > 0) {
+      return false;
+    }
     return true;
   }).sort((a, b) => {
     if (persona?.focusOnCashback) {
@@ -207,24 +231,31 @@ export default function CardsPage() {
     return 0;
   });
 
-  const handleRedeemClick = (card: any) => {
+  const handleCardDetailClick = (card: any) => {
     trackCardView(card.key);
     setSelectedCard(card);
-    setRedeemModalOpen(true);
+    setDetailModalOpen(true);
   };
 
-  const handleWalletAdd = (cardId: string) => {
-    trackWalletAdd(cardId);
+  const handleDetailModalClose = () => {
+    setDetailModalOpen(false);
+    setSelectedCard(null);
   };
 
   const handleCalculateBestCard = async () => {
-    if (!userId) return;
+    if (!userId) {
+      return;
+    }
     
     trackCalculateBestCardClick();
+    
+    const t0 = Date.now();
     
     try {
       const res = await fetch('/api/rum/analyze', { method: 'POST' });
       const data = await res.json();
+      const responseTime = Date.now() - t0;
+      trackEvent('ai_analyze_response_time', { responseTime });
       if (data.persona) {
         setPersona(data.persona);
       }
@@ -243,43 +274,6 @@ export default function CardsPage() {
     trackCardView(card.key);
   };
 
-  const handleRedeemSubmit = async () => {
-    if (!selectedCard || !userId || !pointsBurned || !valueReceived) {
-      return;
-    }
-
-    // Track redemption type view
-    trackRedemptionTypeView(redemptionType);
-
-    setIsRedeeming(true);
-    try {
-      await fetch('/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          type: 'redemption',
-          amountUsd: 0,
-          cardId: selectedCard.key,
-          category: 'redemption',
-          merchant: '',
-          pointsRedeemed: parseFloat(pointsBurned),
-          valueReceivedUsd: parseFloat(valueReceived),
-          metadata: { redemptionType },
-        }),
-      });
-
-      setRedeemModalOpen(false);
-      setPointsBurned('');
-      setValueReceived('');
-      setSelectedCard(null);
-      setRedemptionType('cash');
-    } catch (error) {
-      console.error('Redemption failed:', error);
-    } finally {
-      setIsRedeeming(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -287,7 +281,7 @@ export default function CardsPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="mb-12 flex items-center justify-between">
+        <div className="mb-12">
           <div>
             <Link href="/">
               <Button variant="ghost" className="text-slate-400 hover:text-white mb-4">
@@ -300,19 +294,30 @@ export default function CardsPage() {
             </h1>
             <p className="text-slate-400">Interactive 3D cards with live spending caps</p>
           </div>
-          <div className="flex items-center gap-4">
+
+          {/* Tab Buttons */}
+          <div className="flex gap-2 mt-6">
             <Button
-              onClick={handleCalculateBestCard}
-              disabled={isPersonaLoading}
-              className="bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold px-6 py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all disabled:opacity-50 flex items-center gap-2"
+              variant={activeTab === 'all' ? 'default' : 'outline'}
+              onClick={() => handleTabChange('all')}
+              className={activeTab === 'all' ? 'bg-purple-600' : 'border-slate-600 text-slate-300'}
             >
-              <Brain className="w-4 h-4" />
-              {isPersonaLoading ? 'Analyzing...' : 'Calculate Best Card'}
+              All Cards
             </Button>
-            <div className="flex items-center gap-2 text-purple-400">
-              <Sparkles className="w-5 h-5 animate-pulse" />
-              <span className="text-sm font-medium">Live Rates</span>
-            </div>
+            <Button
+              variant={activeTab === 'cashback' ? 'default' : 'outline'}
+              onClick={() => handleTabChange('cashback')}
+              className={activeTab === 'cashback' ? 'bg-purple-600' : 'border-slate-600 text-slate-300'}
+            >
+              Cashback
+            </Button>
+            <Button
+              variant={activeTab === 'travel' ? 'default' : 'outline'}
+              onClick={() => handleTabChange('travel')}
+              className={activeTab === 'travel' ? 'bg-purple-600' : 'border-slate-600 text-slate-300'}
+            >
+              Travel
+            </Button>
           </div>
         </div>
 
@@ -328,6 +333,18 @@ export default function CardsPage() {
             </div>
           </div>
         )}
+
+        {/* Calculate Best Card Button */}
+        <div className="mb-8 flex items-center justify-end">
+          <Button
+            onClick={handleCalculateBestCard}
+            disabled={isPersonaLoading}
+            className="bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold px-6 py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all disabled:opacity-50 flex items-center gap-2"
+          >
+            <Brain className="w-4 h-4" />
+            {isPersonaLoading ? 'Analyzing...' : 'Calculate Best Card'}
+          </Button>
+        </div>
 
         {/* Animated Cards Grid */}
         {loading ? (
@@ -515,10 +532,10 @@ export default function CardsPage() {
                           </div>
                         </div>
                         <button
-                          onClick={() => handleRedeemClick(card)}
+                          onClick={() => handleCardDetailClick(card)}
                           className="mt-3 w-full bg-gradient-to-r from-purple-600 to-yellow-500 text-white text-sm font-bold py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all"
                         >
-                          Redeem Points
+                          View Details
                         </button>
                       </div>
 
@@ -568,114 +585,13 @@ export default function CardsPage() {
           </div>
         )}
 
-        {/* Redemption Modal */}
-        {redeemModalOpen && selectedCard && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-white">Redeem Points</h3>
-                <button
-                  onClick={() => setRedeemModalOpen(false)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="mb-4">
-                <p className="text-slate-400 text-sm mb-1">Card</p>
-                <p className="text-white font-semibold">{selectedCard.name}</p>
-              </div>
-
-              <div className="mb-4">
-                <label className="text-slate-400 text-sm mb-2 block">Redemption Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setRedemptionType('travel_portal')}
-                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
-                      redemptionType === 'travel_portal'
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
-                    }`}
-                  >
-                    ✈️ Travel Portal
-                  </button>
-                  <button
-                    onClick={() => setRedemptionType('statement_credit')}
-                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
-                      redemptionType === 'statement_credit'
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
-                    }`}
-                  >
-                    💳 Statement Credit
-                  </button>
-                  <button
-                    onClick={() => setRedemptionType('gift_card')}
-                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
-                      redemptionType === 'gift_card'
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
-                    }`}
-                  >
-                    🎁 Gift Card
-                  </button>
-                  <button
-                    onClick={() => setRedemptionType('cash')}
-                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
-                      redemptionType === 'cash'
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
-                    }`}
-                  >
-                    💵 Cash Back
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <label className="text-slate-400 text-sm mb-2 block">Points to Redeem</label>
-                <input
-                  type="number"
-                  value={pointsBurned}
-                  onChange={(e) => setPointsBurned(e.target.value)}
-                  placeholder="e.g., 10000"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div className="mb-6">
-                <label className="text-slate-400 text-sm mb-2 block">Value Received (USD)</label>
-                <input
-                  type="number"
-                  value={valueReceived}
-                  onChange={(e) => setValueReceived(e.target.value)}
-                  placeholder="e.g., 100.00"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setRedeemModalOpen(false)}
-                  className="flex-1 border border-slate-600 text-slate-300 hover:bg-slate-700 rounded-lg py-2 font-semibold transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRedeemSubmit}
-                  disabled={!pointsBurned || !valueReceived || isRedeeming}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {isRedeeming ? 'Redeeming...' : 'Confirm'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
+        {/* Card Detail Modal */}
+        {detailModalOpen && selectedCard && (
+          <CardDetailModal
+            selectedCard={selectedCard}
+            cardDetails={selectedCard.rawCard || selectedCard}
+            onClose={handleDetailModalClose}
+          />
         )}
       </main>
 

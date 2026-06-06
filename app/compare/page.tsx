@@ -22,12 +22,64 @@ function CompareContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { cards } = useWallet();
-  const { trackCardCompare, trackBackNavigation, trackCardView, trackTabClick, trackRageClick } = useRUM();
+  const { trackCardCompare, trackBackNavigation, trackCardView, trackTabClick, trackRageClick, trackDwellTime, trackScrollDepth, trackEvent } = useRUM();
   const { startDwell, endDwell } = useDwellTime('cardComparison');
   const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
   const clickTimes = useRef<number[]>([]);
+  const annualFeeRef = useRef<HTMLDivElement>(null);
+  const annualFeeVisibleTime = useRef<number | null>(null);
+  const annualFeeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [selectedCards, setSelectedCards] = useState<ComparisonCard[]>([]);
+
+  // Track annual fee dwell time with IntersectionObserver
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // Element entered viewport - start 3s timer
+            annualFeeVisibleTime.current = Date.now();
+            annualFeeTimerRef.current = setTimeout(() => {
+              // User stayed for 3+ seconds - track dwell
+              if (annualFeeVisibleTime.current) {
+                const duration = Math.floor((Date.now() - annualFeeVisibleTime.current) / 1000);
+                trackDwellTime('annualFeeField', duration);
+              }
+            }, 3000);
+          } else {
+            // Element left viewport
+            if (annualFeeTimerRef.current) {
+              clearTimeout(annualFeeTimerRef.current);
+              annualFeeTimerRef.current = null;
+            }
+            // If left quickly (<3s), track as scroll depth
+            if (annualFeeVisibleTime.current) {
+              const timeVisible = Date.now() - annualFeeVisibleTime.current;
+              if (timeVisible < 3000) {
+                trackScrollDepth(50);
+              }
+              annualFeeVisibleTime.current = null;
+            }
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    if (annualFeeRef.current) {
+      observer.observe(annualFeeRef.current);
+    }
+
+    return () => {
+      if (annualFeeRef.current) {
+        observer.unobserve(annualFeeRef.current);
+      }
+      if (annualFeeTimerRef.current) {
+        clearTimeout(annualFeeTimerRef.current);
+      }
+    };
+  }, [trackDwellTime, trackScrollDepth]);
 
   // Get card IDs from URL params
   const cardIds = searchParams.get('cards')?.split(',') || [];
@@ -61,6 +113,9 @@ function CompareContent() {
 
     // Track back navigation (abandonment)
     const handlePopState = () => {
+      if (selectedCards.length > 0) {
+        trackEvent('abandoned_card_comparison');
+      }
       trackBackNavigation();
     };
     window.addEventListener('popstate', handlePopState);
@@ -88,6 +143,9 @@ function CompareContent() {
   };
 
   const handleBack = () => {
+    if (selectedCards.length > 0) {
+      trackEvent('abandoned_card_comparison');
+    }
     trackBackNavigation();
     router.push('/cards');
   };
@@ -143,7 +201,7 @@ function CompareContent() {
               </div>
 
               {/* Annual Fee */}
-              <div className="mb-4">
+              <div ref={annualFeeRef} className="mb-4">
                 <p className="text-slate-400 text-sm mb-1">Annual Fee</p>
                 <p className="text-white font-bold text-lg">
                   {card.annualFee === 0 ? '$0' : `$${card.annualFee}`}
