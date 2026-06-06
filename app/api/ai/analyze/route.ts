@@ -1,4 +1,4 @@
-import { callGeminiWithTools, MCPTools } from '@/lib/mcp-tools';
+import { runRUMAgent } from '@/lib/rum-agent';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
@@ -9,7 +9,7 @@ import logger from '@/lib/logger';
 
 // Zod schema for request validation
 const AnalyzeSchema = z.object({
-  prompt: z.string().max(5000),
+  userId: z.string().optional(),
   apiKey: z.string().optional(),
 });
 
@@ -21,16 +21,13 @@ export async function POST(request: Request) {
       throw new ValidationError('Invalid request body', { details: parsed.error.flatten() })
     }
 
-    const { prompt, apiKey } = parsed.data;
+    const { userId, apiKey } = parsed.data;
 
     // Prefer server-side env key; fall back to user-supplied key for dev
     const resolvedKey = process.env.GOOGLE_API_KEY || apiKey;
 
     if (!resolvedKey) {
       return NextResponse.json({ error: 'Gemini API key required' }, { status: 400 });
-    }
-    if (!prompt) {
-      return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
     }
 
     // Check authentication
@@ -45,7 +42,8 @@ export async function POST(request: Request) {
       throw new ValidationError('Rate limit exceeded');
     }
 
-    const result = await callGeminiWithTools(resolvedKey, prompt, MCPTools);
+    // Run the RUM persona agent
+    const result = await runRUMAgent(userId || session.user.id, resolvedKey);
     return NextResponse.json(result);
   } catch (error) {
     logger.error({ error }, '[analyze]');
