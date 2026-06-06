@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, X, CheckCircle2 } from 'lucide-react';
-import { useRUM, useDwellTime } from '@/hooks/useRUM';
+import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
 import { useWallet } from '@/hooks/useWallet';
 
 interface ComparisonCard {
@@ -22,8 +22,10 @@ function CompareContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { cards } = useWallet();
-  const { trackCardCompare, trackBackNavigation } = useRUM();
+  const { trackCardCompare, trackBackNavigation, trackCardView, trackTabClick, trackRageClick } = useRUM();
   const { startDwell, endDwell } = useDwellTime('cardComparison');
+  const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
+  const clickTimes = useRef<number[]>([]);
 
   const [selectedCards, setSelectedCards] = useState<ComparisonCard[]>([]);
 
@@ -31,7 +33,9 @@ function CompareContent() {
   const cardIds = searchParams.get('cards')?.split(',') || [];
 
   useEffect(() => {
+    trackTabClick('transfer_partners');
     startDwell();
+    startScrollTracking();
 
     // Load cards from URL params
     if (cardIds.length > 0) {
@@ -51,6 +55,7 @@ function CompareContent() {
       // Track comparison
       cardsToCompare.forEach(card => {
         trackCardCompare(card.key);
+        trackCardView(card.key);
       });
     }
 
@@ -62,12 +67,24 @@ function CompareContent() {
 
     return () => {
       endDwell();
+      stopScrollTracking();
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [cardIds, cards, trackCardCompare, trackBackNavigation, startDwell, endDwell]);
+  }, [cardIds, cards, trackCardCompare, trackBackNavigation, trackCardView, trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking]);
 
   const removeCard = (cardKey: string) => {
+    trackCardView(cardKey);
     setSelectedCards(prev => prev.filter(c => c.key !== cardKey));
+  };
+
+  const handleCardClick = (cardKey: string) => {
+    const now = Date.now();
+    clickTimes.current = [...clickTimes.current.filter(t => now - t < 1000), now];
+    if (clickTimes.current.length >= 3) {
+      trackRageClick('card_comparison', `#${cardKey}`);
+      clickTimes.current = [];
+    }
+    trackCardView(cardKey);
   };
 
   const handleBack = () => {
@@ -112,7 +129,7 @@ function CompareContent() {
         {/* Comparison Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {selectedCards.map((card) => (
-            <div key={card.key} className="bg-slate-800 border border-slate-700 rounded-xl p-6 relative">
+            <div key={card.key} className="bg-slate-800 border border-slate-700 rounded-xl p-6 relative cursor-pointer" onClick={() => handleCardClick(card.key)}>
               <button
                 onClick={() => removeCard(card.key)}
                 className="absolute top-4 right-4 text-slate-400 hover:text-white"

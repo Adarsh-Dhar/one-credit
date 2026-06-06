@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,7 +14,7 @@ import { WalletCard } from '@/lib/types';
 import { StepIndicator } from '@/components/pay/StepIndicator';
 import { AITerminal } from '@/components/pay/TerminalAnalyzer';
 import { ArbitrageReceipt } from '@/components/pay/ArbitrageReceipt';
-import { useRUM } from '@/hooks/useRUM';
+import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Merchant {
@@ -99,7 +99,9 @@ type Step = 'category' | 'merchant' | 'amount' | 'analyzing' | 'approval' | 'suc
 
 export default function PayPage() {
   const { data: session } = useSession();
-  const { trackEvent } = useRUM();
+  const { trackEvent, trackTabClick, trackCardView, trackRageClick } = useRUM();
+  const { startDwell, endDwell } = useDwellTime('paymentFlow');
+  const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
   const [step, setStep]                   = useState<Step>('category');
   const [selectedCategory, setCategory]   = useState<typeof CATEGORIES[0] | null>(null);
   const [selectedMerchant, setMerchant]   = useState<Merchant | null>(null);
@@ -108,8 +110,21 @@ export default function PayPage() {
   const [recommendation, setRec]          = useState<GeminiRecommendation | null>(null);
   const [txHash, setTxHash]               = useState('');
   const [isProcessing, setIsProcessing]   = useState(false);
+  const clickTimes = useRef<number[]>([]);
 
   const userId = session?.user?.email;
+
+  // Initialize RUM tracking on mount
+  useEffect(() => {
+    trackTabClick('cashback');
+    startDwell();
+    startScrollTracking();
+
+    return () => {
+      endDwell();
+      stopScrollTracking();
+    };
+  }, [trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking]);
 
   // Fetch user cards once
   useEffect(() => {
@@ -136,18 +151,28 @@ export default function PayPage() {
     setStep('merchant');
     // Track transaction categorized event
     trackEvent('transaction.categorized', { category: cat.id, label: cat.label });
+    trackCardView(cat.id);
   };
 
   const handleMerchantSelect = (merchant: Merchant) => {
     setMerchant(merchant);
     setStep('amount');
+    trackCardView(merchant.name);
   };
 
   const handleAmountSubmit = async () => {
+    // Rage click detection on submit
+    const now = Date.now();
+    clickTimes.current = [...clickTimes.current.filter(t => now - t < 1000), now];
+    if (clickTimes.current.length >= 3) {
+      trackRageClick('amount_submit', '#amount-submit');
+      clickTimes.current = [];
+    }
+    
     const parsedAmount = parseFloat(amount);
     if (!amount || parsedAmount <= 0 || parsedAmount > 10000) {
-return;
-}
+      return;
+    }
     setStep('analyzing');
 
     try {
@@ -209,8 +234,17 @@ return;
 
   const handleApprove = async () => {
     if (!recommendation || isProcessing) {
-return;
-}
+      return;
+    }
+    
+    // Track card recommendation acceptance
+    trackCardView(recommendation.bestCardKey);
+    trackEvent('payment.approved', { 
+      card: recommendation.bestCardKey, 
+      amount: parseFloat(amount),
+      merchant: selectedMerchant?.name 
+    });
+    
     setIsProcessing(true);
 
     // Wait for animation

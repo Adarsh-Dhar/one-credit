@@ -1,25 +1,36 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Brain, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
-import { useRUM } from '@/hooks/useRUM';
+import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
 import type { RUMAgentResult } from '@/lib/rum-agent';
 
 export default function InsightsPage() {
   const { data: session } = useSession();
-  const { trackEvent } = useRUM();
+  const { trackEvent, trackTabClick, trackRageClick } = useRUM();
+  const { startDwell, endDwell } = useDwellTime('cardRecommendation');
+  const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
   const [loading, setLoading] = useState(true);
   const [personaResult, setPersonaResult] = useState<RUMAgentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const clickTimes = useRef<number[]>([]);
 
   const userId = session?.user?.email;
 
   useEffect(() => {
+    trackTabClick('transfer_partners');
     trackEvent('card_recommendation_view');
-  }, [trackEvent]);
+    startDwell();
+    startScrollTracking();
+
+    return () => {
+      endDwell();
+      stopScrollTracking();
+    };
+  }, [trackEvent, trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking]);
 
   useEffect(() => {
     if (!userId) {
@@ -56,11 +67,18 @@ export default function InsightsPage() {
     if (!userId) {
       return;
     }
+    
+    // Rage click detection on refresh button
+    const now = Date.now();
+    clickTimes.current = [...clickTimes.current.filter(t => now - t < 1000), now];
+    if (clickTimes.current.length >= 3) {
+      trackRageClick('refresh_button', '#refresh-insights');
+      clickTimes.current = [];
+    }
+    
     setLoading(true);
-    fetch('/api/ai/analyze', {
+    fetch('/api/rum/analyze', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
     })
       .then(res => res.json())
       .then(data => {

@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, CreditCard, Sparkles, AlertTriangle, Shield, ExternalLink, X, Brain } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useWallet } from '@/hooks/useWallet';
-import { useRUM } from '@/hooks/useRUM';
+import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
+import { usePersona } from '@/contexts/PersonaContext';
 
 // ── Spending-cap config per card (issuer/category) ─────────────────────────
 // These caps mirror the reward structure limits (e.g., Amex $6k grocery cap).
@@ -150,7 +151,20 @@ function SpendingRing({ cap }: RingProps) {
 export default function CardsPage() {
   const { data: session } = useSession();
   const { cards, loading } = useWallet();
-  const { trackRedemptionTypeView } = useRUM();
+  const { 
+    trackTabClick, 
+    trackCardView, 
+    trackCardCompare, 
+    trackRageClick, 
+    trackWalletAdd, 
+    trackCalculateBestCardClick,
+    trackRedemptionTypeView 
+  } = useRUM();
+  const { startDwell: startCashbackDwell, endDwell: endCashbackDwell } = useDwellTime('cashbackCards');
+  const { startDwell: startTravelDwell, endDwell: endTravelDwell } = useDwellTime('travelCards');
+  const { startDwell: startLoungeDwell, endDwell: endLoungeDwell } = useDwellTime('loungeDetails');
+  const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
+  const { persona, setPersona, isLoading: isPersonaLoading } = usePersona();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [redeemModalOpen, setRedeemModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any>(null);
@@ -158,12 +172,75 @@ export default function CardsPage() {
   const [valueReceived, setValueReceived] = useState('');
   const [redemptionType, setRedemptionType] = useState<'travel_portal' | 'statement_credit' | 'gift_card' | 'cash'>('cash');
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'cashback' | 'travel'>('all');
+  const clickTimes = useRef<number[]>([]);
 
   const userId = session?.user?.email;
 
+  // Initialize RUM tracking on mount
+  useEffect(() => {
+    trackTabClick('cashback');
+    startCashbackDwell();
+    startScrollTracking();
+
+    return () => {
+      endCashbackDwell();
+      stopScrollTracking();
+    };
+  }, [trackTabClick, startCashbackDwell, endCashbackDwell, startScrollTracking, stopScrollTracking]);
+
+  // Filter and sort cards based on persona
+  const filteredCards = cards.filter(card => {
+    if (persona?.filterPremiumCards && card.annualFee && card.annualFee > 0) return false;
+    return true;
+  }).sort((a, b) => {
+    if (persona?.focusOnCashback) {
+      const aRate = a.earnRates?.groceries || a.earnRates?.general || 1;
+      const bRate = b.earnRates?.groceries || b.earnRates?.general || 1;
+      return bRate - aRate;
+    }
+    if (persona?.focusOnTransferPartners) {
+      const aTransfer = a.transferPartners?.length || 0;
+      const bTransfer = b.transferPartners?.length || 0;
+      return bTransfer - aTransfer;
+    }
+    return 0;
+  });
+
   const handleRedeemClick = (card: any) => {
+    trackCardView(card.key);
     setSelectedCard(card);
     setRedeemModalOpen(true);
+  };
+
+  const handleWalletAdd = (cardId: string) => {
+    trackWalletAdd(cardId);
+  };
+
+  const handleCalculateBestCard = async () => {
+    if (!userId) return;
+    
+    trackCalculateBestCardClick();
+    
+    try {
+      const res = await fetch('/api/rum/analyze', { method: 'POST' });
+      const data = await res.json();
+      if (data.persona) {
+        setPersona(data.persona);
+      }
+    } catch (error) {
+      console.error('Failed to analyze persona:', error);
+    }
+  };
+
+  const handleCardClick = (card: any) => {
+    const now = Date.now();
+    clickTimes.current = [...clickTimes.current.filter(t => now - t < 1000), now];
+    if (clickTimes.current.length >= 3) {
+      trackRageClick('card_expansion', `#${card.key}`);
+      clickTimes.current = [];
+    }
+    trackCardView(card.key);
   };
 
   const handleRedeemSubmit = async () => {
@@ -223,11 +300,34 @@ export default function CardsPage() {
             </h1>
             <p className="text-slate-400">Interactive 3D cards with live spending caps</p>
           </div>
-          <div className="flex items-center gap-2 text-purple-400">
-            <Sparkles className="w-5 h-5 animate-pulse" />
-            <span className="text-sm font-medium">Live Rates</span>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={handleCalculateBestCard}
+              disabled={isPersonaLoading}
+              className="bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold px-6 py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+              <Brain className="w-4 h-4" />
+              {isPersonaLoading ? 'Analyzing...' : 'Calculate Best Card'}
+            </Button>
+            <div className="flex items-center gap-2 text-purple-400">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+              <span className="text-sm font-medium">Live Rates</span>
+            </div>
           </div>
         </div>
+
+        {/* Persona Banner */}
+        {persona && (
+          <div className="mb-8 bg-gradient-to-r from-purple-600/20 to-yellow-500/20 border border-purple-500/30 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <Brain className="w-5 h-5 text-purple-400" />
+              <div>
+                <p className="text-white font-semibold">Your Persona: {persona.label}</p>
+                <p className="text-slate-400 text-sm">Confidence: {(persona.confidence * 100).toFixed(0)}%</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Animated Cards Grid */}
         {loading ? (
@@ -236,7 +336,7 @@ export default function CardsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 perspective-1000">
-            {cards.map((card, index) => {
+            {filteredCards.map((card, index) => {
               const caps = deriveSpendingCaps(card);
               return (
                 <motion.div
@@ -247,6 +347,7 @@ export default function CardsPage() {
                   className="relative cursor-pointer group"
                   onMouseEnter={() => setHoveredCard(card.key)}
                   onMouseLeave={() => setHoveredCard(null)}
+                  onClick={() => handleCardClick(card)}
                 >
                   <div
                     className={`bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl border border-slate-600 shadow-2xl transition-all duration-500 transform preserve-3d ${

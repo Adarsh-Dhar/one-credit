@@ -326,16 +326,46 @@ async function logPersonaToDynatrace(
 
 // ─── The agent ────────────────────────────────────────────────────────────────
 
-export async function runRUMAgent(
+async function generateContentWithRetry(
+  model: any,
+  contents: any[],
+  maxRetries = 3,
+): Promise<any> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const result = await model.generateContent({ contents });
+      return result;
+    } catch (error: any) {
+      const isRetryable = 
+        error?.status === 503 || 
+        error?.status === 429 ||
+        error?.message?.includes('high demand') ||
+        error?.message?.includes('quota') ||
+        error?.message?.includes('Service Unavailable');
+      
+      if (isRetryable && attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        logger.warn({ attempt, delay, error: error.message }, '[rum-agent] Retrying Gemini request');
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
+async function runRUMAgentWithModel(
   userId: string,
   geminiApiKey: string,
+  modelName: string,
 ): Promise<RUMAgentResult> {
 
   const genAI  = new GoogleGenerativeAI(geminiApiKey)
-  const model  = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+  const model = genAI.getGenerativeModel({
+    model: modelName,
     tools: [{ functionDeclarations: DynatraceTools } as Tool],
-  })
+  });
 
   // ── Agentic loop: Gemini may call DT tools multiple times ─────────────────
 
@@ -409,7 +439,7 @@ After calling the tools, respond ONLY with a JSON object — no markdown, no pre
   while (iterations < MAX_ITERATIONS) {
     iterations++
 
-    const result = await model.generateContent({ contents })
+    const result = await generateContentWithRetry(model, contents)
     const response = result.response
     const parts     = response.candidates?.[0]?.content?.parts ?? []
 
@@ -420,17 +450,17 @@ After calling the tools, respond ONLY with a JSON object — no markdown, no pre
     ]
 
     // Check for tool calls
-    const toolCalls = parts.filter(p => p.functionCall)
+    const toolCalls = parts.filter((p: { functionCall: any }) => p.functionCall)
 
     if (toolCalls.length === 0) {
       // No more tool calls → model gave its final text answer
-      finalText = parts.map(p => p.text ?? '').join('')
+      finalText = parts.map((p: { text: any }) => p.text ?? '').join('')
       break
     }
 
     // Execute each tool call and build the function-response turn
     const toolResponses = await Promise.all(
-      toolCalls.map(async part => {
+      toolCalls.map(async (part: { functionCall: any }) => {
         const fc   = part.functionCall!
         const name = fc.name
         const args = (fc.args ?? {}) as Record<string, unknown>
@@ -500,5 +530,29 @@ args.userId = userId
     persona:              parsed.persona,
     dynatraceLogId,
     rawGeminiReasoning:   parsed.agentReasoning,
+  }
+}
+
+export async function runRUMAgent(
+  userId: string,
+  geminiApiKey: string,
+): Promise<RUMAgentResult> {
+  // Try gemini-2.5-flash first, fall back to gemini-pro if it fails
+  try {
+    logger.info('[rum-agent] Attempting persona inference with gemini-2.5-flash');
+    return await runRUMAgentWithModel(userId, geminiApiKey, 'gemini-2.5-flash');
+  } catch (error: any) {
+    const isRetryable = 
+      error?.status === 503 || 
+      error?.status === 429 ||
+      error?.message?.includes('high demand') ||
+      error?.message?.includes('quota') ||
+      error?.message?.includes('Service Unavailable');
+    
+    if (isRetryable) {
+      logger.warn('[rum-agent] gemini-2.5-flash unavailable, falling back to gemini-pro');
+      return await runRUMAgentWithModel(userId, geminiApiKey, 'gemini-pro');
+    }
+    throw error;
   }
 }

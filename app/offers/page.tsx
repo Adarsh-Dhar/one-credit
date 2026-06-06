@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Sparkles, AlertTriangle, Calendar, CheckCircle2 } from 'lucide-react';
-import { useRUM, useDwellTime } from '@/hooks/useRUM';
+import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
 
 interface RotatingCategory {
   id: string;
@@ -61,8 +61,9 @@ const ROTATING_CATEGORIES: RotatingCategory[] = [
 ];
 
 export default function OffersPage() {
-  const { trackTabClick, trackRageClick } = useRUM();
+  const { trackTabClick, trackRageClick, trackCardView } = useRUM();
   const { startDwell, endDwell } = useDwellTime('offers');
+  const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
   const [categories, setCategories] = useState(ROTATING_CATEGORIES);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [rageClickCount, setRageClickCount] = useState(0);
@@ -72,11 +73,13 @@ export default function OffersPage() {
   useEffect(() => {
     trackTabClick('offers');
     startDwell();
+    startScrollTracking();
 
     return () => {
       endDwell();
+      stopScrollTracking();
     };
-  }, [trackTabClick, startDwell, endDwell]);
+  }, [trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking]);
 
   const handleActivate = async (categoryId: string) => {
     // Rage click detection
@@ -91,6 +94,9 @@ export default function OffersPage() {
       setRageClickCount(0);
     }
     setLastClickTime(now);
+    
+    // Track category view
+    trackCardView(categoryId);
 
     setActivatingId(categoryId);
     
