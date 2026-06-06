@@ -14,6 +14,11 @@
 
 import { GoogleGenerativeAI, Tool, FunctionDeclaration } from '@google/generative-ai'
 import logger from '@/lib/logger'
+import type { RUMSignals } from '@/lib/types'
+import { RUMSignals as RUMSignalsModel } from '@/lib/models/RUMSignals'
+
+// Re-export RUMSignals from lib/types for backward compatibility
+export type { RUMSignals }
 
 // ─── Dynatrace config (add to .env) ──────────────────────────────────────────
 // DT_ENV_URL=https://<env-id>.live.dynatrace.com
@@ -35,48 +40,6 @@ export type PersonaLabel =
   | 'FeeInsensitive'   // Scrolls past annual fee without pausing
   | 'FeeAverse'        // Exits consistently at annual fee field
   | 'Unknown'
-
-export interface RUMSignals {
-  userId: string
-  sessionId?: string
-
-  // Click & interaction telemetry
-  rageClicksOnRotatingCategory: number   // aversion to manual activation
-  transferPartnerTabClicks: number       // Maximizer signal
-  cashbackTabClicks: number              // Simplifier signal
-  offersTabClicks: number                // coupon-clip tolerance
-  cardDetailExpansions: number           // research depth
-  calculateBestCardClicks: number        // intent strength
-
-  // Dwell time (seconds)
-  dwellOnTransferGuides: number          // award-chart hunting tolerance
-  dwellOnTravelCards: number
-  dwellOnCashbackCards: number
-  dwellOnLoungeDetails: number
-  dwellOnAprSection: number
-  dwellOnAnnualFeeField: number          // fee-sensitivity
-
-  // Scroll depth signals
-  scrolledPastFinePrint: boolean         // sophistication
-  scrolledPastAnnualFee: boolean         // fee-insensitive if true
-
-  // Flow / funnel
-  abandonedRotatingActivation: boolean
-  abandonedCardComparison: boolean
-  backNavAfterRecommendation: boolean    // reconsideration loop
-
-  // Custom business events (pushed from Next.js)
-  cardsViewed: string[]
-  cardsCompared: string[]
-  extensionFireCount: number             // Amazon shopping volume proxy
-  redemptionTypesViewed: string[]        // 'travel_portal' | 'statement_credit' | 'cashback'
-  transferPartnersClicked: string[]      // e.g. ['SkyMiles', 'Aeroplan']
-  cardAddedToWallet: string | null       // strongest commitment signal
-
-  // Infrastructure signals from Dynatrace APM
-  extensionAnalyzeApiCallCount: number   // /api/extension/analyze frequency
-  aiAnalyzeAvgResponseMs: number        // agent latency
-}
 
 export interface UserPersona {
   label: PersonaLabel
@@ -176,8 +139,19 @@ async function executeDTTool(
 ): Promise<unknown> {
 
   if (!DT_ENV_URL || !DT_API_TOKEN) {
-    logger.warn('[rum-agent] DT_ENV_URL or DT_API_TOKEN not set — returning mock RUM signals')
-    return mockRUMSignals(args.userId as string)
+    logger.warn('[rum-agent] DT_ENV_URL or DT_API_TOKEN not set — reading RUM signals from MongoDB')
+    const userId = args.userId as string
+    
+    try {
+      const doc = await RUMSignalsModel.findOne({ userId })
+      if (doc) {
+        return doc.toObject()
+      }
+      logger.info('[rum-agent] No RUM signals found in MongoDB, returning mock')
+    } catch (err) {
+      logger.error({ err }, '[rum-agent] Failed to read RUM signals from MongoDB, returning mock')
+    }
+    return mockRUMSignals(userId)
   }
 
   const headers = {

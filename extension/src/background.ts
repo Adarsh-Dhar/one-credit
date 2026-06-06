@@ -1,6 +1,68 @@
 // Background service worker for OneCredit extension
 import type { Message, MessageResponse } from '@/types'
 
+// RUM event buffer for background worker
+let rumEventBuffer: any[] = []
+const RUM_FLUSH_INTERVAL = 20000 // 20 seconds
+let rumFlushTimer: ReturnType<typeof setInterval> | null = null
+
+// Flush RUM events to API
+function flushRUMEvents() {
+  if (rumEventBuffer.length === 0) return
+
+  const eventsToSend = [...rumEventBuffer]
+  rumEventBuffer = []
+
+  // Get userId from storage
+  chrome.storage.local.get(['userId'], (storage) => {
+    const userId = storage.userId as string | undefined
+
+    if (!userId) {
+      console.log('[OneCredit] No userId found, skipping RUM flush')
+      return
+    }
+
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    fetch(`${API_BASE}/api/rum/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        events: eventsToSend
+      })
+    })
+      .then((response) => {
+        if (!response.ok) {
+          console.error('[OneCredit] RUM ingest failed:', response.status)
+          rumEventBuffer.unshift(...eventsToSend)
+        } else {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[OneCredit] RUM events flushed:', eventsToSend.length)
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('[OneCredit] RUM flush error:', err)
+        rumEventBuffer.unshift(...eventsToSend)
+      })
+  })
+}
+
+// Start RUM flush timer
+function startRUMFlushTimer() {
+  if (rumFlushTimer) return
+  rumFlushTimer = setInterval(flushRUMEvents, RUM_FLUSH_INTERVAL)
+}
+
+// Stop RUM flush timer
+function stopRUMFlushTimer() {
+  if (rumFlushTimer) {
+    clearInterval(rumFlushTimer)
+    rumFlushTimer = null
+  }
+  flushRUMEvents() // Flush remaining events on stop
+}
+
 // Listen for messages from content scripts and popup
 chrome.runtime.onMessage.addListener(
   (request: Message, sender: chrome.runtime.MessageSender, sendResponse: (response?: MessageResponse) => void) => {
@@ -9,6 +71,13 @@ chrome.runtime.onMessage.addListener(
     }
 
     switch (request.type) {
+      case 'RUM_EVENTS': {
+        // Buffer RUM events from content script
+        rumEventBuffer.push(...(request.data?.events || []))
+        sendResponse({ success: true })
+        return true
+      }
+
       case 'PRODUCT_DETECTED': {
         if (process.env.NODE_ENV === 'development') {
           console.log('[OneCredit] Product detected:', request.data)
@@ -147,11 +216,18 @@ chrome.runtime.onInstalled.addListener((details) => {
     console.log('[OneCredit] Extension installed')
     // Open options page on first install
     chrome.runtime.openOptionsPage()
+    // Start RUM flush timer
+    startRUMFlushTimer()
   } else if (details.reason === 'update') {
     console.log('[OneCredit] Extension updated')
     // Clear cached product data to force re-detection with new conversion logic
     chrome.storage.local.remove(['lastDetectedProduct', 'lastProductTime'], () => {
       console.log('[OneCredit] Cleared cached product data')
     })
+    // Start RUM flush timer
+    startRUMFlushTimer()
   }
 })
+
+// Start RUM flush timer on startup (for when extension is already installed)
+startRUMFlushTimer()

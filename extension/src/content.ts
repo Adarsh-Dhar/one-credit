@@ -1,5 +1,9 @@
 // Content script for OneCredit extension
 import type { Product } from '@/types'
+import { startRUMTracker } from './rum-tracker'
+
+// Initialize RUM tracker
+startRUMTracker()
 
 // Immediate log to verify content script is loaded
 if (process.env.NODE_ENV === 'development') {

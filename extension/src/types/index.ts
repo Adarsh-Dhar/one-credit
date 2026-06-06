@@ -32,6 +32,7 @@ export interface Message {
     | 'SET_USER_SESSION'
     | 'GET_USER_SESSION'
     | 'GET_SESSION'
+    | 'RUM_EVENTS'
   data?: any
   product?: Product
   userId?: string

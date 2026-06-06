@@ -276,7 +276,7 @@ export default function CardsPage() {
 
                       {/* ── Spending Cap Rings ─────────────────────── */}
                       {caps.length > 0 && (
-                        <div className="border-t border-slate-600/60 pt-4 mt-2">
+                        <div className="border-t border-slate-600/60 pt-4 mt-2" data-section="spending-caps">
                           <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">
                             Spending Caps
                           </p>
@@ -290,14 +290,14 @@ export default function CardsPage() {
 
                       {/* ── Card Benefits ─────────────────────────── */}
                       {((card.statementCredits?.length ?? 0) > 0 || (card.portalBonuses?.length ?? 0) > 0 || card.protections) && (
-                        <div className="border-t border-slate-600/60 pt-4 mt-2">
+                        <div className="border-t border-slate-600/60 pt-4 mt-2" data-section="card-benefits">
                           <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">
                             Card Benefits
                           </p>
 
                           {/* Statement Credits */}
                           {(card.statementCredits?.length ?? 0) > 0 && (
-                            <div className="mb-3">
+                            <div className="mb-3" data-section="statement-credits">
                               <p className="text-xs text-slate-400 mb-2">Statement Credits</p>
                               {card.statementCredits!.map((credit: any, idx: number) => {
                                 const used = credit.amount_redeemed || 0;
