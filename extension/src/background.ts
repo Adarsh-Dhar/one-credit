@@ -105,6 +105,11 @@ chrome.runtime.onMessage.addListener(
       }
 
       case 'ANALYZE_PRODUCT': {
+        // Track extension fire event for RUM
+        rumEventBuffer.push({
+          eventType: 'extension_fire',
+          timestamp: Date.now()
+        })
         // SidePanel handles this directly to avoid CSP issues
         sendResponse({ success: false, error: 'SidePanel should handle this directly' })
         return true

@@ -68,6 +68,7 @@ export default function OffersPage() {
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [rageClickCount, setRageClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
+  const { trackEvent } = useRUM();
 
   // Track tab click on mount
   useEffect(() => {
@@ -78,8 +79,12 @@ export default function OffersPage() {
     return () => {
       endDwell();
       stopScrollTracking();
+      // Track abandonment if activation was in progress
+      if (activatingId) {
+        trackEvent('abandoned_rotating_activation');
+      }
     };
-  }, [trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking]);
+  }, [trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking, activatingId, trackEvent]);
 
   const handleActivate = async (categoryId: string) => {
     // Rage click detection

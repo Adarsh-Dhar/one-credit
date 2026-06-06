@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { ChevronDown, Sparkles, Trophy, TrendingDown, AlertCircle, Loader2 } from 'lucide-react'
+import { trackEvent } from '../../rum-tracker'
 
 interface EarnAudit {
   rate: number
@@ -143,6 +144,22 @@ export function SidePanel() {
 
       setResult(data)
       setExpandedCard(data.winner.cardKey)
+
+      // Track redemption type views
+      if (data.cards.some(card => card.portalBonusApplied)) {
+        trackEvent({
+          eventType: 'redemption_type_view',
+          timestamp: Date.now(),
+          data: { type: 'travel_portal' }
+        })
+      }
+      if (data.cards.some(card => card.statementCreditApplied > 0 || card.milestoneCreditUsd > 0)) {
+        trackEvent({
+          eventType: 'redemption_type_view',
+          timestamp: Date.now(),
+          data: { type: 'statement_credit' }
+        })
+      }
 
       // Persist result
       chrome.storage.local.set({ selectedCards: data })

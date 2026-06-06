@@ -70,6 +70,8 @@ export async function POST(request: Request) {
             if (depth >= 50) {
               setOps.scrolledPastAnnualFee = true;
             }
+            // Track maximum scroll depth
+            maxOps.scrollDepthMax = depth;
           }
           break;
         case 'back_navigation':
@@ -121,6 +123,11 @@ export async function POST(request: Request) {
             // Use $max to keep the average response time
             maxOps.aiAnalyzeAvgResponseMs = (event.data.responseTime as number) || 0;
           }
+          break;
+        case 'spend_category_entered':
+          // Track spend category amounts - could be stored as an array or separate fields
+          // For now, we'll just log it as a custom event for analysis
+          logger.info({ category: event.data?.category, amount: event.data?.amount }, '[rum/ingest] Spend category entered');
           break;
         default:
           logger.warn({ eventType: event.eventType }, '[rum/ingest] Unknown event type');

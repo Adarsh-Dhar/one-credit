@@ -24,6 +24,7 @@ const RUMSignalsSchema = new mongoose.Schema(
     // Scroll depth signals
     scrolledPastFinePrint: { type: Boolean, default: false },
     scrolledPastAnnualFee: { type: Boolean, default: false },
+    scrollDepthMax: { type: Number, default: 0 },
 
     // Flow / funnel
     abandonedRotatingActivation: { type: Boolean, default: false },

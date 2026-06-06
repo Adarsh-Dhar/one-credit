@@ -150,7 +150,7 @@ export default function PayPage() {
     setCategory(cat);
     setStep('merchant');
     // Track transaction categorized event
-    trackEvent('transaction.categorized', { category: cat.id, label: cat.label });
+    trackEvent('transaction_categorized', { category: cat.id, label: cat.label });
     trackCardView(cat.id);
   };
 
@@ -168,11 +168,18 @@ export default function PayPage() {
       trackRageClick('amount_submit', '#amount-submit');
       clickTimes.current = [];
     }
-    
+
     const parsedAmount = parseFloat(amount);
     if (!amount || parsedAmount <= 0 || parsedAmount > 10000) {
       return;
     }
+
+    // Track spend category amount entered
+    trackEvent('spend_category_entered', {
+      category: selectedCategory?.id,
+      amount: parsedAmount
+    });
+
     setStep('analyzing');
 
     try {
