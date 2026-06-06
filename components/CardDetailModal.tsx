@@ -10,7 +10,7 @@ interface CardDetailModalProps {
 }
 
 export function CardDetailModal({ selectedCard, cardDetails, onClose }: CardDetailModalProps) {
-  const { trackCardView, trackWalletAdd } = useRUM();
+  const { trackCardView, trackWalletAdd, trackRedemptionTypeView } = useRUM();
   const { startDwell: startLoungeDwell, endDwell: endLoungeDwell } = useDwellTime('loungeDetails');
   const { startDwell: startAprDwell, endDwell: endAprDwell } = useDwellTime('aprSection');
   const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
@@ -21,6 +21,13 @@ export function CardDetailModal({ selectedCard, cardDetails, onClose }: CardDeta
   useEffect(() => {
     trackCardView(selectedCard.key);
   }, [selectedCard.key, trackCardView]);
+
+  // Track redemption type view when statement credits are displayed
+  useEffect(() => {
+    if (cardDetails.benefits_and_credits.statement_credits && cardDetails.benefits_and_credits.statement_credits.length > 0) {
+      trackRedemptionTypeView('statement_credit');
+    }
+  }, [cardDetails.benefits_and_credits.statement_credits, trackRedemptionTypeView]);
 
   // Track dwell time on lounge section
   useEffect(() => {

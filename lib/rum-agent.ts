@@ -21,11 +21,21 @@ import { RUMSignals as RUMSignalsModel } from '@/lib/models/RUMSignals'
 export type { RUMSignals }
 
 // ─── Dynatrace config (add to .env) ──────────────────────────────────────────
-// DT_ENV_URL=https://<env-id>.live.dynatrace.com
+// DT_ENV_URL=https://<env-id>.live.dynatrace.com or https://<tenant>.apps.dynatrace.com (Platform)
 // DT_API_TOKEN=dt0c01.<token>   (needs: logs.ingest  +  DTAQLAccess  +  apiTokens.read)
 
 const DT_ENV_URL  = process.env.DT_ENV_URL  ?? ''
 const DT_API_TOKEN = process.env.DT_API_TOKEN ?? ''
+
+// Platform URLs require Bearer auth, classic SaaS uses Api-Token
+const IS_PLATFORM_URL = DT_ENV_URL.includes('.apps.dynatrace.com')
+const IS_API_TOKEN = DT_API_TOKEN.startsWith('dt0c01.')
+
+// Platform URLs don't support API tokens - they require OAuth2/JWT
+// If using Platform URL with API token, fall back to MongoDB
+const SHOULD_USE_DT = !IS_PLATFORM_URL || !IS_API_TOKEN
+
+const AUTH_SCHEME = IS_PLATFORM_URL ? 'Bearer' : 'Api-Token'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -138,8 +148,12 @@ async function executeDTTool(
   args: Record<string, unknown>,
 ): Promise<unknown> {
 
-  if (!DT_ENV_URL || !DT_API_TOKEN) {
-    logger.warn('[rum-agent] DT_ENV_URL or DT_API_TOKEN not set — reading RUM signals from MongoDB')
+  if (!DT_ENV_URL || !DT_API_TOKEN || !SHOULD_USE_DT) {
+    if (IS_PLATFORM_URL && IS_API_TOKEN) {
+      logger.warn('[rum-agent] Platform URLs require OAuth2/JWT tokens, not API tokens — reading RUM signals from MongoDB')
+    } else if (!DT_ENV_URL || !DT_API_TOKEN) {
+      logger.warn('[rum-agent] DT_ENV_URL or DT_API_TOKEN not set — reading RUM signals from MongoDB')
+    }
     const userId = args.userId as string
     
     try {
@@ -154,8 +168,11 @@ async function executeDTTool(
     return mockRUMSignals(userId)
   }
 
+  // Log the URL being used (without exposing the full token)
+  logger.info({ url: DT_ENV_URL, tokenPrefix: DT_API_TOKEN.substring(0, 20) }, '[rum-agent] Attempting DT API call')
+
   const headers = {
-    Authorization: `Api-Token ${DT_API_TOKEN}`,
+    Authorization: `${AUTH_SCHEME} ${DT_API_TOKEN}`,
     'Content-Type': 'application/json',
   }
 
@@ -166,7 +183,7 @@ async function executeDTTool(
       const now = Date.now()
       const from = now - lookback * 60_000
 
-      // Dynatrace Sessions API v2
+      // Dynatrace Sessions API v2 - Platform URLs use same path as classic
       const res = await fetch(
         `${DT_ENV_URL}/api/v1/userSessionQueryLanguage/table?` +
         new URLSearchParams({
@@ -177,7 +194,9 @@ async function executeDTTool(
         { headers },
       )
       if (!res.ok) {
-throw new Error(`DT RUM sessions error: ${res.status}`)
+        const errorText = await res.text()
+        logger.error({ status: res.status, errorText }, '[rum-agent] DT RUM sessions error details')
+        throw new Error(`DT RUM sessions error: ${res.status}`)
 }
       return res.json()
     }
@@ -303,7 +322,7 @@ async function logPersonaToDynatrace(
     const res = await fetch(`${DT_ENV_URL}/api/v2/logs/ingest`, {
       method: 'POST',
       headers: {
-        Authorization:  `Api-Token ${DT_API_TOKEN}`,
+        Authorization:  `${AUTH_SCHEME} ${DT_API_TOKEN}`,
         'Content-Type': 'application/json; charset=utf-8',
       },
       body: JSON.stringify([logEntry]),

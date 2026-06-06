@@ -9,6 +9,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { userId, events } = body as { userId: string; events: RUMEvent[] };
 
+    logger.info({ userId, events }, '[rum/ingest] received events');
+
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
@@ -108,6 +110,10 @@ export async function POST(request: Request) {
             addToSetOps.redemptionTypesViewed = addToSetOps.redemptionTypesViewed || [];
             addToSetOps.redemptionTypesViewed.push(event.data.type);
           }
+          break;
+        case 'card_recommendation_view':
+          // Track when user views card recommendations - can be used for funnel analysis
+          // No specific field to update, just log the event for now
           break;
         case 'abandoned_rotating_activation':
           setOps.abandonedRotatingActivation = true;

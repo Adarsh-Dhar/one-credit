@@ -447,6 +447,7 @@ export default function CardsPage() {
                                   </div>
                                 );
                               })}
+                              {trackRedemptionTypeView('statement_credit')}
                             </div>
                           )}
 
@@ -461,6 +462,7 @@ export default function CardsPage() {
                                     href={bonus.portal_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={() => trackRedemptionTypeView('travel_portal')}
                                     className="inline-flex items-center gap-1 text-xs bg-slate-700 hover:bg-slate-600 text-purple-300 px-2 py-1 rounded-md transition-colors"
                                   >
                                     {bonus.portal_name}
