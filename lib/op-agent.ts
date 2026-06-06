@@ -500,10 +500,29 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no preamble.
     (a: CardOPResult, b: CardOPResult) => a.industryCost - b.industryCost
   )
 
+  const winner = sorted[0];
+
+  // Log OP adjustments for every card
+  for (const card of sorted) {
+    if (card.opConservationPenalty > 0 || card.opVelocityBonus > 0) {
+      console.log(`[OP] ${card.name}:`, {
+        tokenBalance:          input.userContext?.cards.find(c => c.cardId === card.cardKey)?.opTokenState?.tokenBalance,
+        minRedeemThreshold:    input.userContext?.cards.find(c => c.cardId === card.cardKey)?.opTokenState?.minRedeemThreshold,
+        isTokenLow:            input.userContext?.cards.find(c => c.cardId === card.cardKey)?.opTokenState?.isTokenLow,
+        opConservationPenalty: card.opConservationPenalty,
+        opVelocityBonus:       card.opVelocityBonus,
+        netCostWithoutOP:      card.netCost - card.opConservationPenalty + card.opVelocityBonus,
+        netCostFinal:          card.netCost,
+      });
+    }
+  }
+
+  console.log(`[OP] cross-card pool: ${input.userContext?.totalOpTokens} tokens ($${input.userContext?.totalOpBalanceUsd})`);
+
   return {
     product: input.product,
     cards: sorted,
-    winner: sorted[0],
+    winner: winner,
     industryWinner: industrySorted[0],
     agentReasoning: parsed.agentReasoning,
   }

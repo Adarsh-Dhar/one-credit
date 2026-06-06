@@ -39,9 +39,9 @@
 //   └─────────────────────────────────────────────┴─────────────────────────────────────────┘
 
 import mongoose from 'mongoose'
-import { connectDB } from '../lib/mongodb'
-import { FiatCard } from '../lib/models/FiatCard'
-import { User } from '../lib/models/User'
+import { connectDB } from '../lib/mongodb.js'
+import { FiatCard } from '../lib/models/FiatCard.js'
+import { User } from '../lib/models/User.js'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -1537,6 +1537,13 @@ function buildCards(userId: string) {
         transfer_partners: [],
         airline_perks: [],
         general_perks: ['No annual fee', '3% on online shopping including Amazon', '0% intro APR 15 months'],
+      },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 2500,
+        redeem_categories: ['cashback', 'travel', 'merchandise'],
+        token_velocity: 1.0,
+        appreciation_model: 'fixed',
       },
     },
 

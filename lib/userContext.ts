@@ -136,6 +136,7 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
       rewards_structure: 1,
       benefits_and_credits: 1,
       financials: 1,
+      op_redemption: 1,
     })
     .lean()
 

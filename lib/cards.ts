@@ -224,6 +224,7 @@ export async function getCard(key: CardKey, userId: string): Promise<CardDefinit
         pros: 1,
         cons: 1,
         features: 1,
+        op_redemption: 1,
       })
       .lean();
     if (!fiatCard) {

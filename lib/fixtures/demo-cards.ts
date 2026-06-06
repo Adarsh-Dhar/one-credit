@@ -1428,6 +1428,13 @@ export function buildDemoCards(userId: string) {
         airline_perks: [],
         general_perks: ['No annual fee', '3% on online shopping including Amazon', '0% intro APR 15 months'],
       },
+      op_redemption: {
+        op_cents_per_token: 1.0,
+        min_redeem_tokens: 2500,
+        redeem_categories: ['cashback', 'travel', 'merchandise'],
+        token_velocity: 1.0,
+        appreciation_model: 'fixed',
+      },
     },
 
     // ── 18. Bank of America Premium Rewards ───────────────────────────────────
