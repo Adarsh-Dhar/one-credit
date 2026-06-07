@@ -9,6 +9,13 @@ import logger from '@/lib/logger'
 import { getEnv } from '@/lib/env'
 import { toErrorResponse } from '@/lib/errors'
 
+const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
+  amazon: 'amazon.in',
+  walmart: 'walmart.com',
+  bestbuy: 'bestbuy.com',
+  target: 'target.com',
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MIN_MONTHLY_TXNS = 5
@@ -199,12 +206,6 @@ function detectProductAttributes(product: z.infer<typeof AnalyzeSchema>['product
 } {
   const isEmi = product.url?.includes('emi') || product.name?.toLowerCase().includes('emi') || false
 
-  const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
-    amazon: 'amazon.in',
-    walmart: 'walmart.com',
-    bestbuy: 'bestbuy.com',
-    target: 'target.com',
-  }
   const merchant = sanitizeForPrompt((product.source && SOURCE_TO_MERCHANT_DOMAIN[product.source]) || product.source || 'amazon.in')
 
   const isForeignMerchant = !merchant.endsWith('.in') && merchant !== 'amazon.in'

@@ -2,6 +2,7 @@ import { executeMCPTool } from '@/lib/mcp-tools';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import logger from '@/lib/logger';
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     const result = await executeMCPTool(toolName, toolInput ?? {});
     return NextResponse.json(result);
   } catch (error) {
-    console.error('[tools/execute]', error);
+    logger.error({ error }, '[tools/execute]');
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to execute tool' },
       { status: 500 }

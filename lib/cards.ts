@@ -67,32 +67,22 @@ function mapProgramName(programName: string | null | undefined): string | undefi
   return undefined;
 }
 
+const CARD_TYPE_PATTERNS: Array<{
+  matches: (cardType: string, displayName: string, currencyType: string) => boolean
+  type: CardDefinition['type']
+}> = [
+  { matches: (cardType) => cardType === 'business', type: 'business' },
+  { matches: (_, displayName) => displayName.toLowerCase().includes('student'), type: 'student' },
+  { matches: (_, displayName, currencyType) => currencyType === 'MILES' || displayName.toLowerCase().includes('travel') || displayName.toLowerCase().includes('sapphire'), type: 'travel' },
+  { matches: (_, displayName) => displayName.toLowerCase().includes('dining') || displayName.toLowerCase().includes('restaurant'), type: 'dining' },
+  { matches: (_, displayName, currencyType) => currencyType === 'USD' || displayName.toLowerCase().includes('cash'), type: 'cashback' },
+  { matches: (_, displayName) => displayName.toLowerCase().includes('fuel') || displayName.toLowerCase().includes('gas'), type: 'fuel' },
+  { matches: (_, displayName) => displayName.toLowerCase().includes('shop') || displayName.toLowerCase().includes('online'), type: 'shopping' },
+  { matches: (_, displayName) => displayName.toLowerCase().includes('crypto'), type: 'crypto' },
+]
+
 function inferCardType(cardType: string, displayName: string, currencyType: string): CardDefinition['type'] {
-  if (cardType === 'business') {
-    return 'business';
-  }
-  if (displayName.toLowerCase().includes('student')) {
-    return 'student';
-  }
-  if (currencyType === 'MILES' || displayName.toLowerCase().includes('travel') || displayName.toLowerCase().includes('sapphire')) {
-    return 'travel';
-  }
-  if (displayName.toLowerCase().includes('dining') || displayName.toLowerCase().includes('restaurant')) {
-    return 'dining';
-  }
-  if (currencyType === 'USD' || displayName.toLowerCase().includes('cash')) {
-    return 'cashback';
-  }
-  if (displayName.toLowerCase().includes('fuel') || displayName.toLowerCase().includes('gas')) {
-    return 'fuel';
-  }
-  if (displayName.toLowerCase().includes('shop') || displayName.toLowerCase().includes('online')) {
-    return 'shopping';
-  }
-  if (displayName.toLowerCase().includes('crypto')) {
-    return 'crypto';
-  }
-  return 'general';
+  return CARD_TYPE_PATTERNS.find(({ matches }) => matches(cardType, displayName, currencyType))?.type ?? 'general'
 }
 
 // Transform FiatCard to CardDefinition

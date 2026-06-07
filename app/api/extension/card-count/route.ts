@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
       cards: cards
     });
   } catch (err) {
-    console.error('[GET /api/extension/card-count]', err);
     logger.error({ error: err }, '[GET /api/extension/card-count]');
     return NextResponse.json({ error: 'Failed to fetch card count' }, { status: 500 });
   }

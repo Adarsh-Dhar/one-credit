@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
 import { Transaction } from '@/lib/models/Transaction';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import logger from '@/lib/logger';
 
 export async function GET(request: Request) {
   try {
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ transactions });
   } catch (error) {
-    console.error('[GET /api/transactions]', error);
+    logger.error({ error }, '[GET /api/transactions]');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

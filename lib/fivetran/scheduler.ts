@@ -15,7 +15,7 @@ let isRunning = false;
 
 export function startRewardsScheduler(intervalSeconds?: number): void {
   if (timer) {
-    console.log('[FivetranScheduler] Already running — skipping re-init');
+    logger.info('[FivetranScheduler] Already running — skipping re-init');
     return;
   }
 
@@ -23,7 +23,7 @@ export function startRewardsScheduler(intervalSeconds?: number): void {
     intervalSeconds ??
     parseInt(process.env.FIVETRAN_REWARDS_SYNC_INTERVAL_SECONDS ?? '300', 10);
 
-  console.log(`[FivetranScheduler] Starting rewards sync every ${interval}s`);
+  logger.info(`[FivetranScheduler] Starting rewards sync every ${interval}s`);
 
   // Run immediately on boot, then on schedule
   void runRewardsSyncCycle();

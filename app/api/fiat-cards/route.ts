@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       .lean();
     return NextResponse.json({ cards });
   } catch (err) {
-    console.error('[GET /api/fiat-cards]', err);
+    logger.error({ error: err }, '[GET /api/fiat-cards]');
     const { error: errResponse, status } = toErrorResponse(err);
     return NextResponse.json(errResponse, { status });
   }

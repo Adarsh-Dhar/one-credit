@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { runRewardsSync, getLastSyncStatus } from '@/lib/fivetran/rewards-connector';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     const report = await runRewardsSync(sources);
     return NextResponse.json(report);
   } catch (error) {
-    console.error('[FivetranRewards POST]', error);
+    logger.error({ error }, '[FivetranRewards POST]');
     return NextResponse.json(
       { error: String(error) },
       { status: 500 }
@@ -42,7 +43,7 @@ export async function GET() {
     }
     return NextResponse.json(status);
   } catch (error) {
-    console.error('[FivetranRewards GET]', error);
+    logger.error({ error }, '[FivetranRewards GET]');
     return NextResponse.json(
       { error: String(error) },
       { status: 500 }

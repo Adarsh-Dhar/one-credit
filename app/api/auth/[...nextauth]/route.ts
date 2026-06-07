@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import { User } from "@/lib/models/User";
+import logger from "@/lib/logger";
 
 declare module "next-auth" {
   interface Session {
@@ -49,7 +50,7 @@ return null;
 }
           return { id: user._id.toString(), email: user.email, name: user.name };
         } catch (error) {
-          console.error('[NextAuth] authorize error:', error);
+          logger.error({ error }, '[NextAuth] authorize error');
           return null;
         }
       },

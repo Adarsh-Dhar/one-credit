@@ -18,6 +18,7 @@ import { RewardsOffer } from '@/lib/models/RewardsOffer';
 import { randomUUID } from 'crypto';
 import { cardlyticsStore } from '@/lib/mock-apis/cardlytics-banyan';
 import { networkOfferStore } from '@/lib/mock-apis/visa-mastercard';
+import logger from '@/lib/logger';
 import { affiliateStore } from '@/lib/mock-apis/rakuten-impact';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -275,7 +276,7 @@ async function persistSyncLog(report: RewardsSyncReport): Promise<void> {
       .collection('fivetran_sync_log')
       .insertOne(report);
   } catch (e) {
-    console.error('[FivetranRewards] Failed to persist sync log:', e);
+    logger.error({ error: e }, '[FivetranRewards] Failed to persist sync log');
   }
 }
 

@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { FiatCard } from '@/lib/models/FiatCard';
+import logger from '@/lib/logger';
 
 const USER_ID = 'usr_88374';
 
@@ -598,22 +599,22 @@ export async function POST(request: Request) {
     const USER_ID = userId || process.env.DEFAULT_SEED_USER_ID || 'usr_88374';
 
     await connectDB();
-    console.log('Connected to MongoDB');
+    logger.info('Connected to MongoDB');
 
     // Delete existing cards for this user
     await FiatCard.deleteMany({ user_id: USER_ID });
-    console.log('Deleted existing cards for user:', USER_ID);
+    logger.info('Deleted existing cards for user:', USER_ID);
 
     // Insert new cards
     await FiatCard.insertMany(cards);
-    console.log(`Seeded ${cards.length} cards for user:`, USER_ID);
+    logger.info(`Seeded ${cards.length} cards for user:`, USER_ID);
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Seeded ${cards.length} cards for user ${USER_ID}` 
+    return NextResponse.json({
+      success: true,
+      message: `Seeded ${cards.length} cards for user ${USER_ID}`
     });
   } catch (error) {
-    console.error('Error seeding cards:', error);
+    logger.error({ error }, 'Error seeding cards');
     return NextResponse.json({ error: 'Failed to seed cards' }, { status: 500 });
   }
 }

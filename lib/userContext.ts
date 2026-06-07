@@ -11,6 +11,19 @@ import { connectDB } from '@/lib/mongodb'
 import { FiatCard, IFiatCard } from '@/lib/models/FiatCard'
 import { Transaction } from '@/lib/models/Transaction'
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface TransactionLean {
+  cardId: string
+  amountUsd: number
+  category: string
+  merchant: string
+  createdAt: Date
+  isEmi?: boolean
+  pointsRedeemed?: number
+  valueReceivedUsd?: number
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const BEHAVIOUR_WINDOW_DAYS = 90
@@ -203,7 +216,7 @@ function computeOpTotals(cardStates: CardLiveState[]): { totalOpTokens: number; 
   return { totalOpTokens, totalOpBalanceUsd }
 }
 
-function computeRedemptionStats(redemptionTxns: any[]): {
+function computeRedemptionStats(redemptionTxns: TransactionLean[]): {
   actualAvgCppAchieved: number | null
   totalPointsRedeemed90d: number
   redemptionCount90d: number
@@ -264,7 +277,7 @@ function computeMonthlyTrend(monthBuckets: Record<string, Record<string, number>
   return { monthlyTrend, momSpendChangePct, fastestGrowingCategory }
 }
 
-function aggregateSpendingBehaviour(txns: any[], totalSpend: number): {
+function aggregateSpendingBehaviour(txns: TransactionLean[], totalSpend: number): {
   categoryBreakdown: SpendingBehaviour['categoryBreakdown']
   cardCategoryBreakdown: SpendingBehaviour['cardCategoryBreakdown']
   topMerchants: SpendingBehaviour['topMerchants']
