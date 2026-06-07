@@ -42,23 +42,23 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-slate-800/50 border-slate-700">
+    <div className="min-h-screen bg-[#0D0A06] flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-[#1A1209]/80 border-[#3D2E1A]">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-white">Sign in</CardTitle>
-          <CardDescription className="text-slate-400">
+          <CardTitle className="text-2xl font-bold text-[#E8D8B0]">Sign in</CardTitle>
+          <CardDescription className="text-[#8B8070]">
             Enter your email and password to access your account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-2 rounded-md text-sm">
+              <div className="bg-red-500/10 border border-red-500/50 text-[#C0392B] px-4 py-2 rounded-md text-sm">
                 {error}
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-300">Email</Label>
+              <Label htmlFor="email" className="text-[#C4B8A8]">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -66,11 +66,11 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500"
+                className="bg-[#0D0A06]/90 border-[#3D2E1A] text-[#E8D8B0] placeholder:text-[#6B5E52]"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-300">Password</Label>
+              <Label htmlFor="password" className="text-[#C4B8A8]">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -78,21 +78,21 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500"
+                className="bg-[#0D0A06]/90 border-[#3D2E1A] text-[#E8D8B0] placeholder:text-[#6B5E52]"
               />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white border-0"
+              className="w-full bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] font-semibold border-0"
               disabled={loading}
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
-            <p className="text-sm text-slate-400 text-center">
+            <p className="text-sm text-[#8B8070] text-center">
               Don't have an account?{' '}
-              <Link href="/auth/signup" className="text-purple-400 hover:text-purple-300 underline">
+              <Link href="/auth/signup" className="text-[#C5AA67] hover:text-[#DCC98A] underline">
                 Sign up
               </Link>
             </p>

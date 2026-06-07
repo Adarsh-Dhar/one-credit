@@ -53,32 +53,32 @@ export default function Dashboard() {
   }, [selectedCard, cardDetails]);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-[#0D0A06]">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header Section */}
         <div className="mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Welcome to <span className="bg-linear-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">Omni-Wallet</span>
+          <h1 className="text-4xl sm:text-5xl font-bold text-[#E8D8B0] mb-4">
+            Welcome to <span className="text-[#C5AA67]">Omni-Wallet</span>
           </h1>
-          <p className="text-xl text-slate-400 mb-6">
+          <p className="text-xl text-[#8B8070] mb-6">
             AI-powered portfolio management with Fivetran data synchronization
           </p>
 
           <div className="flex gap-3 flex-wrap">
-            <Button onClick={handleCalculateBestCard} className="bg-linear-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white border-0">
+            <Button onClick={handleCalculateBestCard} className="bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] border-0">
               <Calculator className="w-4 h-4 mr-2" />
               Calculate Best Card
             </Button>
             <Link href="/pay">
-              <Button variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
+              <Button variant="outline" className="border-[#C5AA67]/40 text-[#C5AA67] hover:bg-[#C5AA67]/10">
                 <Sparkles className="w-4 h-4 mr-2" />
                 Test Interchange
               </Button>
             </Link>
             <Link href="/settings">
-              <Button variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
+              <Button variant="outline" className="border-[#C5AA67]/40 text-[#C5AA67] hover:bg-[#C5AA67]/10">
                 <DollarSign className="w-4 h-4 mr-2" />
                 Configure
               </Button>
@@ -88,14 +88,14 @@ export default function Dashboard() {
 
         {/* Wallet Overview */}
         <section className="mb-16">
-          <h2 className="text-2xl font-bold text-white mb-6">Portfolio Value</h2>
-          <div className="bg-linear-to-r from-purple-600/20 to-yellow-500/20 border border-purple-500/30 rounded-lg p-8">
-            <p className="text-slate-400 text-sm mb-2">Total Balance (USD)</p>
+          <h2 className="text-2xl font-bold text-[#E8D8B0] mb-6">Portfolio Value</h2>
+          <div className="bg-[#261B0E] border border-[#C5AA67]/30 rounded-lg p-8">
+            <p className="text-[#8B8070] text-sm mb-2">Total Balance (USD)</p>
             <div className="flex items-baseline gap-2">
               {loading ? (
                 <div className="h-12 w-40 bg-slate-700 rounded animate-pulse" />
               ) : (
-                <p className="text-5xl font-bold bg-linear-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">
+                <p className="text-5xl font-bold text-[#C5AA67]">
                   ${wallet.toFixed(2)}
                 </p>
               )}
@@ -105,14 +105,14 @@ export default function Dashboard() {
 
         {/* Card Portfolio Grid */}
         <section className="mb-16">
-          <h2 className="text-2xl font-bold text-white mb-6">Your Linked Cards</h2>
+          <h2 className="text-2xl font-bold text-[#E8D8B0] mb-6">Your Linked Cards</h2>
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 animate-pulse">
-                  <div className="h-4 bg-slate-700 rounded w-3/4 mb-4" />
-                  <div className="h-3 bg-slate-700 rounded w-1/2 mb-2" />
-                  <div className="h-3 bg-slate-700 rounded w-1/3" />
+                <div key={i} className="bg-[#1A1209]/80 border border-[#3D2E1A] rounded-xl p-6 animate-pulse">
+                  <div className="h-4 bg-[#261B0E] rounded w-3/4 mb-4" />
+                  <div className="h-3 bg-[#261B0E] rounded w-1/2 mb-2" />
+                  <div className="h-3 bg-[#261B0E] rounded w-1/3" />
                 </div>
               ))}
             </div>
@@ -144,81 +144,81 @@ export default function Dashboard() {
 
         {/* Integration Status */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-          <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6">
+          <div className="bg-[#261B0E]/80 border border-[#3D2E1A] rounded-lg p-6">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <p className="text-slate-400 text-sm">Fivetran</p>
+              <div className="w-2 h-2 bg-[#4ECDA4] rounded-full"></div>
+              <p className="text-[#8B8070] text-sm">Fivetran</p>
             </div>
-            <p className="text-xl font-bold text-white">Data Sync</p>
-            <p className="text-slate-500 text-xs mt-2">Live rates & balances</p>
+            <p className="text-xl font-bold text-[#E8D8B0]">Data Sync</p>
+            <p className="text-[#6B5E52] text-xs mt-2">Live rates & balances</p>
           </div>
 
-          <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6">
+          <div className="bg-[#261B0E]/80 border border-[#3D2E1A] rounded-lg p-6">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <p className="text-slate-400 text-sm">MongoDB</p>
+              <div className="w-2 h-2 bg-[#4ECDA4] rounded-full"></div>
+              <p className="text-[#8B8070] text-sm">MongoDB</p>
             </div>
-            <p className="text-xl font-bold text-white">Data Store</p>
-            <p className="text-slate-500 text-xs mt-2">Portfolio persistence</p>
+            <p className="text-xl font-bold text-[#E8D8B0]">Data Store</p>
+            <p className="text-[#6B5E52] text-xs mt-2">Portfolio persistence</p>
           </div>
 
-          <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6">
+          <div className="bg-[#261B0E]/80 border border-[#3D2E1A] rounded-lg p-6">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <p className="text-slate-400 text-sm">Gemini AI</p>
+              <div className="w-2 h-2 bg-[#4ECDA4] rounded-full"></div>
+              <p className="text-[#8B8070] text-sm">Gemini AI</p>
             </div>
-            <p className="text-xl font-bold text-white">Optimization</p>
-            <p className="text-slate-500 text-xs mt-2">Smart allocation</p>
+            <p className="text-xl font-bold text-[#E8D8B0]">Optimization</p>
+            <p className="text-[#6B5E52] text-xs mt-2">Smart allocation</p>
           </div>
         </section>
 
         {/* Core Flow Info */}
-        <section className="bg-slate-700/30 border border-slate-600 rounded-lg p-8">
-          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-yellow-300" />
+        <section className="bg-[#261B0E]/50 border border-[#3D2E1A] rounded-lg p-8">
+          <h3 className="text-2xl font-bold text-[#E8D8B0] mb-4 flex items-center gap-2">
+            <TrendingUp className="w-6 h-6 text-[#DCC98A]" />
             6-Stage Interchange Flow
           </h3>
-          <div className="space-y-4 text-slate-300">
+          <div className="space-y-4 text-[#C4B8A8]">
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">1</div>
+              <div className="w-8 h-8 rounded-full bg-[#A8893F] text-[#E8D8B0] flex items-center justify-center shrink-0 font-bold">1</div>
               <div>
-                <p className="font-semibold text-white">Parse Intent</p>
-                <p className="text-sm text-slate-400">Process purchase amount in USD</p>
+                <p className="font-semibold text-[#E8D8B0]">Parse Intent</p>
+                <p className="text-sm text-[#8B8070]">Process purchase amount in USD</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">2</div>
+              <div className="w-8 h-8 rounded-full bg-[#A8893F] text-[#E8D8B0] flex items-center justify-center shrink-0 font-bold">2</div>
               <div>
-                <p className="font-semibold text-white">Fivetran Syncs Rates</p>
-                <p className="text-sm text-slate-400">Fresh award charts & exchange rates to MongoDB</p>
+                <p className="font-semibold text-[#E8D8B0]">Fivetran Syncs Rates</p>
+                <p className="text-sm text-[#8B8070]">Fresh award charts & exchange rates to MongoDB</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">3</div>
+              <div className="w-8 h-8 rounded-full bg-[#A8893F] text-[#E8D8B0] flex items-center justify-center shrink-0 font-bold">3</div>
               <div>
-                <p className="font-semibold text-white">Read Balances</p>
-                <p className="text-sm text-slate-400">Fetch portfolio balances in USD</p>
+                <p className="font-semibold text-[#E8D8B0]">Read Balances</p>
+                <p className="text-sm text-[#8B8070]">Fetch portfolio balances in USD</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">4</div>
+              <div className="w-8 h-8 rounded-full bg-[#A8893F] text-[#E8D8B0] flex items-center justify-center shrink-0 font-bold">4</div>
               <div>
-                <p className="font-semibold text-white">Score by Category</p>
-                <p className="text-sm text-slate-400">Gemini ranks cards by net cost for user's purchase</p>
+                <p className="font-semibold text-[#E8D8B0]">Score by Category</p>
+                <p className="text-sm text-[#8B8070]">Gemini ranks cards by net cost for user's purchase</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">5</div>
+              <div className="w-8 h-8 rounded-full bg-[#A8893F] text-[#E8D8B0] flex items-center justify-center shrink-0 font-bold">5</div>
               <div>
-                <p className="font-semibold text-white">Track Rewards</p>
-                <p className="text-sm text-slate-400">Calculate earned rewards and update balances</p>
+                <p className="font-semibold text-[#E8D8B0]">Track Rewards</p>
+                <p className="text-sm text-[#8B8070]">Calculate earned rewards and update balances</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 font-bold">6</div>
+              <div className="w-8 h-8 rounded-full bg-[#A8893F] text-[#E8D8B0] flex items-center justify-center shrink-0 font-bold">6</div>
               <div>
-                <p className="font-semibold text-white">Resync After Redemption</p>
-                <p className="text-sm text-slate-400">Fivetran re-syncs affected sources, auto-reconcile</p>
+                <p className="font-semibold text-[#E8D8B0]">Resync After Redemption</p>
+                <p className="text-sm text-[#8B8070]">Fivetran re-syncs affected sources, auto-reconcile</p>
               </div>
             </div>
           </div>
@@ -282,7 +282,7 @@ function TiltCard({ card, isTopCard, onClick }: {
         <div
           className="absolute inset-0 rounded-xl blur-md opacity-70"
           style={{
-            background: 'linear-gradient(45deg, #8b5cf6, #ec4899, #f59e0b, #8b5cf6)',
+            background: 'linear-gradient(45deg, #C5AA67, #4ECDA4, #C5AA67)',
             backgroundSize: '300% 300%',
             animation: 'gradientShift 3s ease infinite',
           }}
@@ -291,7 +291,7 @@ function TiltCard({ card, isTopCard, onClick }: {
 
       {/* Card content */}
       <motion.div
-        className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 overflow-hidden"
+        className="relative bg-[#1A1209] border border-[#3D2E1A] rounded-xl p-6 overflow-hidden"
         style={{
           transformStyle: 'preserve-3d',
           transform: 'translateZ(20px)',
@@ -309,7 +309,7 @@ function TiltCard({ card, isTopCard, onClick }: {
 
         {/* TOP VALUE badge */}
         {isTopCard && (
-          <div className="absolute top-3 right-3 bg-linear-to-r from-purple-600 to-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+          <div className="absolute top-3 right-3 bg-[#C5AA67] text-[#0D0A06] text-xs font-bold px-2 py-1 rounded-full">
             TOP VALUE
           </div>
         )}
@@ -329,12 +329,12 @@ function TiltCard({ card, isTopCard, onClick }: {
               />
             </div>
           )}
-          <p className="text-slate-400 text-xs mb-1">{card.issuer}</p>
-          <p className="text-white font-bold text-lg mb-4">{card.name}</p>
+          <p className="text-[#8B8070] text-xs mb-1">{card.issuer}</p>
+          <p className="text-[#E8D8B0] font-bold text-lg mb-4">{card.name}</p>
 
           <div className="mb-4">
-            <p className="text-slate-500 text-xs">Balance (USD)</p>
-            <p className="text-purple-300 font-bold text-2xl">
+            <p className="text-[#6B5E52] text-xs">Balance (USD)</p>
+            <p className="text-[#C5AA67] font-bold text-2xl">
               ${Math.round(card.value || 0).toLocaleString()}
             </p>
           </div>
@@ -344,7 +344,7 @@ function TiltCard({ card, isTopCard, onClick }: {
             {earnRates.map(([category, rate]) => (
               <span
                 key={category as string}
-                className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded"
+                className="text-xs bg-[#261B0E] text-[#C4B8A8] px-2 py-1 rounded"
               >
                 {category as string} {rate as number}×
               </span>
@@ -352,7 +352,7 @@ function TiltCard({ card, isTopCard, onClick }: {
           </div>
 
           {/* Primary perk */}
-          <div className="text-slate-400 text-xs border-t border-slate-700 pt-3">
+          <div className="text-[#8B8070] text-xs border-t border-[#3D2E1A] pt-3">
             {card.perks?.[0] || 'No perks listed'}
           </div>
         </div>

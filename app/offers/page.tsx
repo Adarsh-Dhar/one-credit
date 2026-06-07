@@ -102,25 +102,25 @@ export default function OffersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-[#0D0A06]">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Quarterly <span className="bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">Offers</span>
+          <h1 className="text-4xl font-bold text-[#E8D8B0] mb-2">
+            Quarterly <span className="text-[#C5AA67]">Offers</span>
           </h1>
-          <p className="text-slate-400">Activate rotating categories to maximize your rewards</p>
+          <p className="text-[#8B8070]">Activate rotating categories to maximize your rewards</p>
         </div>
 
         {/* Quarter Info Banner */}
-        <div className="bg-gradient-to-r from-purple-600/20 to-yellow-500/20 border border-purple-500/30 rounded-xl p-6 mb-8">
+        <div className="bg-[#261B0E] border border-[#C5AA67]/30 rounded-xl p-6 mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <Calendar className="w-5 h-5 text-yellow-400" />
-            <span className="text-white font-semibold">Q1 2026 (January - March)</span>
+            <Calendar className="w-5 h-5 text-[#E8A844]" />
+            <span className="text-[#E8D8B0] font-semibold">Q1 2026 (January - March)</span>
           </div>
-          <p className="text-slate-300 text-sm">
+          <p className="text-[#C4B8A8] text-sm">
             Activate your quarterly categories before the end of the quarter to earn bonus rewards on eligible purchases.
           </p>
         </div>
@@ -130,10 +130,10 @@ export default function OffersPage() {
           {categories.map((category) => (
             <div
               key={category.id}
-              className={`bg-slate-800 border rounded-xl p-6 transition-all ${
+              className={`bg-[#1A1209] border rounded-xl p-6 transition-all ${
                 category.activated 
-                  ? 'border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.2)]' 
-                  : 'border-slate-700'
+                  ? 'border-[#4ECDA4]/50 shadow-[0_0_20px_rgba(78,205,164,0.2)]' 
+                  : 'border-[#3D2E1A]'
               }`}
               data-section="rotating-category"
             >
@@ -141,39 +141,39 @@ export default function OffersPage() {
                 <div className="flex items-center gap-3">
                   <span className="text-4xl">{category.icon}</span>
                   <div>
-                    <h3 className="text-white font-semibold">{category.name}</h3>
-                    <span className="text-xs text-slate-400">Expires: {category.expires}</span>
+                    <h3 className="text-[#E8D8B0] font-semibold">{category.name}</h3>
+                    <span className="text-xs text-[#8B8070]">Expires: {category.expires}</span>
                   </div>
                 </div>
                 {category.activated ? (
-                  <CheckCircle2 className="w-6 h-6 text-green-400" />
+                  <CheckCircle2 className="w-6 h-6 text-[#4ECDA4]" />
                 ) : (
-                  <AlertTriangle className="w-6 h-6 text-yellow-400" />
+                  <AlertTriangle className="w-6 h-6 text-[#E8A844]" />
                 )}
               </div>
 
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Bonus Rate</span>
-                  <span className="text-white font-bold">{category.multiplier}</span>
+                  <span className="text-[#8B8070]">Bonus Rate</span>
+                  <span className="text-[#E8D8B0] font-bold">{category.multiplier}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Quarterly Cap</span>
-                  <span className="text-white font-medium">{category.quarterlyCap}</span>
+                  <span className="text-[#8B8070]">Quarterly Cap</span>
+                  <span className="text-[#E8D8B0] font-medium">{category.quarterlyCap}</span>
                 </div>
               </div>
 
               {category.activationRequired && !category.activated && (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
-                  <p className="text-yellow-300 text-xs">
+                <div className="bg-[#E8A844]/10 border border-[#E8A844]/30 rounded-lg p-3 mb-4">
+                  <p className="text-[#DCC98A] text-xs">
                     ⚠️ Activation required to earn bonus rewards
                   </p>
                 </div>
               )}
 
               {category.activated ? (
-                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                  <p className="text-green-300 text-sm font-medium">
+                <div className="bg-[#4ECDA4]/10 border border-[#4ECDA4]/30 rounded-lg p-3">
+                  <p className="text-[#85DFC2] text-sm font-medium">
                     ✓ Activated - You're earning bonus rewards!
                   </p>
                 </div>
@@ -181,7 +181,7 @@ export default function OffersPage() {
                 <Button
                   onClick={() => handleActivate(category.id)}
                   disabled={activatingId === category.id}
-                  className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold py-3 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all disabled:opacity-50"
+                  className="w-full bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] font-bold py-3 rounded-lg transition-all disabled:opacity-50"
                   data-action="activate-category"
                 >
                   {activatingId === category.id ? (
@@ -199,23 +199,23 @@ export default function OffersPage() {
         </div>
 
         {/* Tips Section */}
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-bold text-white mb-4">💡 Tips for Maximizing Rewards</h3>
-          <ul className="space-y-3 text-slate-300 text-sm">
+        <div className="bg-[#1A1209] border border-[#3D2E1A] rounded-xl p-6">
+          <h3 className="text-lg font-bold text-[#E8D8B0] mb-4">💡 Tips for Maximizing Rewards</h3>
+          <ul className="space-y-3 text-[#C4B8A8] text-sm">
             <li className="flex items-start gap-2">
-              <span className="text-purple-400 mt-1">•</span>
+              <span className="text-[#C5AA67] mt-1">•</span>
               <span>Activate categories early in the quarter to avoid missing out on bonus rewards</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-purple-400 mt-1">•</span>
+              <span className="text-[#C5AA67] mt-1">•</span>
               <span>Track your spending towards the quarterly cap to optimize your card usage</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-purple-400 mt-1">•</span>
+              <span className="text-[#C5AA67] mt-1">•</span>
               <span>Use Omni-Wallet's Pay feature to automatically route purchases to your best card</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-purple-400 mt-1">•</span>
+              <span className="text-[#C5AA67] mt-1">•</span>
               <span>Set reminders to activate new categories at the start of each quarter</span>
             </li>
           </ul>

@@ -25,7 +25,7 @@ export default function RootLayout({
       <head>
         <link rel="stylesheet" href="https://use.typekit.net/qef5xay.css" />
       </head>
-      <body className="font-sans antialiased bg-transparent text-slate-100">
+      <body className="font-sans antialiased">
         <Providers>
           {children}
           {process.env.NODE_ENV === 'production' && <Analytics />}

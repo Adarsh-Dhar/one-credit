@@ -314,7 +314,7 @@ export default function PayPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-[#0D0A06]">
       <Navigation />
 
       <main className="max-w-2xl mx-auto px-4 py-12">
@@ -327,8 +327,8 @@ export default function PayPage() {
           {step === 'category' && (
             <motion.div key="category"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <h2 className="text-2xl font-bold text-white mb-2">What are you paying for?</h2>
-              <p className="text-slate-400 mb-8">Select a spend category</p>
+              <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">What are you paying for?</h2>
+              <p className="text-[#8B8070] mb-8">Select a spend category</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-section="category-selection">
                 {CATEGORIES.map(cat => {
                   const Icon = cat.icon;
@@ -349,16 +349,16 @@ export default function PayPage() {
           {step === 'merchant' && selectedCategory && (
             <motion.div key="merchant"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <button onClick={() => setStep('category')} className="text-slate-400 hover:text-white mb-4 text-sm">← Back</button>
-              <h2 className="text-2xl font-bold text-white mb-2">Choose merchant</h2>
-              <p className="text-slate-400 mb-8">{selectedCategory.label} merchants with live reward offers</p>
+              <button onClick={() => setStep('category')} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
+              <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">Choose merchant</h2>
+              <p className="text-[#8B8070] mb-8">{selectedCategory.label} merchants with live reward offers</p>
               <div className="grid grid-cols-2 gap-3">
                 {filteredMerchants.map(m => (
                   <button key={m.name} onClick={() => handleMerchantSelect(m)}
-                    className="bg-slate-800 border border-slate-700 hover:border-purple-500 rounded-xl p-4
-                      flex items-center gap-3 transition-all duration-200 hover:bg-slate-700 cursor-pointer">
+                    className="bg-[#1A1209] border border-[#3D2E1A] hover:border-[#C5AA67] rounded-xl p-4
+                      flex items-center gap-3 transition-all duration-200 hover:bg-[#261B0E] cursor-pointer">
                     <span className="text-3xl">{m.logo}</span>
-                    <span className="text-white font-medium text-left">{m.name}</span>
+                    <span className="text-[#E8D8B0] font-medium text-left">{m.name}</span>
                   </button>
                 ))}
               </div>
@@ -369,17 +369,17 @@ export default function PayPage() {
           {step === 'amount' && selectedMerchant && (
             <motion.div key="amount"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <button onClick={() => setStep('merchant')} className="text-slate-400 hover:text-white mb-4 text-sm">← Back</button>
-              <h2 className="text-2xl font-bold text-white mb-2">How much?</h2>
+              <button onClick={() => setStep('merchant')} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
+              <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">How much?</h2>
               <div className="flex items-center gap-3 mb-8">
                 <span className="text-4xl">{selectedMerchant.logo}</span>
-                <span className="text-slate-300 text-lg">{selectedMerchant.name}</span>
+                <span className="text-[#C4B8A8] text-lg">{selectedMerchant.name}</span>
               </div>
 
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 mb-6">
-                <label className="text-slate-400 text-sm mb-2 block">Amount (USD)</label>
+              <div className="bg-[#1A1209] border border-[#3D2E1A] rounded-2xl p-6 mb-6">
+                <label className="text-[#8B8070] text-sm mb-2 block">Amount (USD)</label>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-400 text-3xl">$</span>
+                  <span className="text-[#8B8070] text-3xl">$</span>
                   <input
                     type="number"
                     min="0.01"
@@ -388,7 +388,7 @@ export default function PayPage() {
                     value={amount}
                     onChange={e => setAmount(e.target.value)}
                     placeholder="0.00"
-                    className="bg-transparent text-white text-4xl font-bold w-full outline-none placeholder-slate-600"
+                    className="bg-transparent text-[#E8D8B0] text-4xl font-bold w-full outline-none placeholder-[#6B5E52]"
                     autoFocus
                   />
                 </div>
@@ -398,7 +398,7 @@ export default function PayPage() {
               <div className="flex gap-2 mb-8">
                 {['25', '50', '100', '200', '500'].map(v => (
                   <button key={v} onClick={() => setAmount(v)}
-                    className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300
+                    className="flex-1 bg-[#1A1209] hover:bg-[#261B0E] border border-[#3D2E1A] text-[#C4B8A8]
                       rounded-lg py-2 text-sm transition-colors">
                     ${v}
                   </button>
@@ -407,8 +407,8 @@ export default function PayPage() {
 
               <button onClick={handleAmountSubmit}
                 disabled={!amount || parseFloat(amount) <= 0}
-                className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold
-                  py-4 rounded-xl hover:from-purple-700 hover:to-yellow-600 transition-all
+                className="w-full bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] font-bold
+                  py-4 rounded-xl transition-all
                   disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                 <Sparkles className="w-5 h-5" />
                 Analyze with AI
@@ -436,8 +436,8 @@ export default function PayPage() {
             <motion.div key="approval"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
 
-              <h2 className="text-2xl font-bold text-white mb-1 text-center">Confirm Payment</h2>
-              <p className="text-slate-400 text-center mb-8">Review your transaction</p>
+              <h2 className="text-2xl font-bold text-[#E8D8B0] mb-1 text-center">Confirm Payment</h2>
+              <p className="text-[#8B8070] text-center mb-8">Review your transaction</p>
 
               {/* Token flow animation — the crypto wallet moment */}
               <TokenFlowAnimation
@@ -447,30 +447,30 @@ export default function PayPage() {
               />
 
               {/* Recommendation card */}
-              <div className="bg-slate-800 border border-purple-500/40 rounded-2xl p-5 mb-4">
+              <div className="bg-[#1A1209] border border-[#C5AA67]/40 rounded-2xl p-5 mb-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4 h-4 text-yellow-400" />
-                  <span className="text-yellow-400 text-sm font-medium">AI Recommendation</span>
+                  <Sparkles className="w-4 h-4 text-[#E8A844]" />
+                  <span className="text-[#E8A844] text-sm font-medium">AI Recommendation</span>
                   {recommendation.offerFound && (
-                    <span className="ml-auto text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                    <span className="ml-auto text-xs bg-[#4ECDA4]/15 text-[#4ECDA4] px-2 py-0.5 rounded-full">
                       Live offer from {recommendation.offerSource}
                     </span>
                   )}
                 </div>
-                <p className="text-white font-semibold mb-1">Use: {recommendation.bestCard}</p>
-                <p className="text-slate-400 text-sm">{recommendation.reasoning}</p>
+                <p className="text-[#E8D8B0] font-semibold mb-1">Use: {recommendation.bestCard}</p>
+                <p className="text-[#8B8070] text-sm">{recommendation.reasoning}</p>
                 <div className="mt-3 flex gap-4">
                   <div>
-                    <p className="text-slate-500 text-xs">Reward rate</p>
-                    <p className="text-green-400 font-bold">{(recommendation.rewardRate * 100).toFixed(1)}%</p>
+                    <p className="text-[#6B5E52] text-xs">Reward rate</p>
+                    <p className="text-[#4ECDA4] font-bold">{(recommendation.rewardRate * 100).toFixed(1)}%</p>
                   </div>
                   <div>
-                    <p className="text-slate-500 text-xs">You earn</p>
-                    <p className="text-purple-400 font-bold">+${recommendation.nativeReward?.toFixed(2)} USD</p>
+                    <p className="text-[#6B5E52] text-xs">You earn</p>
+                    <p className="text-[#C5AA67] font-bold">+${recommendation.nativeReward?.toFixed(2)} USD</p>
                   </div>
                   <div>
-                    <p className="text-slate-500 text-xs">Amount</p>
-                    <p className="text-white font-bold">${parseFloat(amount).toFixed(2)}</p>
+                    <p className="text-[#6B5E52] text-xs">Amount</p>
+                    <p className="text-[#E8D8B0] font-bold">${parseFloat(amount).toFixed(2)}</p>
                   </div>
                 </div>
               </div>
@@ -485,9 +485,9 @@ export default function PayPage() {
                 </button>
                 <button onClick={handleApprove}
                   disabled={isProcessing}
-                  className="flex-2 flex-grow bg-gradient-to-r from-purple-600 to-green-500
-                    text-white font-bold py-4 rounded-xl hover:from-purple-700 hover:to-green-600
-                    transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25
+                  className="flex-2 flex-grow bg-[#C5AA67]
+                    text-[#0D0A06] font-bold py-4 rounded-xl hover:bg-[#A8893F]
+                    transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#C5AA67]/25
                     disabled:opacity-40 disabled:cursor-not-allowed">
                   <CheckCircle2 className="w-5 h-5" />
                   {isProcessing ? 'Processing...' : 'Approve Payment'}
@@ -515,10 +515,10 @@ export default function PayPage() {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="text-center py-12">
               <XCircle className="w-20 h-20 text-red-400 mx-auto mb-6" />
-              <h2 className="text-2xl font-bold text-white mb-2">Transaction Failed</h2>
-              <p className="text-slate-400 mb-8">Something went wrong. Please try again.</p>
+              <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">Transaction Failed</h2>
+              <p className="text-[#8B8070] mb-8">Something went wrong. Please try again.</p>
               <button onClick={reset}
-                className="bg-slate-700 text-white font-bold py-3 px-8 rounded-xl hover:bg-slate-600">
+                className="bg-[#261B0E] text-[#E8D8B0] font-bold py-3 px-8 rounded-xl hover:bg-[#3D2E1A]">
                 Try Again
               </button>
             </motion.div>
@@ -540,34 +540,34 @@ function TokenFlowAnimation({
   amount: number;
 }) {
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-5">
+    <div className="bg-[#0D0A06] border border-[#3D2E1A] rounded-2xl p-6 mb-5">
       <div className="flex items-center justify-between gap-4">
 
         {/* From: Card */}
         <div className="flex-1 relative">
           {/* Winner glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-500 to-yellow-500 rounded-xl animate-pulse opacity-60 blur-sm" />
-          <div className="relative bg-slate-800 rounded-xl p-4 text-center border border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.6)]">
-            <CreditCard className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-            <p className="text-white text-xs font-medium leading-tight">{fromCard}</p>
-            <p className="text-slate-500 text-xs mt-1">-${amount.toFixed(2)}</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#C5AA67] via-[#4ECDA4] to-[#C5AA67] rounded-xl animate-pulse opacity-60 blur-sm" />
+          <div className="relative bg-[#1A1209] rounded-xl p-4 text-center border border-[#C5AA67]/40 shadow-[0_0_40px_rgba(197,170,103,0.6)]">
+            <CreditCard className="w-8 h-8 text-[#C5AA67] mx-auto mb-2" />
+            <p className="text-[#E8D8B0] text-xs font-medium leading-tight">{fromCard}</p>
+            <p className="text-[#6B5E52] text-xs mt-1">-${amount.toFixed(2)}</p>
           </div>
         </div>
 
         {/* Animated token flow */}
         <div className="flex items-center gap-1 relative w-16">
           <TokenParticles />
-          <ArrowRight className="w-5 h-5 text-slate-600" />
-          <span className="text-purple-400 text-xs font-bold text-center">
+          <ArrowRight className="w-5 h-5 text-[#6B5E52]" />
+          <span className="text-[#C5AA67] text-xs font-bold text-center">
             +${amount.toFixed(2)} USD
           </span>
         </div>
 
         {/* To: Merchant */}
-        <div className="flex-1 bg-slate-800 rounded-xl p-4 text-center border border-green-500/40 opacity-80">
+        <div className="flex-1 bg-[#1A1209] rounded-xl p-4 text-center border border-[#4ECDA4]/40 opacity-80">
           <span className="text-4xl block mb-1">{toMerchant.logo}</span>
-          <p className="text-white text-xs font-medium leading-tight">{toMerchant.name}</p>
-          <p className="text-slate-500 text-xs mt-1">${amount.toFixed(2)}</p>
+          <p className="text-[#E8D8B0] text-xs font-medium leading-tight">{toMerchant.name}</p>
+          <p className="text-[#6B5E52] text-xs mt-1">${amount.toFixed(2)}</p>
         </div>
 
       </div>
@@ -582,7 +582,7 @@ function TokenParticles() {
       {particles.map(i => (
         <motion.div
           key={i}
-          className="absolute w-2 h-2 rounded-full bg-purple-400"
+          className="absolute w-2 h-2 rounded-full bg-[#C5AA67]"
           initial={{ x: - 20, opacity: 0, scale: 0 }}
           animate={{
             x: [- 20, 0, 20],

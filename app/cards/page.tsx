@@ -271,7 +271,7 @@ export default function CardsPage() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-[#0D0A06]">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -279,15 +279,15 @@ export default function CardsPage() {
         <div className="mb-12">
           <div>
             <Link href="/">
-              <Button variant="ghost" className="text-slate-400 hover:text-white mb-4">
+              <Button variant="ghost" className="text-[#8B8070] hover:text-[#E8D8B0] mb-4">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
               </Button>
             </Link>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              Your <span className="bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">Card Collection</span>
+            <h1 className="text-4xl font-bold text-[#E8D8B0] mb-2">
+              Your <span className="text-[#C5AA67]">Card Collection</span>
             </h1>
-            <p className="text-slate-400">Interactive 3D cards with live spending caps</p>
+            <p className="text-[#8B8070]">Interactive 3D cards with live spending caps</p>
           </div>
 
           {/* Tab Buttons */}
@@ -295,21 +295,21 @@ export default function CardsPage() {
             <Button
               variant={activeTab === 'all' ? 'default' : 'outline'}
               onClick={() => handleTabChange('all')}
-              className={activeTab === 'all' ? 'bg-purple-600' : 'border-slate-600 text-slate-300'}
+              className={activeTab === 'all' ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
             >
               All Cards
             </Button>
             <Button
               variant={activeTab === 'cashback' ? 'default' : 'outline'}
               onClick={() => handleTabChange('cashback')}
-              className={activeTab === 'cashback' ? 'bg-purple-600' : 'border-slate-600 text-slate-300'}
+              className={activeTab === 'cashback' ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
             >
               Cashback
             </Button>
             <Button
               variant={activeTab === 'travel' ? 'default' : 'outline'}
               onClick={() => handleTabChange('travel')}
-              className={activeTab === 'travel' ? 'bg-purple-600' : 'border-slate-600 text-slate-300'}
+              className={activeTab === 'travel' ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
             >
               Travel
             </Button>
@@ -318,12 +318,12 @@ export default function CardsPage() {
 
         {/* Persona Banner */}
         {persona && (
-          <div className="mb-8 bg-gradient-to-r from-purple-600/20 to-yellow-500/20 border border-purple-500/30 rounded-xl p-4">
+          <div className="mb-8 bg-[#261B0E] border border-[#C5AA67]/30 rounded-xl p-4">
             <div className="flex items-center gap-3">
-              <Brain className="w-5 h-5 text-purple-400" />
+              <Brain className="w-5 h-5 text-[#C5AA67]" />
               <div>
-                <p className="text-white font-semibold">Your Persona: {persona.label}</p>
-                <p className="text-slate-400 text-sm">Confidence: {(persona.confidence * 100).toFixed(0)}%</p>
+                <p className="text-[#E8D8B0] font-semibold">Your Persona: {persona.label}</p>
+                <p className="text-[#8B8070] text-sm">Confidence: {(persona.confidence * 100).toFixed(0)}%</p>
               </div>
             </div>
           </div>
@@ -334,7 +334,7 @@ export default function CardsPage() {
           <Button
             onClick={handleCalculateBestCard}
             disabled={isPersonaLoading}
-            className="bg-gradient-to-r from-purple-600 to-yellow-500 text-white font-bold px-6 py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all disabled:opacity-50 flex items-center gap-2"
+            className="bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] font-bold px-6 py-2 rounded-lg transition-all disabled:opacity-50 flex items-center gap-2"
           >
             <Brain className="w-4 h-4" />
             {isPersonaLoading ? 'Analyzing...' : 'Calculate Best Card'}
@@ -344,7 +344,7 @@ export default function CardsPage() {
         {/* Animated Cards Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5AA67]"></div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 perspective-1000">
@@ -362,9 +362,9 @@ export default function CardsPage() {
                   onClick={() => handleCardClick(card)}
                 >
                   <div
-                    className={`bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl border border-slate-600 shadow-2xl transition-all duration-500 transform preserve-3d ${
+                    className={`bg-[#1A1209] rounded-2xl border border-[#3D2E1A] shadow-2xl transition-all duration-500 transform preserve-3d ${
                       hoveredCard === card.key
-                        ? 'scale-[1.03] rotate-y-6 shadow-purple-500/40'
+                        ? 'scale-[1.03] rotate-y-6 shadow-[#C5AA67]/40'
                         : 'scale-100 rotate-y-0'
                     }`}
                   >
@@ -376,19 +376,19 @@ export default function CardsPage() {
                       {/* Card Header */}
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                          <p className="text-xs font-medium text-slate-400 mb-1">{card.issuer}</p>
-                          <h3 className="text-lg font-bold text-white leading-tight">{card.name}</h3>
+                          <p className="text-xs font-medium text-[#8B8070] mb-1">{card.issuer}</p>
+                          <h3 className="text-lg font-bold text-[#E8D8B0] leading-tight">{card.name}</h3>
                         </div>
-                        <CreditCard className="w-8 h-8 text-purple-400" />
+                        <CreditCard className="w-8 h-8 text-[#C5AA67]" />
                       </div>
 
                       {/* Rewards balance */}
                       <div className="mb-5">
-                        <p className="text-slate-400 text-sm mb-0.5">Available Rewards</p>
-                        <p className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">
+                        <p className="text-[#8B8070] text-sm mb-0.5">Available Rewards</p>
+                        <p className="text-2xl font-bold text-[#C5AA67]">
                           ${Math.round(card.value || 0).toLocaleString()}
                         </p>
-                        <p className="text-slate-400 text-xs mt-0.5">
+                        <p className="text-[#8B8070] text-xs mt-0.5">
                           {card.currency === 'usd'
                             ? `(Cash Back)`
                             : `(Points)`}
@@ -397,8 +397,8 @@ export default function CardsPage() {
 
                       {/* ── Spending Cap Rings ─────────────────────── */}
                       {caps.length > 0 && (
-                        <div className="border-t border-slate-600/60 pt-4 mt-2" data-section="spending-caps">
-                          <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">
+                        <div className="border-t border-[#3D2E1A]/60 pt-4 mt-2" data-section="spending-caps">
+                          <p className="text-xs text-[#6B5E52] mb-3 font-medium uppercase tracking-wider">
                             Spending Caps
                           </p>
                           <div className={`flex gap-4 ${caps.length > 2 ? 'flex-wrap justify-center' : 'justify-around'}`}>
@@ -411,15 +411,15 @@ export default function CardsPage() {
 
                       {/* ── Card Benefits ─────────────────────────── */}
                       {((card.statementCredits?.length ?? 0) > 0 || (card.portalBonuses?.length ?? 0) > 0 || card.protections) && (
-                        <div className="border-t border-slate-600/60 pt-4 mt-2" data-section="card-benefits">
-                          <p className="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">
+                        <div className="border-t border-[#3D2E1A]/60 pt-4 mt-2" data-section="card-benefits">
+                          <p className="text-xs text-[#6B5E52] mb-3 font-medium uppercase tracking-wider">
                             Card Benefits
                           </p>
 
                           {/* Statement Credits */}
                           {(card.statementCredits?.length ?? 0) > 0 && (
                             <div className="mb-3" data-section="statement-credits">
-                              <p className="text-xs text-slate-400 mb-2">Statement Credits</p>
+                              <p className="text-xs text-[#8B8070] mb-2">Statement Credits</p>
                               {card.statementCredits!.map((credit: any, idx: number) => {
                                 const used = credit.amount_redeemed || 0;
                                 const remaining = credit.amount_usd - used;
@@ -427,18 +427,18 @@ export default function CardsPage() {
                                 return (
                                   <div key={idx} className="mb-2">
                                     <div className="flex justify-between items-center mb-1">
-                                      <span className="text-xs text-white">{credit.name}</span>
-                                      <span className="text-xs text-slate-400">${used.toFixed(0)} / ${credit.amount_usd.toFixed(0)}</span>
+                                      <span className="text-xs text-[#E8D8B0]">{credit.name}</span>
+                                      <span className="text-xs text-[#8B8070]">${used.toFixed(0)} / ${credit.amount_usd.toFixed(0)}</span>
                                     </div>
-                                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="h-1.5 bg-[#261B0E] rounded-full overflow-hidden">
                                       <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${pct * 100}%` }}
                                         transition={{ duration: 0.8, delay: 0.3 }}
-                                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                                        className="h-full bg-[#C5AA67] rounded-full"
                                       />
                                     </div>
-                                    <p className="text-[10px] text-slate-500 mt-0.5">{credit.reset_period} reset • ${remaining.toFixed(0)} remaining</p>
+                                    <p className="text-[10px] text-[#6B5E52] mt-0.5">{credit.reset_period} reset • ${remaining.toFixed(0)} remaining</p>
                                   </div>
                                 );
                               })}
@@ -448,7 +448,7 @@ export default function CardsPage() {
                           {/* Portal Bonuses */}
                           {(card.portalBonuses?.length ?? 0) > 0 && (
                             <div className="mb-3">
-                              <p className="text-xs text-slate-400 mb-2">Portal Bonuses</p>
+                              <p className="text-xs text-[#8B8070] mb-2">Portal Bonuses</p>
                               <div className="flex flex-wrap gap-2">
                                 {card.portalBonuses!.map((bonus: any, idx: number) => (
                                   <a
@@ -456,11 +456,11 @@ export default function CardsPage() {
                                     href={bonus.portal_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-xs bg-slate-700 hover:bg-slate-600 text-purple-300 px-2 py-1 rounded-md transition-colors"
+                                    className="inline-flex items-center gap-1 text-xs bg-[#261B0E] hover:bg-[#3D2E1A] text-[#C5AA67] px-2 py-1 rounded-md transition-colors"
                                   >
                                     {bonus.portal_name}
                                     <ExternalLink className="w-3 h-3" />
-                                    <span className="text-slate-400">({bonus.bonus_multiplier}x)</span>
+                                    <span className="text-[#8B8070]">({bonus.bonus_multiplier}x)</span>
                                   </a>
                                 ))}
                               </div>
@@ -470,40 +470,40 @@ export default function CardsPage() {
                           {/* Purchase Protections */}
                           {card.protections && (
                             <div>
-                              <p className="text-xs text-slate-400 mb-2">Purchase Protections</p>
+                              <p className="text-xs text-[#8B8070] mb-2">Purchase Protections</p>
                               <div className="flex flex-wrap gap-2">
                                 {card.protections.extended_warranty && (
-                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                  <div className="flex items-center gap-1 text-xs bg-[#261B0E] text-[#4ECDA4] px-2 py-1 rounded-md">
                                     <Shield className="w-3 h-3" />
                                     <span>Extended Warranty</span>
                                   </div>
                                 )}
                                 {card.protections.purchase_protection_days > 0 && (
-                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                  <div className="flex items-center gap-1 text-xs bg-[#261B0E] text-[#4ECDA4] px-2 py-1 rounded-md">
                                     <Shield className="w-3 h-3" />
                                     <span>{card.protections.purchase_protection_days}d Protection</span>
                                   </div>
                                 )}
                                 {card.protections.return_protection_days > 0 && (
-                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                  <div className="flex items-center gap-1 text-xs bg-[#261B0E] text-[#4ECDA4] px-2 py-1 rounded-md">
                                     <Shield className="w-3 h-3" />
                                     <span>{card.protections.return_protection_days}d Return</span>
                                   </div>
                                 )}
                                 {card.protections.cell_phone_protection && (
-                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                  <div className="flex items-center gap-1 text-xs bg-[#261B0E] text-[#4ECDA4] px-2 py-1 rounded-md">
                                     <Shield className="w-3 h-3" />
                                     <span>Cell Phone</span>
                                   </div>
                                 )}
                                 {card.protections.trip_cancellation && (
-                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                  <div className="flex items-center gap-1 text-xs bg-[#261B0E] text-[#4ECDA4] px-2 py-1 rounded-md">
                                     <Shield className="w-3 h-3" />
                                     <span>Trip Cancellation</span>
                                   </div>
                                 )}
                                 {card.protections.primary_rental_cdw && (
-                                  <div className="flex items-center gap-1 text-xs bg-slate-700 text-green-400 px-2 py-1 rounded-md">
+                                  <div className="flex items-center gap-1 text-xs bg-[#261B0E] text-[#4ECDA4] px-2 py-1 rounded-md">
                                     <Shield className="w-3 h-3" />
                                     <span>Rental CDW</span>
                                   </div>
@@ -515,20 +515,20 @@ export default function CardsPage() {
                       )}
 
                       {/* Card Footer */}
-                      <div className="mt-4 pt-4 border-t border-slate-600/60">
+                      <div className="mt-4 pt-4 border-t border-[#3D2E1A]/60">
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="text-xs text-slate-500">Rate</p>
-                            <p className="text-sm font-semibold text-white">{card.redemptionRate || 'N/A'}</p>
+                            <p className="text-xs text-[#6B5E52]">Rate</p>
+                            <p className="text-sm font-semibold text-[#E8D8B0]">{card.redemptionRate || 'N/A'}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-xs text-slate-500">Balance Owed</p>
-                            <p className="text-sm font-semibold text-white">${card.balance?.toFixed(2) || '0.00'}</p>
+                            <p className="text-xs text-[#6B5E52]">Balance Owed</p>
+                            <p className="text-sm font-semibold text-[#E8D8B0]">${card.balance?.toFixed(2) || '0.00'}</p>
                           </div>
                         </div>
                         <button
                           onClick={() => handleCardDetailClick(card)}
-                          className="mt-3 w-full bg-gradient-to-r from-purple-600 to-yellow-500 text-white text-sm font-bold py-2 rounded-lg hover:from-purple-700 hover:to-yellow-600 transition-all"
+                          className="mt-3 w-full bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] text-sm font-bold py-2 rounded-lg transition-all"
                         >
                           View Details
                         </button>
@@ -537,9 +537,9 @@ export default function CardsPage() {
                       {/* Hover particles */}
                       {hoveredCard === card.key && (
                         <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-                          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-purple-400 rounded-full animate-ping" />
-                          <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.5s' }} />
-                          <div className="absolute top-1/2 right-1/3 w-1 h-1 bg-purple-300 rounded-full animate-ping" style={{ animationDelay: '1s' }} />
+                          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-[#C5AA67] rounded-full animate-ping" />
+                          <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-[#E8A844] rounded-full animate-ping" style={{ animationDelay: '0.5s' }} />
+                          <div className="absolute top-1/2 right-1/3 w-1 h-1 bg-[#DCC98A] rounded-full animate-ping" style={{ animationDelay: '1s' }} />
                         </div>
                       )}
                     </div>
@@ -552,28 +552,28 @@ export default function CardsPage() {
 
         {/* Legend */}
         {!loading && cards.length > 0 && (
-          <div className="mt-12 bg-gradient-to-r from-slate-800/60 to-slate-800/30 border border-slate-700/50 rounded-2xl p-6">
-            <h2 className="text-lg font-bold text-white mb-4">Spending Cap Legend</h2>
+          <div className="mt-12 bg-[#261B0E]/80 border border-[#3D2E1A]/50 rounded-2xl p-6">
+            <h2 className="text-lg font-bold text-[#E8D8B0] mb-4">Spending Cap Legend</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-400 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                 <div>
-                  <p className="font-semibold text-white">Green (0–66%)</p>
-                  <p className="text-slate-400 text-xs">Full multiplier active</p>
+                  <p className="font-semibold text-[#E8D8B0]">Green (0–66%)</p>
+                  <p className="text-[#8B8070] text-xs">Full multiplier active</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.6)]" />
                 <div>
-                  <p className="font-semibold text-white">Yellow (66–98%)</p>
-                  <p className="text-slate-400 text-xs">Approaching cap — plan ahead</p>
+                  <p className="font-semibold text-[#E8D8B0]">Yellow (66–98%)</p>
+                  <p className="text-[#8B8070] text-xs">Approaching cap — plan ahead</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse" />
                 <div>
-                  <p className="font-semibold text-white">Red (98%+)</p>
-                  <p className="text-slate-400 text-xs">Multiplier cliff! AI will route elsewhere</p>
+                  <p className="font-semibold text-[#E8D8B0]">Red (98%+)</p>
+                  <p className="text-[#8B8070] text-xs">Multiplier cliff! AI will route elsewhere</p>
                 </div>
               </div>
             </div>

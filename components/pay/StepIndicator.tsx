@@ -8,7 +8,7 @@ export function StepIndicator({ step }: { step: Step }) {
       {steps.slice(0, 5).map((s, i) => (
         <div key={s} className="flex items-center flex-1">
           <div className={`h-1.5 rounded-full w-full transition-all duration-500
-            ${i <= current ? 'bg-purple-500' : 'bg-slate-700'}`} />
+            ${i <= current ? 'bg-[#C5AA67]' : 'bg-[#261B0E]'}`} />
         </div>
       ))}
     </div>

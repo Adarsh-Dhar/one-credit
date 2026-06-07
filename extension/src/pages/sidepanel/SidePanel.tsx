@@ -221,13 +221,13 @@ export function SidePanel() {
   // ── Loading state ──
   if (loading) {
     return (
-      <div className="h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-4 p-6">
-        <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-        <p className="text-slate-300 text-sm font-medium">Running OP agent…</p>
+      <div className="h-screen bg-[#0D0A06] flex flex-col items-center justify-center gap-4 p-6">
+        <Loader2 className="w-8 h-8 text-[#C5AA67] animate-spin" />
+        <p className="text-[#C4B8A8] text-sm font-medium">Running OP agent…</p>
         <div className="text-center space-y-1">
-          <p className="text-xs text-slate-500">Auditing earn rates</p>
-          <p className="text-xs text-slate-500">Finding best redemption paths</p>
-          <p className="text-xs text-slate-500">Calculating true cost</p>
+          <p className="text-xs text-[#6B5E52]">Auditing earn rates</p>
+          <p className="text-xs text-[#6B5E52]">Finding best redemption paths</p>
+          <p className="text-xs text-[#6B5E52]">Calculating true cost</p>
         </div>
       </div>
     )
@@ -236,13 +236,13 @@ export function SidePanel() {
   // ── Error state ──
   if (error) {
     return (
-      <div className="h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-3 p-6">
+      <div className="h-screen bg-[#0D0A06] flex flex-col items-center justify-center gap-3 p-6">
         <AlertCircle className="w-8 h-8 text-red-400" />
-        <p className="text-slate-300 text-sm font-medium text-center">{error}</p>
+        <p className="text-[#C4B8A8] text-sm font-medium text-center">{error}</p>
         {pendingProduct && (
           <button
             onClick={() => runAnalysis(pendingProduct)}
-            className="mt-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg"
+            className="mt-2 px-4 py-2 bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] text-xs rounded-lg"
           >
             Retry
           </button>
@@ -254,9 +254,9 @@ export function SidePanel() {
   // ── Empty state ──
   if (!result) {
     return (
-      <div className="h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-3 p-6">
-        <Sparkles className="w-8 h-8 text-purple-400" />
-        <p className="text-slate-400 text-sm text-center leading-relaxed">
+      <div className="h-screen bg-[#0D0A06] flex flex-col items-center justify-center gap-3 p-6">
+        <Sparkles className="w-8 h-8 text-[#C5AA67]" />
+        <p className="text-[#8B8070] text-sm text-center leading-relaxed">
           Open an Amazon product page and click<br />"Calculate best price" in the extension.
         </p>
       </div>
@@ -266,41 +266,41 @@ export function SidePanel() {
   const winner = result.winner
 
   return (
-    <div className="h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col text-white overflow-hidden">
+    <div className="h-screen bg-[#0D0A06] flex flex-col text-[#E8D8B0] overflow-hidden">
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600/20 to-yellow-500/10 border-b border-purple-500/30 p-4">
+      <div className="bg-[#261B0E] border-b border-[#C5AA67]/30 p-4">
         <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="w-4 h-4 text-purple-400" />
+          <Sparkles className="w-4 h-4 text-[#C5AA67]" />
           <h2 className="text-base font-bold">OP Analysis</h2>
         </div>
-        <p className="text-xs text-slate-400 line-clamp-1">{result.product.name}</p>
-        <p className="text-xs text-slate-500 mt-0.5">List price: {fmtPrice(result.product.price)}</p>
+        <p className="text-xs text-[#8B8070] line-clamp-1">{result.product.name}</p>
+        <p className="text-xs text-[#6B5E52] mt-0.5">List price: {fmtPrice(result.product.price)}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto">
 
         {/* Winner banner */}
         <div className="p-4 space-y-3">
-          <div className="bg-purple-900/40 border border-purple-500/40 rounded-xl p-4 space-y-4">
+          <div className="bg-[#C5AA67]/20 border border-[#C5AA67]/40 rounded-xl p-4 space-y-4">
             <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-yellow-400" />
-              <span className="text-xs font-medium text-yellow-400 uppercase tracking-wide">Best card</span>
+              <Trophy className="w-4 h-4 text-[#E8A844]" />
+              <span className="text-xs font-medium text-[#E8A844] uppercase tracking-wide">Best card</span>
             </div>
             <div>
-              <p className="font-bold text-white">{winner.name}</p>
-              <p className="text-xs text-slate-400">{winner.issuer}</p>
+              <p className="font-bold text-[#E8D8B0]">{winner.name}</p>
+              <p className="text-xs text-[#8B8070]">{winner.issuer}</p>
             </div>
 
             {/* Zone 1: Charged today + Points earned */}
-            <div className="bg-slate-800/60 rounded-lg p-3 space-y-2">
+            <div className="bg-[#261B0E]/80 rounded-lg p-3 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-400">Charged today</span>
-                <span className="text-sm font-bold text-white">{fmtPrice(result.product.price)}</span>
+                <span className="text-xs text-[#8B8070]">Charged today</span>
+                <span className="text-sm font-bold text-[#E8D8B0]">{fmtPrice(result.product.price)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-400">You earn</span>
-                <span className="text-sm font-bold text-green-400">
+                <span className="text-xs text-[#8B8070]">You earn</span>
+                <span className="text-sm font-bold text-[#4ECDA4]">
                   {winner.rewardType === 'cashback'
                     ? `$${winner.trueRewardValueUsd.toFixed(2)} back (${winner.earnAudit.rate}%)`
                     : `${winner.actualPointsEarned.toLocaleString()} pts @ ${winner.earnAudit.rate}x`
@@ -310,15 +310,15 @@ export function SidePanel() {
             </div>
 
             {/* Zone 2: Points breakdown */}
-            <div className="bg-slate-800/60 rounded-lg p-3 space-y-2">
-              <p className="text-xs text-slate-400 font-medium">Points breakdown</p>
+            <div className="bg-[#261B0E]/80 rounded-lg p-3 space-y-2">
+              <p className="text-xs text-[#8B8070] font-medium">Points breakdown</p>
               <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-slate-300">
+                <div className="flex justify-between text-[#C4B8A8]">
                   <span>Base points</span>
                   <span>{winner.basePointsEarned.toLocaleString()} pts</span>
                 </div>
                 {winner.bonusPointsEarned > 0 && (
-                  <div className="flex justify-between text-green-300">
+                  <div className="flex justify-between text-[#4ECDA4]">
                     <span>Bonus points</span>
                     <span>+{winner.bonusPointsEarned.toLocaleString()} pts</span>
                   </div>
@@ -326,26 +326,26 @@ export function SidePanel() {
                 {(winner.rotatingBonusApplied || winner.portalBonusApplied) && (
                   <div className="flex gap-1 mt-1">
                     {winner.rotatingBonusApplied && (
-                      <span className="bg-purple-500/20 text-purple-300 text-xs px-2 py-0.5 rounded">Rotating</span>
+                      <span className="bg-[#C5AA67]/20 text-[#C5AA67] text-xs px-2 py-0.5 rounded">Rotating</span>
                     )}
                     {winner.portalBonusApplied && (
-                      <span className="bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5 rounded">Portal</span>
+                      <span className="bg-[#E8A844]/20 text-[#E8A844] text-xs px-2 py-0.5 rounded">Portal</span>
                     )}
                   </div>
                 )}
               </div>
 
               {/* CPP range */}
-              <div className="mt-2 pt-2 border-t border-slate-700 space-y-1 text-xs">
-                <div className="flex justify-between text-slate-400">
+              <div className="mt-2 pt-2 border-t border-[#3D2E1A] space-y-1 text-xs">
+                <div className="flex justify-between text-[#8B8070]">
                   <span>Conservative</span>
                   <span>{winner.conservativeCpp.toFixed(2)}¢/pt</span>
                 </div>
-                <div className="flex justify-between text-purple-300 font-medium">
+                <div className="flex justify-between text-[#C5AA67] font-medium">
                   <span>Realistic ←</span>
                   <span>{winner.realisticCpp.toFixed(2)}¢/pt</span>
                 </div>
-                <div className="flex justify-between text-slate-400">
+                <div className="flex justify-between text-[#8B8070]">
                   <span>Best case</span>
                   <span>{winner.bestRedemptionRatePerPoint.toFixed(2)}¢/pt</span>
                 </div>
@@ -353,19 +353,19 @@ export function SidePanel() {
 
               {/* Confidence signal */}
               {result.userBehaviour.redemptionCount90d > 0 && (
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-[#6B5E52] mt-1">
                   based on your {result.userBehaviour.redemptionCount90d} redemptions
                 </p>
               )}
             </div>
 
             {/* Zone 3: Adjustments */}
-            <div className="bg-slate-800/60 rounded-lg p-3 space-y-2">
-              <p className="text-xs text-slate-400 font-medium">Adjustments</p>
+            <div className="bg-[#261B0E]/80 rounded-lg p-3 space-y-2">
+              <p className="text-xs text-[#8B8070] font-medium">Adjustments</p>
               <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-slate-300">
+                <div className="flex justify-between text-[#C4B8A8]">
                   <span>Points value back</span>
-                  <span className="text-green-400">
+                  <span className="text-[#4ECDA4]">
                     {winner.rewardType === 'cashback'
                       ? `−${fmtUsd(winner.trueRewardValueUsd)}`
                       : <>−{winner.actualPointsEarned.toLocaleString()} pts
@@ -375,68 +375,68 @@ export function SidePanel() {
                   </span>
                 </div>
                 {winner.feeBurdenUsd > 0 && (
-                  <div className="flex justify-between text-slate-300">
+                  <div className="flex justify-between text-[#C4B8A8]">
                     <span>
                       Fee per txn
-                      {winner.feeWaiverNote && <span className="text-slate-500 ml-1">({winner.feeWaiverNote})</span>}
+                      {winner.feeWaiverNote && <span className="text-[#6B5E52] ml-1">({winner.feeWaiverNote})</span>}
                     </span>
-                    <span className="text-orange-400">+{fmtPrice(winner.feeBurdenUsd)}</span>
+                    <span className="text-[#E8A844]">+{fmtPrice(winner.feeBurdenUsd)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-slate-300">
+                <div className="flex justify-between text-[#C4B8A8]">
                   <span>Float value (30d)</span>
-                  <span className="text-green-400">−{fmtPrice(winner.floatValueUsd)}</span>
+                  <span className="text-[#4ECDA4]">−{fmtPrice(winner.floatValueUsd)}</span>
                 </div>
                 {winner.statementCreditApplied > 0 && (
-                  <div className="flex justify-between text-slate-300">
+                  <div className="flex justify-between text-[#C4B8A8]">
                     <span>Statement credit</span>
-                    <span className="text-green-400">−{fmtPrice(winner.statementCreditApplied)}</span>
+                    <span className="text-[#4ECDA4]">−{fmtPrice(winner.statementCreditApplied)}</span>
                   </div>
                 )}
                 {winner.milestoneCreditUsd > 0 && (
-                  <div className="flex justify-between text-slate-300">
+                  <div className="flex justify-between text-[#C4B8A8]">
                     <span>Milestone credit</span>
-                    <span className="text-green-400">−{fmtPrice(winner.milestoneCreditUsd)}</span>
+                    <span className="text-[#4ECDA4]">−{fmtPrice(winner.milestoneCreditUsd)}</span>
                   </div>
                 )}
                 {winner.opConservationPenalty > 0 && (
-                  <div className="flex justify-between text-slate-300">
+                  <div className="flex justify-between text-[#C4B8A8]">
                     <span>OP conservation penalty</span>
                     <span className="text-red-400">+{fmtPrice(winner.opConservationPenalty)}</span>
                   </div>
                 )}
                 {winner.opVelocityBonus > 0 && (
-                  <div className="flex justify-between text-slate-300">
+                  <div className="flex justify-between text-[#C4B8A8]">
                     <span>OP velocity bonus</span>
-                    <span className="text-green-400">−{fmtPrice(winner.opVelocityBonus)}</span>
+                    <span className="text-[#4ECDA4]">−{fmtPrice(winner.opVelocityBonus)}</span>
                   </div>
                 )}
                 {winner.foreignFeeUsd > 0 && (
-                  <div className="flex justify-between text-slate-300">
+                  <div className="flex justify-between text-[#C4B8A8]">
                     <span>Foreign transaction fee</span>
-                    <span className="text-orange-400">+{fmtPrice(winner.foreignFeeUsd)}</span>
+                    <span className="text-[#E8A844]">+{fmtPrice(winner.foreignFeeUsd)}</span>
                   </div>
                 )}
               </div>
 
               {/* Effective cost */}
-              <div className="mt-2 pt-2 border-t border-slate-700">
+              <div className="mt-2 pt-2 border-t border-[#3D2E1A]">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">You pay (after pts)</span>
+                  <span className="text-xs text-[#8B8070]">You pay (after pts)</span>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-purple-300">
+                    <p className="text-lg font-bold text-[#C5AA67]">
                       {fmtUsd(winner.netCost)}
                     </p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-[#8B8070]">
                       after redeeming {winner.actualPointsEarned.toLocaleString()} pts
                       @ {winner.realisticCpp.toFixed(2)}¢/pt
                     </p>
                   </div>
                 </div>
                 {isGuaranteedRate(winner) && (
-                  <p className="text-xs text-green-400 mt-0.5">(guaranteed)</p>
+                  <p className="text-xs text-[#4ECDA4] mt-0.5">(guaranteed)</p>
                 )}
-                <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <div className="flex justify-between text-xs text-[#6B5E52] mt-1">
                   <span>Industry values same pts @ {winner.industryAssumedCpp.toFixed(2)}¢</span>
                   <span>→ {fmtUsd(winner.industryCost)}</span>
                 </div>
@@ -448,24 +448,24 @@ export function SidePanel() {
                 href={buildPortalDeepLink(winner.portalBonusUrl, result.product.url)}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-between gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2.5"
+                className="flex items-center justify-between gap-2 bg-[#E8A844]/10 border border-[#E8A844]/30 rounded-lg px-3 py-2.5"
               >
                 <div>
-                  <p className="text-xs font-semibold text-yellow-300">
+                  <p className="text-xs font-semibold text-[#E8A844]">
                     Shop via {winner.portalBonusName}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#8B8070]">
                     Earn {winner.earnAudit.rate}x instead of base rate
                   </p>
                 </div>
-                <span className="text-yellow-400 text-xs font-bold flex-shrink-0">→ Go</span>
+                <span className="text-[#E8A844] text-xs font-bold flex-shrink-0">→ Go</span>
               </a>
             )}
 
             <button
               onClick={() => handleCardSelect(winner.cardKey)}
               disabled={selectedCard === winner.cardKey}
-              className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 disabled:from-green-600 disabled:to-green-700 text-white py-2.5 rounded-lg font-semibold text-sm transition-all"
+              className="w-full bg-[#C5AA67] hover:bg-[#A8893F] disabled:bg-[#4ECDA4] text-[#0D0A06] py-2.5 rounded-lg font-semibold text-sm transition-all"
             >
               {selectedCard === winner.cardKey ? '✓ Selected' : 'Use This Card'}
             </button>
@@ -473,23 +473,23 @@ export function SidePanel() {
 
           {/* Agent reasoning */}
           {result.agentReasoning && (
-            <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-3">
-              <p className="text-xs text-slate-400 font-medium mb-1.5">Agent reasoning</p>
-              <p className="text-xs text-slate-300 leading-relaxed">{result.agentReasoning}</p>
+            <div className="bg-[#261B0E]/60 border border-[#3D2E1A] rounded-xl p-3">
+              <p className="text-xs text-[#8B8070] font-medium mb-1.5">Agent reasoning</p>
+              <p className="text-xs text-[#C4B8A8] leading-relaxed">{result.agentReasoning}</p>
             </div>
           )}
 
           {/* All cards */}
           <div>
             <div className="flex items-center justify-between mb-2 px-1">
-              <p className="text-xs font-medium text-slate-400">ALL CARDS RANKED</p>
-              <div className="flex bg-slate-800 border border-slate-700 rounded-lg p-0.5 gap-0.5">
+              <p className="text-xs font-medium text-[#8B8070]">ALL CARDS RANKED</p>
+              <div className="flex bg-[#261B0E] border border-[#3D2E1A] rounded-lg p-0.5 gap-0.5">
                 <button
                   onClick={() => setSortMode('cost')}
                   className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
                     sortMode === 'cost'
-                      ? 'bg-purple-600 text-white'
-                      : 'text-slate-400 hover:text-slate-300'
+                      ? 'bg-[#C5AA67] text-[#0D0A06]'
+                      : 'text-[#8B8070] hover:text-[#C4B8A8]'
                   }`}
                 >
                   $ Price
@@ -498,8 +498,8 @@ export function SidePanel() {
                   onClick={() => setSortMode('points')}
                   className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
                     sortMode === 'points'
-                      ? 'bg-purple-600 text-white'
-                      : 'text-slate-400 hover:text-slate-300'
+                      ? 'bg-[#C5AA67] text-[#0D0A06]'
+                      : 'text-[#8B8070] hover:text-[#C4B8A8]'
                   }`}
                 >
                   ✦ Points
@@ -514,30 +514,30 @@ export function SidePanel() {
               ).map((card, idx) => (
                 <div
                   key={card.cardKey}
-                  className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden"
+                  className="bg-[#261B0E]/80 border border-[#3D2E1A] rounded-xl overflow-hidden"
                 >
                   <button
                     onClick={() => setExpandedCard(expandedCard === card.cardKey ? null : card.cardKey)}
-                    className="w-full p-3 flex items-center gap-3 hover:bg-slate-700/30 transition-colors text-left"
+                    className="w-full p-3 flex items-center gap-3 hover:bg-[#261B0E]/30 transition-colors text-left"
                   >
                     {/* Rank badge */}
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                      idx === 0 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40' :
-                      idx === 1 ? 'bg-slate-600/40 text-slate-300 border border-slate-500/40' :
-                      'bg-slate-700/40 text-slate-500 border border-slate-600/40'
+                      idx === 0 ? 'bg-[#E8A844]/20 text-[#E8A844] border border-[#E8A844]/40' :
+                      idx === 1 ? 'bg-[#261B0E]/60 text-[#C4B8A8] border border-[#3D2E1A]/40' :
+                      'bg-[#261B0E]/40 text-[#6B5E52] border border-[#3D2E1A]/60'
                     }`}>
                       {idx + 1}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{card.name}</p>
-                      <p className="text-xs text-slate-400">{card.issuer}</p>
+                      <p className="text-sm font-medium text-[#E8D8B0] truncate">{card.name}</p>
+                      <p className="text-xs text-[#8B8070]">{card.issuer}</p>
                     </div>
 
                     <div className="text-right flex-shrink-0">
                       {sortMode === 'cost' ? (
                         <>
-                          <p className="text-sm font-bold text-white">
+                          <p className="text-sm font-bold text-[#E8D8B0]">
                             {card.rewardType === 'cashback'
                               ? `+${fmtUsd(card.trueRewardValueUsd)}`
                               : `+${card.actualPointsEarned.toLocaleString()} pts`
@@ -549,7 +549,7 @@ export function SidePanel() {
                         </>
                       ) : (
                         <>
-                          <p className="text-sm font-bold text-green-400">
+                          <p className="text-sm font-bold text-[#4ECDA4]">
                             {card.rewardType === 'cashback'
                               ? `+${fmtUsd(card.trueRewardValueUsd)}`
                               : `+${card.actualPointsEarned.toLocaleString()} pts`
@@ -563,13 +563,13 @@ export function SidePanel() {
                     </div>
 
                     <ChevronDown
-                      className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform ${expandedCard === card.cardKey ? 'rotate-180' : ''}`}
+                      className={`w-4 h-4 text-[#8B8070] flex-shrink-0 transition-transform ${expandedCard === card.cardKey ? 'rotate-180' : ''}`}
                     />
                   </button>
 
                   {/* Expanded breakdown */}
                   {expandedCard === card.cardKey && (
-                    <div className="border-t border-slate-700 p-3 space-y-3 bg-slate-900/40">
+                    <div className="border-t border-[#3D2E1A] p-3 space-y-3 bg-[#0D0A06]/40">
 
                       {/* Compact Zone 2: Points breakdown */}
                       <div className="space-y-2 text-xs">
@@ -578,20 +578,20 @@ export function SidePanel() {
                           <span>{card.basePointsEarned.toLocaleString()} pts</span>
                         </div>
                         {card.bonusPointsEarned > 0 && (
-                          <div className="flex justify-between text-green-300">
+                          <div className="flex justify-between text-[#4ECDA4]">
                             <span>Bonus points</span>
                             <span>+{card.bonusPointsEarned.toLocaleString()} pts</span>
                           </div>
                         )}
-                        <div className="flex justify-between text-slate-400 pt-1 border-t border-slate-700">
+                        <div className="flex justify-between text-[#8B8070] pt-1 border-t border-[#3D2E1A]">
                           <span>Conservative</span>
                           <span>{card.conservativeCpp.toFixed(2)}¢/pt</span>
                         </div>
-                        <div className="flex justify-between text-purple-300 font-medium">
+                        <div className="flex justify-between text-[#C5AA67] font-medium">
                           <span>Realistic ←</span>
                           <span>{card.realisticCpp.toFixed(2)}¢/pt</span>
                         </div>
-                        <div className="flex justify-between text-slate-400">
+                        <div className="flex justify-between text-[#8B8070]">
                           <span>Best case</span>
                           <span>{card.bestRedemptionRatePerPoint.toFixed(2)}¢/pt</span>
                         </div>
@@ -601,7 +601,7 @@ export function SidePanel() {
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between text-slate-300">
                           <span>Points value</span>
-                          <span className="text-green-400">
+                          <span className="text-[#4ECDA4]">
                             {card.rewardType === 'cashback'
                               ? `−${fmtUsd(card.trueRewardValueUsd)}`
                               : <>−{card.actualPointsEarned.toLocaleString()} pts
@@ -613,24 +613,24 @@ export function SidePanel() {
                         {card.feeBurdenUsd > 0 && (
                           <div className="flex justify-between text-slate-300">
                             <span>Fee per txn</span>
-                            <span className="text-orange-400">+{fmtPrice(card.feeBurdenUsd)}</span>
+                            <span className="text-[#E8A844]">+{fmtPrice(card.feeBurdenUsd)}</span>
                           </div>
                         )}
-                        <div className="flex justify-between text-slate-300">
+                        <div className="flex justify-between text-[#C4B8A8]">
                           <span>Float value</span>
-                          <span className="text-green-400">−{fmtPrice(card.floatValueUsd)}</span>
+                          <span className="text-[#4ECDA4]">−{fmtPrice(card.floatValueUsd)}</span>
                         </div>
-                        <div className="flex justify-between font-medium pt-1 border-t border-slate-700">
-                          <span className="text-slate-300">Effective cost</span>
-                          <span className="text-purple-300">
+                        <div className="flex justify-between font-medium pt-1 border-t border-[#3D2E1A]">
+                          <span className="text-[#C4B8A8]">Effective cost</span>
+                          <span className="text-[#C5AA67]">
                             {isGuaranteedRate(card) ? '' : '~'}{fmtUsd(card.netCost)}
                           </span>
                         </div>
                       </div>
 
                       {/* Reasoning */}
-                      <div className="bg-slate-800/60 rounded-lg p-2.5">
-                        <p className="text-xs text-slate-300 leading-relaxed">{card.reasoning}</p>
+                      <div className="bg-[#261B0E]/80 rounded-lg p-2.5">
+                        <p className="text-xs text-[#C4B8A8] leading-relaxed">{card.reasoning}</p>
                       </div>
 
                       {/* Exclusion warning */}
@@ -645,24 +645,24 @@ export function SidePanel() {
                           href={buildPortalDeepLink(card.portalBonusUrl, result.product.url)}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center justify-between gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2.5"
+                          className="flex items-center justify-between gap-2 bg-[#E8A844]/10 border border-[#E8A844]/30 rounded-lg px-3 py-2.5"
                         >
                           <div>
-                            <p className="text-xs font-semibold text-yellow-300">
+                            <p className="text-xs font-semibold text-[#E8A844]">
                               Shop via {card.portalBonusName}
                             </p>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-[#8B8070]">
                               Earn {card.earnAudit.rate}x instead of base rate
                             </p>
                           </div>
-                          <span className="text-yellow-400 text-xs font-bold flex-shrink-0">→ Go</span>
+                          <span className="text-[#E8A844] text-xs font-bold flex-shrink-0">→ Go</span>
                         </a>
                       )}
 
                       <button
                         onClick={() => handleCardSelect(card.cardKey)}
                         disabled={selectedCard === card.cardKey}
-                        className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 disabled:from-green-600 disabled:to-green-700 text-white py-2 rounded-lg font-medium text-xs transition-all"
+                        className="w-full bg-[#C5AA67] hover:bg-[#A8893F] disabled:bg-[#4ECDA4] text-[#0D0A06] py-2 rounded-lg font-medium text-xs transition-all"
                       >
                         {selectedCard === card.cardKey ? '✓ Selected' : 'Use This Card'}
                       </button>

@@ -84,12 +84,12 @@ export default function InsightsPage() {
 
   if (!userId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-[#0D0A06]">
         <Navigation />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center py-20">
-            <h1 className="text-2xl font-bold text-white mb-4">Sign In Required</h1>
-            <p className="text-slate-400">Please sign in to view your persona insights.</p>
+            <h1 className="text-2xl font-bold text-[#E8D8B0] mb-4">Sign In Required</h1>
+            <p className="text-[#8B8070]">Please sign in to view your persona insights.</p>
           </div>
         </main>
       </div>
@@ -98,11 +98,11 @@ export default function InsightsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-[#0D0A06]">
         <Navigation />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5AA67]"></div>
           </div>
         </main>
       </div>
@@ -111,14 +111,14 @@ export default function InsightsPage() {
 
   if (error || !personaResult) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-[#0D0A06]">
         <Navigation />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center py-20">
             <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-4">Unable to Load Insights</h1>
-            <p className="text-slate-400 mb-8">{error || 'No persona data available'}</p>
-            <Button onClick={handleRefresh} className="bg-purple-600 text-white">
+            <h1 className="text-2xl font-bold text-[#E8D8B0] mb-4">Unable to Load Insights</h1>
+            <p className="text-[#8B8070] mb-8">{error || 'No persona data available'}</p>
+            <Button onClick={handleRefresh} className="bg-[#C5AA67] text-[#0D0A06]">
               <RefreshCw className="w-4 h-4 mr-2" />
               Try Again
             </Button>
@@ -131,47 +131,47 @@ export default function InsightsPage() {
   const { persona } = personaResult;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-[#0D0A06]">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              AI <span className="bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">Insights</span>
+            <h1 className="text-4xl font-bold text-[#E8D8B0] mb-2">
+              AI <span className="text-[#C5AA67]">Insights</span>
             </h1>
-            <p className="text-slate-400">Your personalized credit card persona and recommendations</p>
+            <p className="text-[#8B8070]">Your personalized credit card persona and recommendations</p>
           </div>
-          <Button onClick={handleRefresh} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+          <Button onClick={handleRefresh} variant="outline" className="border-[#3D2E1A] text-[#C4B8A8] hover:bg-[#261B0E]">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
         </div>
 
         {/* Persona Card */}
-        <div className="bg-gradient-to-r from-purple-600/20 to-yellow-500/20 border border-purple-500/30 rounded-2xl p-8 mb-8">
+        <div className="bg-[#261B0E] border border-[#C5AA67]/30 rounded-2xl p-8 mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <Brain className="w-8 h-8 text-purple-400" />
-            <h2 className="text-2xl font-bold text-white">Your Persona</h2>
+            <Brain className="w-8 h-8 text-[#C5AA67]" />
+            <h2 className="text-2xl font-bold text-[#E8D8B0]">Your Persona</h2>
           </div>
           
           <div className="flex items-center gap-4 mb-6">
-            <div className="bg-purple-600 rounded-xl px-6 py-3">
-              <p className="text-white font-bold text-xl">{persona.label}</p>
+            <div className="bg-[#C5AA67] rounded-xl px-6 py-3">
+              <p className="text-[#0D0A06] font-bold text-xl">{persona.label}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-sm">Confidence</p>
-              <p className="text-white font-bold">{(persona.confidence * 100).toFixed(0)}%</p>
+              <p className="text-[#8B8070] text-sm">Confidence</p>
+              <p className="text-[#E8D8B0] font-bold">{(persona.confidence * 100).toFixed(0)}%</p>
             </div>
           </div>
 
           <div className="mb-6">
-            <h3 className="text-white font-semibold mb-3">Key Signals</h3>
+            <h3 className="text-[#E8D8B0] font-semibold mb-3">Key Signals</h3>
             <ul className="space-y-2">
               {persona.signals.map((signal, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-slate-300 text-sm">
-                  <Sparkles className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
+                <li key={idx} className="flex items-start gap-2 text-[#C4B8A8] text-sm">
+                  <Sparkles className="w-4 h-4 text-[#E8A844] mt-0.5 shrink-0" />
                   <span>{signal}</span>
                 </li>
               ))}
@@ -179,44 +179,44 @@ export default function InsightsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-slate-400 text-sm mb-1">Filter Premium Cards</p>
-              <p className="text-white font-bold">{persona.filterPremiumCards ? 'Yes' : 'No'}</p>
+            <div className="bg-[#261B0E]/80 rounded-lg p-4">
+              <p className="text-[#8B8070] text-sm mb-1">Filter Premium Cards</p>
+              <p className="text-[#E8D8B0] font-bold">{persona.filterPremiumCards ? 'Yes' : 'No'}</p>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-slate-400 text-sm mb-1">Focus on Transfer Partners</p>
-              <p className="text-white font-bold">{persona.focusOnTransferPartners ? 'Yes' : 'No'}</p>
+            <div className="bg-[#261B0E]/80 rounded-lg p-4">
+              <p className="text-[#8B8070] text-sm mb-1">Focus on Transfer Partners</p>
+              <p className="text-[#E8D8B0] font-bold">{persona.focusOnTransferPartners ? 'Yes' : 'No'}</p>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-slate-400 text-sm mb-1">Focus on Cashback</p>
-              <p className="text-white font-bold">{persona.focusOnCashback ? 'Yes' : 'No'}</p>
+            <div className="bg-[#261B0E]/80 rounded-lg p-4">
+              <p className="text-[#8B8070] text-sm mb-1">Focus on Cashback</p>
+              <p className="text-[#E8D8B0] font-bold">{persona.focusOnCashback ? 'Yes' : 'No'}</p>
             </div>
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-slate-400 text-sm mb-1">Focus on Financing</p>
-              <p className="text-white font-bold">{persona.focusOnFinancing ? 'Yes' : 'No'}</p>
+            <div className="bg-[#261B0E]/80 rounded-lg p-4">
+              <p className="text-[#8B8070] text-sm mb-1">Focus on Financing</p>
+              <p className="text-[#E8D8B0] font-bold">{persona.focusOnFinancing ? 'Yes' : 'No'}</p>
             </div>
           </div>
         </div>
 
         {/* Recommendation Card */}
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 mb-8">
+        <div className="bg-[#1A1209] border border-[#3D2E1A] rounded-2xl p-8 mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <TrendingUp className="w-8 h-8 text-green-400" />
-            <h2 className="text-2xl font-bold text-white">Recommended Card Stack</h2>
+            <TrendingUp className="w-8 h-8 text-[#4ECDA4]" />
+            <h2 className="text-2xl font-bold text-[#E8D8B0]">Recommended Card Stack</h2>
           </div>
 
-          <div className="bg-gradient-to-r from-green-600/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-6 mb-6">
-            <p className="text-slate-400 text-sm mb-2">Primary Recommendation</p>
-            <p className="text-white font-bold text-2xl mb-2">{persona.cardStackRecommendation.primary}</p>
-            <p className="text-slate-300 text-sm">{persona.cardStackRecommendation.rationale}</p>
+          <div className="bg-[#4ECDA4]/10 border border-[#4ECDA4]/30 rounded-xl p-6 mb-6">
+            <p className="text-[#8B8070] text-sm mb-2">Primary Recommendation</p>
+            <p className="text-[#E8D8B0] font-bold text-2xl mb-2">{persona.cardStackRecommendation.primary}</p>
+            <p className="text-[#C4B8A8] text-sm">{persona.cardStackRecommendation.rationale}</p>
           </div>
 
           {persona.cardStackRecommendation.avoid.length > 0 && (
             <div>
-              <p className="text-slate-400 text-sm mb-3">Card Types to Avoid</p>
+              <p className="text-[#8B8070] text-sm mb-3">Card Types to Avoid</p>
               <div className="flex flex-wrap gap-2">
                 {persona.cardStackRecommendation.avoid.map((item, idx) => (
-                  <span key={idx} className="bg-red-500/10 border border-red-500/30 text-red-300 px-3 py-1 rounded-full text-sm">
+                  <span key={idx} className="bg-red-500/10 border border-red-500/30 text-[#C0392B] px-3 py-1 rounded-full text-sm">
                     {item}
                   </span>
                 ))}
@@ -226,9 +226,9 @@ export default function InsightsPage() {
         </div>
 
         {/* Agent Reasoning */}
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8">
-          <h3 className="text-lg font-bold text-white mb-4">AI Reasoning</h3>
-          <p className="text-slate-300 text-sm leading-relaxed">
+        <div className="bg-[#1A1209] border border-[#3D2E1A] rounded-2xl p-8">
+          <h3 className="text-lg font-bold text-[#E8D8B0] mb-4">AI Reasoning</h3>
+          <p className="text-[#C4B8A8] text-sm leading-relaxed">
             {personaResult.rawGeminiReasoning}
           </p>
         </div>
