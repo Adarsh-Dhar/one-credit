@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { runOPAgent, CardKnowledge } from '@/lib/op-agent'
 import { FiatCard } from '@/lib/models/FiatCard'
+import type { IMilestoneBonus } from '@/lib/models/FiatCard'
 import { buildUserContext } from '@/lib/userContext'
 import { inferCategory, sanitizeForPrompt } from '@/lib/utils'
 import { z } from 'zod'
@@ -180,7 +182,7 @@ async function buildCardKnowledge(
             multiplier: dbCard.rewards_structure.rotating_categories.multiplier ?? 1,
           }
         : null,
-      milestoneBonuses: (dbCard.rewards_structure.milestone_bonuses ?? []).map((mb: any) => ({
+      milestoneBonuses: (dbCard.rewards_structure.milestone_bonuses ?? []).map((mb: IMilestoneBonus) => ({
         spendThresholdUsd: mb.spend_threshold_usd,
         bonusPoints: mb.bonus_points,
         period: mb.period,
@@ -205,7 +207,7 @@ function detectProductAttributes(product: z.infer<typeof AnalyzeSchema>['product
   const merchant = sanitizeForPrompt((product.source && SOURCE_TO_MERCHANT_DOMAIN[product.source]) || product.source || 'amazon.in')
 
   const isForeignMerchant = !merchant.endsWith('.in') && merchant !== 'amazon.in'
-  const category = sanitizeForPrompt(inferCategory(product.name || '', merchant))
+  const category = sanitizeForPrompt(inferCategory(product.name || ''))
 
   return { isEmi, merchant, isForeignMerchant, category }
 }
@@ -222,7 +224,7 @@ async function runAgentAndBuildResponse(
   cardKnowledgeMap: Record<string, CardKnowledge>,
   userContext: Awaited<ReturnType<typeof buildUserContext>>,
   env: ReturnType<typeof getEnv>,
-  apiKey: string
+  model: import('@google/generative-ai').GenerativeModel
 ): Promise<NextResponse> {
   const { isEmi, merchant, isForeignMerchant, category } = detectProductAttributes(product)
   const monthlyTxns = calculateMonthlyTxns(userContext)
@@ -237,7 +239,7 @@ async function runAgentAndBuildResponse(
       billingCycleDays: env.BILLING_CYCLE_DAYS,
       userContext,
     },
-    apiKey
+    model
   )
 
   return NextResponse.json({
@@ -281,8 +283,12 @@ export async function POST(request: NextRequest) {
     const cardKeys = userContext.cards.map(c => c.cardId)
     const cardKnowledgeMap = await buildCardKnowledge(userContext, userId, env, cardKeys)
 
+    // Instantiate Gemini model
+    const genAI = new GoogleGenerativeAI(apiKey)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+
     // Run agent and build response
-    return await runAgentAndBuildResponse(product, cardKeys, cardKnowledgeMap, userContext, env, apiKey)
+    return await runAgentAndBuildResponse(product, cardKeys, cardKnowledgeMap, userContext, env, model)
   } catch (error) {
     logger.error({ error }, '[OP Agent] Error')
     const { error: err, status } = toErrorResponse(error)

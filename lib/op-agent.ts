@@ -8,7 +8,6 @@
 // - Pass 1: Deterministic math (earn rates, CPP, fees, float value, etc.) - no AI
 // - Pass 2: Gemini only for reasoning strings (falls back to auto-generated if AI fails)
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import logger from '@/lib/logger'
 import type { UserContext } from '@/lib/userContext'
 
@@ -235,6 +234,23 @@ export function calculateCppTiers(
   return { conservativeCpp, realisticCpp, industryAssumedCpp }
 }
 
+export function calculateFeeBurden(
+  annualFeeUsd: number,
+  userMonthlyTxns: number
+): number {
+  return annualFeeUsd / 12 / userMonthlyTxns
+}
+
+export function resolveStatementCredit(
+  category: string,
+  statementCredits: CardKnowledge['statementCredits']
+): number {
+  const match = statementCredits.find(sc =>
+    sc.merchantCategories.some(cat => category.includes(cat.toLowerCase()))
+  )
+  return match ? match.annualValueUsd / 12 : 0
+}
+
 export function calculateNetCost(
   price: number,
   trueRewardValueUsd: number,
@@ -317,7 +333,7 @@ function calculateCardResult(
   const industryRewardValue = (totalPoints * industryAssumedCpp) / 100
 
   // Fee burden (amortized over monthly transactions)
-  const feeBurdenUsd = card.annualFeeUsd / 12 / userMonthlyTxns
+  const feeBurdenUsd = calculateFeeBurden(card.annualFeeUsd, userMonthlyTxns)
   const monthlySpend = userContext.behaviour?.monthlyAvgSpendUsd ?? 0
   const feeWaiverActive = card.feeWaiverSpendUsd !== null && monthlySpend >= card.feeWaiverSpendUsd
   const feeWaiverNote = feeWaiverActive ? 'Waived based on spend' : null
@@ -326,13 +342,7 @@ function calculateCardResult(
   const floatValueUsd = (price * riskFreeRatePercent / 100) * (FLOAT_PERIOD_DAYS / DAYS_PER_YEAR)
 
   // Statement credits
-  let statementCreditApplied = 0
-  for (const sc of card.statementCredits) {
-    if (sc.merchantCategories.some(cat => category.includes(cat.toLowerCase()))) {
-      statementCreditApplied = sc.annualValueUsd / 12 // Monthly average
-      break
-    }
-  }
+  const statementCreditApplied = resolveStatementCredit(category, card.statementCredits)
 
   // Foreign transaction fee
   const foreignFeeUsd = product.isForeignMerchant ? (price * card.foreignTxnFeePct / 100) : 0
@@ -374,7 +384,7 @@ function calculateCardResult(
     industryCost,
     savings,
     effectiveDiscountPercent,
-    reasoning: '', // Will be filled by Gemini or auto-generated
+    reasoning: '',
     portalBonusApplied,
     portalBonusName,
     portalBonusUrl,
@@ -488,10 +498,8 @@ Respond ONLY with JSON (no markdown):
 
 export async function runOPAgent(
   input: OPAgentInput,
-  geminiApiKey: string
+  model: import('@google/generative-ai').GenerativeModel
 ): Promise<AnalysisResult> {
-  const genAI = new GoogleGenerativeAI(geminiApiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
   const { product, cards, cardKnowledgeMap, userMonthlyTxns, riskFreeRatePercent, billingCycleDays, userContext } = input
 
   // Pass 1: Deterministic math for all cards

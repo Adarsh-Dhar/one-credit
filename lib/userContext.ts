@@ -385,8 +385,8 @@ function aggregateSpendingBehaviour(txns: TransactionLean[], totalSpend: number)
     .slice(0, 10)
 
   const cardTopMerchants: SpendingBehaviour['cardTopMerchants'] = {}
-  for (const [cid, mMap] of Object.entries(cardMerchantMap)) {
-    cardTopMerchants[cid] = Object.entries(mMap)
+  for (const [cardId, merchantMap] of Object.entries(cardMerchantMap)) {
+    cardTopMerchants[cardId] = Object.entries(merchantMap)
       .map(([merchant, data]) => ({
         merchant,
         totalSpentUsd: parseFloat(data.total.toFixed(2)),

@@ -28,7 +28,7 @@ const CATEGORY_PATTERNS: Array<{ pattern: RegExp; category: string }> = [
   { pattern: /medicine|tablet|capsule|syrup|health/, category: 'pharmacy' },
 ]
 
-export function inferCategory(productName: string, _merchant: string): string {
+export function inferCategory(productName: string): string {
   const name = productName.toLowerCase()
   return CATEGORY_PATTERNS.find(({ pattern }) => pattern.test(name))?.category ?? 'shopping'
 }

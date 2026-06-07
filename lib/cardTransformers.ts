@@ -85,7 +85,7 @@ export function transformFiatCardToWalletDetail(card: IFiatCard, value: number):
     name: card.display_name,
     issuer: card.network,
     type: card.card_type,
-    color: getCardColor(card.card_type),
+    color: CARD_TYPE_COLORS[card.card_type] || CARD_TYPE_COLORS.general,
     currency: card.currency_type.toLowerCase(),
     balance: card.current_balance_owed || 0,
     limit: card.credit_limit || 0,
@@ -108,8 +108,4 @@ export function transformFiatCardToWalletDetail(card: IFiatCard, value: number):
     cons: card.cons || [],
     features: card.features || []
   };
-}
-
-function getCardColor(cardType: string): string {
-  return CARD_TYPE_COLORS[cardType] || CARD_TYPE_COLORS.general;
 }

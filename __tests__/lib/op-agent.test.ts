@@ -12,6 +12,8 @@ import {
   checkMonthlyCap,
   calculateCppTiers,
   calculateNetCost,
+  calculateFeeBurden,
+  resolveStatementCredit,
   generateReasoningWithGemini,
 } from '@/lib/op-agent'
 
@@ -238,6 +240,63 @@ describe('calculateCppTiers', () => {
       realisticCpp: 1.2,
       industryAssumedCpp: 1.0,
     })
+  })
+})
+
+describe('calculateFeeBurden', () => {
+  it('should calculate basic fee burden', () => {
+    const result = calculateFeeBurden(95, 10)
+    expect(result).toBe(9.5 / 10)
+  })
+
+  it('should handle zero monthly transactions', () => {
+    const result = calculateFeeBurden(95, 0)
+    expect(result).toBe(Infinity)
+  })
+
+  it('should handle high annual fee with low transaction count', () => {
+    const result = calculateFeeBurden(450, 5)
+    expect(result).toBe(450 / 12 / 5)
+  })
+})
+
+describe('resolveStatementCredit', () => {
+  it('should return zero when no statement credits match', () => {
+    const credits = [
+      { name: 'Streaming', annualValueUsd: 120, merchantCategories: ['streaming', 'entertainment'] },
+    ]
+    const result = resolveStatementCredit('grocery', credits)
+    expect(result).toBe(0)
+  })
+
+  it('should return monthly value when category matches', () => {
+    const credits = [
+      { name: 'Grocery', annualValueUsd: 120, merchantCategories: ['grocery', 'supermarket'] },
+    ]
+    const result = resolveStatementCredit('grocery store', credits)
+    expect(result).toBe(10)
+  })
+
+  it('should use first matching statement credit', () => {
+    const credits = [
+      { name: 'Grocery', annualValueUsd: 120, merchantCategories: ['grocery'] },
+      { name: 'Supermarket', annualValueUsd: 240, merchantCategories: ['grocery', 'supermarket'] },
+    ]
+    const result = resolveStatementCredit('grocery', credits)
+    expect(result).toBe(10)
+  })
+
+  it('should be case-insensitive when matching categories', () => {
+    const credits = [
+      { name: 'Grocery', annualValueUsd: 120, merchantCategories: ['GROCERY'] },
+    ]
+    const result = resolveStatementCredit('grocery', credits)
+    expect(result).toBe(10)
+  })
+
+  it('should handle empty statement credits array', () => {
+    const result = resolveStatementCredit('grocery', [])
+    expect(result).toBe(0)
   })
 })
 
