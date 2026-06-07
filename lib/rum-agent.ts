@@ -280,6 +280,8 @@ async function logPersonaToDynatrace(
   userId: string,
   persona: UserPersona,
   reasoning: string,
+  source: 'rum_inferred' | 'chat_override' = 'rum_inferred',
+  intentOverrideActive: boolean = false,
 ): Promise<string | null> {
   if (!DT_ENV_URL || !DT_API_TOKEN) {
     logger.info({ userId, persona: persona.label }, '[rum-agent] DT not configured — skipping log ingest')
@@ -308,6 +310,8 @@ async function logPersonaToDynatrace(
     'severity':     'INFO',
     'user.id':      userId,
     'persona.label': persona.label,
+    source,
+    intentOverrideActive,
   }
 
   try {
@@ -370,6 +374,7 @@ async function runRUMAgentWithModel(
   userId: string,
   geminiApiKey: string,
   modelName: string,
+  extractedPrefs?: import('./models/UserIntent').ExtractedPrefs,
 ): Promise<RUMAgentResult> {
 
   const genAI  = new GoogleGenerativeAI(geminiApiKey)
@@ -390,6 +395,20 @@ async function runRUMAgentWithModel(
 
   // ── Agentic loop: Gemini may call DT tools multiple times ─────────────────
 
+  const constraintBlock = extractedPrefs ? `
+## CHAT-STATED PREFERENCES (OVERRIDE RUM SIGNALS)
+The user has explicitly stated the following preferences via chat conversation.
+These OVERRIDE any conflicting inference from RUM signals.
+
+${JSON.stringify(extractedPrefs, null, 2)}
+
+When inferring the persona, prioritize these explicit preferences over behavioral signals.
+For example:
+- If maxAnnualFee is set, set filterPremiumCards to true regardless of fee-insensitive signals
+- If mustHaveFeatures includes specific benefits, ensure those are reflected in the recommendation
+- If avoidNetworks is set, exclude those networks from recommendations
+` : '';
+
   const systemPrompt = `
 You are the RUMPersonaAgent for one-credit, a credit card wallet app.
 
@@ -397,6 +416,8 @@ You are the RUMPersonaAgent for one-credit, a credit card wallet app.
 Analyse Dynatrace Real User Monitoring (RUM) signals for a user and infer their
 credit card persona. Then recommend the right card stack for that persona.
 You do NOT compute net costs. You do NOT run financial math.
+
+${constraintBlock}
 
 ## AVAILABLE TOOLS
 Call dt_get_rum_sessions to get click, dwell, and scroll data.
@@ -554,6 +575,8 @@ args.userId = userId
     userId,
     parsed.persona,
     parsed.agentReasoning,
+    extractedPrefs ? 'chat_override' : 'rum_inferred',
+    !!extractedPrefs,
   )
 
   logger.info(
@@ -572,22 +595,23 @@ args.userId = userId
 export async function runRUMAgent(
   userId: string,
   geminiApiKey: string,
+  extractedPrefs?: import('./models/UserIntent').ExtractedPrefs,
 ): Promise<RUMAgentResult> {
   // Try gemini-2.5-flash first, fall back to gemini-pro if it fails
   try {
     logger.info('[rum-agent] Attempting persona inference with gemini-2.5-flash');
-    return await runRUMAgentWithModel(userId, geminiApiKey, 'gemini-2.5-flash');
+    return await runRUMAgentWithModel(userId, geminiApiKey, 'gemini-2.5-flash', extractedPrefs);
   } catch (error: any) {
-    const isRetryable = 
-      error?.status === 503 || 
+    const isRetryable =
+      error?.status === 503 ||
       error?.status === 429 ||
       error?.message?.includes('high demand') ||
       error?.message?.includes('quota') ||
       error?.message?.includes('Service Unavailable');
-    
+
     if (isRetryable) {
       logger.warn('[rum-agent] gemini-2.5-flash unavailable, falling back to gemini-pro');
-      return await runRUMAgentWithModel(userId, geminiApiKey, 'gemini-pro');
+      return await runRUMAgentWithModel(userId, geminiApiKey, 'gemini-pro', extractedPrefs);
     }
     throw error;
   }

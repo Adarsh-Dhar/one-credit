@@ -1,3 +1,14 @@
+// app/api/rum/analyze/route.ts
+//
+// Unified RUM persona-inference endpoint.
+// Replaces both the old /api/ai/analyze and /api/rum/analyze routes — they
+// both called runRUMAgent, but one lacked the session guard and neither
+// shared the same response shape. Now there is exactly one entry point.
+//
+// Called by:
+//   - /cards page  → "Calculate Best Card" button
+//   - /insights page → on-mount auto-fetch AND the "Refresh" button
+//   - /api/cron/persona-refresh → scheduled cron job
 import { runRUMAgent } from '@/lib/rum-agent';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -15,17 +26,21 @@ export async function POST(_request: Request) {
       throw new UnauthorizedError();
     }
 
-    // Check rate limit using session user ID
+    // Rate-limit per user (prevents hammering from rapid page refreshes)
     const { success } = await ratelimit.limit(userId);
     if (!success) {
-      throw new ValidationError('Rate limit exceeded');
+      throw new ValidationError('Rate limit exceeded — please wait before refreshing your persona.');
     }
 
     const geminiApiKey = process.env.GOOGLE_API_KEY;
     if (!geminiApiKey) {
-      return NextResponse.json({ error: 'Gemini API key required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Gemini API key not configured on the server.' },
+        { status: 500 },
+      );
     }
 
+    logger.info({ userId }, '[rum/analyze] Running RUM persona agent');
     const result = await runRUMAgent(userId, geminiApiKey);
     return NextResponse.json(result);
   } catch (error) {

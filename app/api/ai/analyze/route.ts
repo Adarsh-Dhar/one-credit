@@ -1,54 +1,22 @@
-import { runRUMAgent } from '@/lib/rum-agent';
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { z } from 'zod';
-import { ratelimit } from '@/lib/rateLimit';
-import { UnauthorizedError, ValidationError, toErrorResponse } from '@/lib/errors';
-import logger from '@/lib/logger';
-
-// Zod schema for request validation
-const AnalyzeSchema = z.object({
-  userId: z.string().optional(),
-  apiKey: z.string().optional(),
-});
-
+// app/api/ai/analyze/route.ts
+//
+// ⚠️  DEPRECATED — this route is kept alive only to avoid breaking any
+// existing bookmarks or external callers. All new code should use
+// POST /api/rum/analyze instead.
+//
+// This module simply proxies to the unified endpoint.
 export async function POST(request: Request) {
-  try {
-    // Validate request body with Zod
-    const parsed = AnalyzeSchema.safeParse(await request.json())
-    if (!parsed.success) {
-      throw new ValidationError('Invalid request body', { details: parsed.error.flatten() })
-    }
+  const url = new URL(request.url);
+  url.pathname = '/api/rum/analyze';
 
-    const { userId, apiKey } = parsed.data;
+  // Forward the original request (headers + body) to the canonical route
+  const forwarded = new Request(url.toString(), {
+    method: 'POST',
+    headers: request.headers,
+    body: request.body,
+    // @ts-expect-error — duplex is required for streaming bodies in Node 18+
+    duplex: 'half',
+  });
 
-    // Prefer server-side env key; fall back to user-supplied key for dev
-    const resolvedKey = process.env.GOOGLE_API_KEY || apiKey;
-
-    if (!resolvedKey) {
-      return NextResponse.json({ error: 'Gemini API key required' }, { status: 400 });
-    }
-
-    // Check authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      throw new UnauthorizedError();
-    }
-
-    // Check rate limit using session user ID
-    const { success } = await ratelimit.limit(session.user.id);
-    if (!success) {
-      throw new ValidationError('Rate limit exceeded');
-    }
-
-    // Run the RUM persona agent
-    const result = await runRUMAgent(userId || session.user.id, resolvedKey);
-
-    return NextResponse.json(result);
-  } catch (error) {
-    logger.error({ error }, '[analyze]');
-    const { error: errResponse, status } = toErrorResponse(error);
-    return NextResponse.json(errResponse, { status });
-  }
+  return fetch(forwarded);
 }
