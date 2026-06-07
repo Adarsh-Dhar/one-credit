@@ -23,6 +23,71 @@ import { affiliateStore } from '@/lib/mock-apis/rakuten-impact';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+// Raw input types from mock APIs - narrow interfaces for type safety
+interface CardlyticsOfferRaw {
+  offerId: string;
+  merchantName: string;
+  category: string;
+  cashbackRate: number;
+  minSpend?: number;
+  maxCashback?: number;
+  active: boolean;
+  startDate: string;
+  endDate: string;
+  description: string;
+  terms?: string[];
+  cardNetworks?: string[];
+  impressionCount?: number;
+  clickCount?: number;
+  redemptionCount?: number;
+  syncCount?: number;
+}
+
+interface NetworkOfferRaw {
+  offerId: string;
+  merchantName: string;
+  discountType: string;
+  discountRate: number;
+  minSpend?: number;
+  maxDiscount?: number;
+  active: boolean;
+  startDate: string;
+  endDate: string;
+  description: string;
+  terms?: string[];
+  network: string;
+  eligibleTiers?: any[];
+  geoTargets?: any[];
+  channels?: string[];
+  impressionCount?: number;
+  activationCount?: number;
+  redemptionCount?: number;
+  syncCount?: number;
+}
+
+interface AffiliateDealRaw {
+  dealId: string;
+  merchantName: string;
+  vertical: string;
+  network: string;
+  commissionType: string;
+  commissionRate: number;
+  tieredRates?: any[];
+  trackingUrl?: string;
+  promoCode?: string;
+  cookieWindow?: number;
+  minEpc?: number;
+  active: boolean;
+  startDate: string;
+  endDate: string;
+  description: string;
+  terms?: string[];
+  clickCount?: number;
+  conversionCount?: number;
+  revenue?: number;
+  syncCount?: number;
+}
+
 export interface ConnectorSyncResult {
   connectorId: string;
   source: 'cardlytics' | 'network' | 'affiliate';
@@ -53,7 +118,7 @@ function unifiedOfferId(source: string, rawId: string): string {
 
 // ── Normalizers ────────────────────────────────────────────────────────────────
 
-function normalizeCardlyticsOffer(offer: any, syncId: string) {
+function normalizeCardlyticsOffer(offer: CardlyticsOfferRaw, syncId: string) {
   return {
     offerId:      unifiedOfferId('cardlytics', offer.offerId),
     source:       'cardlytics' as const,
@@ -81,7 +146,7 @@ function normalizeCardlyticsOffer(offer: any, syncId: string) {
   };
 }
 
-function normalizeNetworkOffer(offer: any, syncId: string) {
+function normalizeNetworkOffer(offer: NetworkOfferRaw, syncId: string) {
   return {
     offerId:      unifiedOfferId('network', offer.offerId),
     source:       'network' as const,
@@ -112,7 +177,7 @@ function normalizeNetworkOffer(offer: any, syncId: string) {
   };
 }
 
-function normalizeAffiliateOffer(deal: any, syncId: string) {
+function normalizeAffiliateOffer(deal: AffiliateDealRaw, syncId: string) {
   return {
     offerId:      unifiedOfferId('affiliate', deal.dealId),
     source:       'affiliate' as const,
@@ -185,6 +250,7 @@ return 0;
     },
   }));
 
+  // Mongoose typing workaround: bulkWrite expects strict BulkOperation[] type
   const result = await RewardsOffer.bulkWrite(bulkOps as any, { ordered: false });
   return (result.upsertedCount ?? 0) + (result.modifiedCount ?? 0);
 }

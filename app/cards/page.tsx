@@ -11,6 +11,7 @@ import { motion } from 'framer-motion';
 import { useWallet } from '@/hooks/useWallet';
 import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
 import { usePersona } from '@/contexts/PersonaContext';
+import { useToast } from '@/hooks/use-toast';
 
 // ── Spending-cap config per card (issuer/category) ─────────────────────────
 // These caps mirror the reward structure limits (e.g., Amex $6k grocery cap).
@@ -152,6 +153,7 @@ function SpendingRing({ cap }: RingProps) {
 export default function CardsPage() {
   const { data: session } = useSession();
   const { cards, loading } = useWallet();
+  const { toast } = useToast();
   const {
     trackTabClick,
     trackCardView,
@@ -260,8 +262,12 @@ export default function CardsPage() {
       if (data.persona) {
         setPersona(data.persona);
       }
-    } catch (error) {
-      console.error('Failed to analyze persona:', error);
+    } catch {
+      toast({
+        title: 'Analysis Failed',
+        description: 'Failed to analyze persona',
+        variant: 'destructive',
+      });
     }
   };
 

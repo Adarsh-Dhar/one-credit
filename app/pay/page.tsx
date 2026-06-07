@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,33 +9,12 @@ import {
   ShoppingBag, Zap, CheckCircle2, XCircle,
   CreditCard, ArrowRight, Sparkles
 } from 'lucide-react';
-import { buildPaymentPrompt } from '@/lib/prompts';
-import { WalletCard } from '@/lib/types';
 import { StepIndicator } from '@/components/pay/StepIndicator';
 import { AITerminal } from '@/components/pay/TerminalAnalyzer';
 import { ArbitrageReceipt } from '@/components/pay/ArbitrageReceipt';
 import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
-
-// ── Types ──────────────────────────────────────────────────────────────────
-interface Merchant {
-  name: string;
-  logo: string; // emoji fallback
-  category: string;
-}
-
-interface GeminiRecommendation {
-  bestCard: string;
-  bestCardKey: string;
-  nativeReward: number;
-  rewardRate: number;
-  reasoning: string;
-  offerFound: boolean;
-  offerSource: string;
-  creditFired?: { name: string; amount: number };
-  portalUsed?: { name: string; url: string };
-  protectionNotes?: string[];
-  totalValue?: number;
-}
+import { useWallet } from '@/hooks/useWallet';
+import { usePayFlow } from '@/hooks/usePayFlow';
 
 // ── Data ───────────────────────────────────────────────────────────────────
 const CATEGORY_TO_EARN_KEY: Record<string, string> = {
@@ -94,24 +73,20 @@ const MERCHANTS: Merchant[] = [
   { name: 'Walgreens',        logo: '💊', category: 'pharmacy' },
 ];
 
-// ── Steps ──────────────────────────────────────────────────────────────────
-type Step = 'category' | 'merchant' | 'amount' | 'analyzing' | 'approval' | 'success' | 'failed';
+// ── Types ──────────────────────────────────────────────────────────────────
+interface Merchant {
+  name: string;
+  logo: string;
+  category: string;
+}
 
 export default function PayPage() {
   const { data: session } = useSession();
   const { trackEvent, trackTabClick, trackCardView } = useRUM();
   const { startDwell, endDwell } = useDwellTime('paymentFlow');
   const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
-  const [step, setStep]                   = useState<Step>('category');
-  const [selectedCategory, setCategory]   = useState<typeof CATEGORIES[0] | null>(null);
-  const [selectedMerchant, setMerchant]   = useState<Merchant | null>(null);
-  const [amount, setAmount]               = useState('');
-  const [cards, setCards]                 = useState<WalletCard[]>([]);
-  const [recommendation, setRec]          = useState<GeminiRecommendation | null>(null);
-  const [txHash, setTxHash]               = useState('');
-  const [isProcessing, setIsProcessing]   = useState(false);
-
-  const userId = session?.user?.email;
+  const { cards: walletCards } = useWallet();
+  const userId = session?.user?.id;
 
   // Initialize RUM tracking on mount
   useEffect(() => {
@@ -125,192 +100,23 @@ export default function PayPage() {
     };
   }, [trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking]);
 
-  // Fetch user cards once
-  useEffect(() => {
-    if (!userId) {
-      return;
-    }
-    fetch(`/api/wallet?email=${encodeURIComponent(userId)}`)
-      .then(r => r.json())
-      .then(d => setCards(d.cards ?? []));
-  }, [userId]);
+  // Use the extracted pay flow hook
+  const payFlow = usePayFlow({
+    userId,
+    cards: walletCards,
+    trackEvent,
+    trackCardView,
+    CATEGORY_TO_EARN_KEY,
+  });
 
   if (!userId) {
     // Handle unauthenticated case - redirect or show empty state
     return <div>Please sign in to access this page</div>;
   }
 
-  const filteredMerchants = selectedCategory
-    ? MERCHANTS.filter(m => m.category === selectedCategory.id)
+  const filteredMerchants = payFlow.selectedCategory
+    ? MERCHANTS.filter(m => m.category === payFlow.selectedCategory.id)
     : [];
-
-  // ── Step handlers ──────────────────────────────────────────────────────
-  const handleCategorySelect = (cat: typeof CATEGORIES[0]) => {
-    setCategory(cat);
-    setStep('merchant');
-    // Track transaction categorized event
-    trackEvent('transaction_categorized', { category: cat.id, label: cat.label });
-    trackCardView(cat.id);
-  };
-
-  const handleMerchantSelect = (merchant: Merchant) => {
-    setMerchant(merchant);
-    setStep('amount');
-    trackCardView(merchant.name);
-  };
-
-  const handleAmountSubmit = async () => {
-    const parsedAmount = parseFloat(amount);
-    if (!amount || parsedAmount <= 0 || parsedAmount > 10000) {
-      return;
-    }
-
-    // Track spend category amount entered
-    trackEvent('spend_category_entered', {
-      category: selectedCategory?.id,
-      amount: parsedAmount
-    });
-
-    setStep('analyzing');
-
-    try {
-      // Ask Gemini which card to use and what rewards exist
-      const prompt = buildPaymentPrompt(
-        amount,
-        selectedMerchant?.name || '',
-        selectedCategory?.label || '',
-        userId
-      );
-
-      const res = await fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-      });
-      const data = await res.json();
-
-      // Parse Gemini JSON response
-      let rec: GeminiRecommendation;
-      try {
-        const clean = data.response.replace(/```json|```/g, '').trim();
-        rec = JSON.parse(clean);
-      } catch {
-        // Fallback if Gemini doesn't return clean JSON - use two-step formula
-        const categoryKey = CATEGORY_TO_EARN_KEY[selectedCategory?.id ?? ''] ?? 'general';
-
-        // Find the card with the highest earn rate for this category
-        const bestCard = cards.reduce((best, current) => {
-          const bestRate = best?.earnRates?.[categoryKey as keyof typeof best.earnRates] ?? 1.0;
-          const currentRate = current?.earnRates?.[categoryKey as keyof typeof current.earnRates] ?? 1.0;
-          return currentRate > bestRate ? current : best;
-        }, cards[0]);
-
-        const earnRate = bestCard?.earnRates?.[categoryKey as keyof typeof bestCard.earnRates] ?? 1.0;
-        // earnRate is a whole number (e.g., 3 = 3%), so divide by 100 to get decimal
-        const cashReward = parseFloat(amount) * (earnRate / 100);
-
-        rec = {
-          bestCard:   bestCard?.name ?? 'Your best card',
-          bestCardKey: bestCard?.key ?? '',
-          nativeReward: cashReward,
-          rewardRate: earnRate / 100,
-          reasoning:  'Best available rewards for this category.',
-          offerFound: false,
-          offerSource: 'none',
-          creditFired: undefined,
-          portalUsed: undefined,
-          protectionNotes: undefined,
-          totalValue: undefined,
-        };
-      }
-      setRec(rec);
-      setStep('approval');
-    } catch {
-      setStep('failed');
-    }
-  };
-
-  const handleApprove = async () => {
-    if (!recommendation || isProcessing) {
-      return;
-    }
-    
-    // Track card recommendation acceptance
-    trackCardView(recommendation.bestCardKey);
-    trackEvent('payment.approved', { 
-      card: recommendation.bestCardKey, 
-      amount: parseFloat(amount),
-      merchant: selectedMerchant?.name 
-    });
-    
-    setIsProcessing(true);
-
-    // Wait for animation
-    await new Promise(r => setTimeout(r, 2200));
-
-    try {
-      // Debit the car)
-      await fetch('/api/tools/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toolName: 'updateBalances',
-          toolInput: {
-            userId,
-            cardDebits: {
-              [recommendation.bestCardKey]: { debit: recommendation.nativeReward },
-            },
-          },
-        }),
-      });
-
-      // Record transaction
-      await fetch('/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,                                       // ← required by the POST handler
-          type: 'spend',
-          amountUsd:  parseFloat(amount),               // ← top-level, indexed field
-          cardId:     recommendation.bestCardKey,       // ← top-level, indexed field
-          category:   selectedCategory?.id ?? 'other', // ← top-level, indexed field
-          merchant:   selectedMerchant?.name ?? '',     // ← top-level, indexed field
-          isEmi:      false,
-          pointsEarned:   Math.round(recommendation.nativeReward * 100), // ← cents as points proxy; adjust to real points if Gemini returns them
-          rewardValueUsd: recommendation.nativeReward,  // ← USD value of reward earned
-          // keep these for UI back-compat
-          description: `${selectedMerchant?.name} — $${amount}`,
-          metadata: { offerSource: recommendation.offerSource },
-        }),
-      });
-
-      // Trigger re-sync
-      await fetch('/api/tools/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toolName: 'sync_after_redemption',
-          toolInput: { sources: ['rewards'] },
-        }),
-      });
-
-      setTxHash('0x' + Math.random().toString(16).slice(2, 18).toUpperCase());
-      setStep('success');
-    } catch {
-      setStep('failed');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const reset = () => {
-    setStep('category');
-    setCategory(null);
-    setMerchant(null);
-    setAmount('');
-    setRec(null);
-    setTxHash('');
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -319,12 +125,12 @@ export default function PayPage() {
 
       <main className="max-w-2xl mx-auto px-4 py-12">
         {/* Progress bar */}
-        {step !== 'failed' && <StepIndicator step={step as any} />}
+        {payFlow.step !== 'failed' && <StepIndicator step={payFlow.step as any} />}
 
         <AnimatePresence mode="wait">
 
           {/* ── STEP 1: Category ── */}
-          {step === 'category' && (
+          {payFlow.step === 'category' && (
             <motion.div key="category"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
               <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">What are you paying for?</h2>
@@ -333,7 +139,7 @@ export default function PayPage() {
                 {CATEGORIES.map(cat => {
                   const Icon = cat.icon;
                   return (
-                    <button key={cat.id} onClick={() => handleCategorySelect(cat)}
+                    <button key={cat.id} onClick={() => payFlow.handleCategorySelect(cat)}
                       className={`bg-gradient-to-br ${cat.color} p-4 rounded-xl flex flex-col items-center gap-2
                         hover:scale-105 transition-all duration-200 cursor-pointer shadow-lg`}>
                       <Icon className="w-7 h-7 text-white" />
@@ -346,15 +152,15 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 2: Merchant ── */}
-          {step === 'merchant' && selectedCategory && (
+          {payFlow.step === 'merchant' && payFlow.selectedCategory && (
             <motion.div key="merchant"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <button onClick={() => setStep('category')} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
+              <button onClick={() => payFlow.setStep('category')} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
               <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">Choose merchant</h2>
-              <p className="text-[#8B8070] mb-8">{selectedCategory.label} merchants with live reward offers</p>
+              <p className="text-[#8B8070] mb-8">{payFlow.selectedCategory.label} merchants with live reward offers</p>
               <div className="grid grid-cols-2 gap-3">
                 {filteredMerchants.map(m => (
-                  <button key={m.name} onClick={() => handleMerchantSelect(m)}
+                  <button key={m.name} onClick={() => payFlow.handleMerchantSelect(m)}
                     className="bg-[#1A1209] border border-[#3D2E1A] hover:border-[#C5AA67] rounded-xl p-4
                       flex items-center gap-3 transition-all duration-200 hover:bg-[#261B0E] cursor-pointer">
                     <span className="text-3xl">{m.logo}</span>
@@ -366,14 +172,14 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 3: Amount ── */}
-          {step === 'amount' && selectedMerchant && (
+          {payFlow.step === 'amount' && payFlow.selectedMerchant && (
             <motion.div key="amount"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <button onClick={() => setStep('merchant')} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
+              <button onClick={() => payFlow.setStep('merchant')} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
               <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">How much?</h2>
               <div className="flex items-center gap-3 mb-8">
-                <span className="text-4xl">{selectedMerchant.logo}</span>
-                <span className="text-[#C4B8A8] text-lg">{selectedMerchant.name}</span>
+                <span className="text-4xl">{payFlow.selectedMerchant.logo}</span>
+                <span className="text-[#C4B8A8] text-lg">{payFlow.selectedMerchant.name}</span>
               </div>
 
               <div className="bg-[#1A1209] border border-[#3D2E1A] rounded-2xl p-6 mb-6">
@@ -385,8 +191,8 @@ export default function PayPage() {
                     min="0.01"
                     max="10000"
                     step="0.01"
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
+                    value={payFlow.amount}
+                    onChange={e => payFlow.setAmount(e.target.value)}
                     placeholder="0.00"
                     className="bg-transparent text-[#E8D8B0] text-4xl font-bold w-full outline-none placeholder-[#6B5E52]"
                     autoFocus
@@ -397,7 +203,7 @@ export default function PayPage() {
               {/* Quick amounts */}
               <div className="flex gap-2 mb-8">
                 {['25', '50', '100', '200', '500'].map(v => (
-                  <button key={v} onClick={() => setAmount(v)}
+                  <button key={v} onClick={() => payFlow.setAmount(v)}
                     className="flex-1 bg-[#1A1209] hover:bg-[#261B0E] border border-[#3D2E1A] text-[#C4B8A8]
                       rounded-lg py-2 text-sm transition-colors">
                     ${v}
@@ -405,8 +211,8 @@ export default function PayPage() {
                 ))}
               </div>
 
-              <button onClick={handleAmountSubmit}
-                disabled={!amount || parseFloat(amount) <= 0}
+              <button onClick={payFlow.handleAmountSubmit}
+                disabled={!payFlow.amount || parseFloat(payFlow.amount) <= 0}
                 className="w-full bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] font-bold
                   py-4 rounded-xl transition-all
                   disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
@@ -417,22 +223,22 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 4: Analyzing ── */}
-          {step === 'analyzing' && (
+          {payFlow.step === 'analyzing' && (
             <motion.div key="analyzing"
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
               <div data-section="card-recommendation">
                 <AITerminal
-                  merchant={selectedMerchant?.name || ''}
-                  category={selectedCategory?.label || ''}
+                  merchant={payFlow.selectedMerchant?.name || ''}
+                  category={payFlow.selectedCategory?.label || ''}
                   userId={userId}
-                  cardCount={cards.length}
+                  cardCount={walletCards.length}
                 />
               </div>
             </motion.div>
           )}
 
           {/* ── STEP 5: Approval (crypto wallet animation) ── */}
-          {step === 'approval' && recommendation && (
+          {payFlow.step === 'approval' && payFlow.recommendation && (
             <motion.div key="approval"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
 
@@ -441,9 +247,9 @@ export default function PayPage() {
 
               {/* Token flow animation — the crypto wallet moment */}
               <TokenFlowAnimation
-                fromCard={recommendation.bestCard}
-                toMerchant={selectedMerchant!}
-                amount={parseFloat(amount)}
+                fromCard={payFlow.recommendation.bestCard}
+                toMerchant={payFlow.selectedMerchant!}
+                amount={parseFloat(payFlow.amount)}
               />
 
               {/* Recommendation card */}
@@ -451,73 +257,73 @@ export default function PayPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="w-4 h-4 text-[#E8A844]" />
                   <span className="text-[#E8A844] text-sm font-medium">AI Recommendation</span>
-                  {recommendation.offerFound && (
+                  {payFlow.recommendation.offerFound && (
                     <span className="ml-auto text-xs bg-[#4ECDA4]/15 text-[#4ECDA4] px-2 py-0.5 rounded-full">
-                      Live offer from {recommendation.offerSource}
+                      Live offer from {payFlow.recommendation.offerSource}
                     </span>
                   )}
                 </div>
-                <p className="text-[#E8D8B0] font-semibold mb-1">Use: {recommendation.bestCard}</p>
-                <p className="text-[#8B8070] text-sm">{recommendation.reasoning}</p>
+                <p className="text-[#E8D8B0] font-semibold mb-1">Use: {payFlow.recommendation.bestCard}</p>
+                <p className="text-[#8B8070] text-sm">{payFlow.recommendation.reasoning}</p>
                 <div className="mt-3 flex gap-4">
                   <div>
                     <p className="text-[#6B5E52] text-xs">Reward rate</p>
-                    <p className="text-[#4ECDA4] font-bold">{(recommendation.rewardRate * 100).toFixed(1)}%</p>
+                    <p className="text-[#4ECDA4] font-bold">{(payFlow.recommendation.rewardRate * 100).toFixed(1)}%</p>
                   </div>
                   <div>
                     <p className="text-[#6B5E52] text-xs">You earn</p>
-                    <p className="text-[#C5AA67] font-bold">+${recommendation.nativeReward?.toFixed(2)} USD</p>
+                    <p className="text-[#C5AA67] font-bold">+${payFlow.recommendation.nativeReward?.toFixed(2)} USD</p>
                   </div>
                   <div>
                     <p className="text-[#6B5E52] text-xs">Amount</p>
-                    <p className="text-[#E8D8B0] font-bold">${parseFloat(amount).toFixed(2)}</p>
+                    <p className="text-[#E8D8B0] font-bold">${parseFloat(payFlow.amount).toFixed(2)}</p>
                   </div>
                 </div>
               </div>
 
               {/* Approve / Reject buttons */}
               <div className="flex gap-3">
-                <button onClick={reset}
+                <button onClick={payFlow.reset}
                   className="flex-1 border border-red-500/50 text-red-400 hover:bg-red-500/10
                     rounded-xl py-4 font-bold transition-all flex items-center justify-center gap-2">
                   <XCircle className="w-5 h-5" />
                   Reject
                 </button>
-                <button onClick={handleApprove}
-                  disabled={isProcessing}
+                <button onClick={payFlow.handleApprove}
+                  disabled={payFlow.isProcessing}
                   className="flex-2 flex-grow bg-[#C5AA67]
                     text-[#0D0A06] font-bold py-4 rounded-xl hover:bg-[#A8893F]
                     transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#C5AA67]/25
                     disabled:opacity-40 disabled:cursor-not-allowed">
                   <CheckCircle2 className="w-5 h-5" />
-                  {isProcessing ? 'Processing...' : 'Approve Payment'}
+                  {payFlow.isProcessing ? 'Processing...' : 'Approve Payment'}
                 </button>
               </div>
             </motion.div>
           )}
 
           {/* ── STEP 6: Success — Arbitrage Receipt ── */}
-          {step === 'success' && (
+          {payFlow.step === 'success' && (
             <ArbitrageReceipt
-              merchant={selectedMerchant?.name ?? ''}
-              amount={parseFloat(amount)}
-              recommendation={recommendation}
-              txHash={txHash}
-              onReset={reset}
-              allCards={cards}
-              categoryKey={CATEGORY_TO_EARN_KEY[selectedCategory?.id ?? ''] ?? 'general'}
+              merchant={payFlow.selectedMerchant?.name ?? ''}
+              amount={parseFloat(payFlow.amount)}
+              recommendation={payFlow.recommendation}
+              txHash={payFlow.txHash}
+              onReset={payFlow.reset}
+              allCards={walletCards}
+              categoryKey={CATEGORY_TO_EARN_KEY[payFlow.selectedCategory?.id ?? ''] ?? 'general'}
             />
           )}
 
           {/* ── STEP 7: Failed ── */}
-          {step === 'failed' && (
+          {payFlow.step === 'failed' && (
             <motion.div key="failed"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="text-center py-12">
               <XCircle className="w-20 h-20 text-red-400 mx-auto mb-6" />
               <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">Transaction Failed</h2>
               <p className="text-[#8B8070] mb-8">Something went wrong. Please try again.</p>
-              <button onClick={reset}
+              <button onClick={payFlow.reset}
                 className="bg-[#261B0E] text-[#E8D8B0] font-bold py-3 px-8 rounded-xl hover:bg-[#3D2E1A]">
                 Try Again
               </button>

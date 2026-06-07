@@ -4,6 +4,8 @@ import { RUMEvent } from '@/lib/types';
 import { ratelimit } from '@/lib/rateLimit';
 import logger from '@/lib/logger';
 import { toErrorResponse } from '@/lib/errors';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 // ─── Event Handler Map ─────────────────────────────────────────────────────
 
@@ -63,10 +65,6 @@ const eventHandlers: Record<string, EventHandler> = {
   extension_fire: (_event, acc) => {
     acc.incOps.extensionFireCount = (acc.incOps.extensionFireCount || 0) + 1;
   },
-  card_recommendation_view: () => {
-    // Track when user views card recommendations - can be used for funnel analysis
-    // No specific field to update, just log the event for now
-  },
   abandoned_rotating_activation: (_event, acc) => {
     acc.setOps.abandonedRotatingActivation = true;
   },
@@ -82,6 +80,11 @@ const eventHandlers: Record<string, EventHandler> = {
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { userId, events } = body as { userId: string; events: RUMEvent[] };
 
@@ -89,6 +92,11 @@ export async function POST(request: Request) {
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+
+    // Verify the requested userId matches the authenticated user
+    if (session.user.id !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     if (!events || !Array.isArray(events)) {

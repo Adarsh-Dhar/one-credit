@@ -69,14 +69,10 @@ async function checkRateLimit(userId: string): Promise<NextResponse | null> {
 async function buildCardKnowledge(
   userContext: Awaited<ReturnType<typeof buildUserContext>>,
   userId: string,
-  env: ReturnType<typeof getEnv>
+  env: ReturnType<typeof getEnv>,
+  cardKeys: string[]
 ): Promise<Record<string, CardKnowledge>> {
   const cardKnowledgeMap: Record<string, CardKnowledge> = {}
-  const cardKeys: string[] = []
-
-  for (const card of userContext.cards) {
-    cardKeys.push(card.cardId)
-  }
 
   const dbCards = await FiatCard.find({
     card_id: { $in: cardKeys },
@@ -283,7 +279,7 @@ export async function POST(request: NextRequest) {
 
     // Build card knowledge map
     const cardKeys = userContext.cards.map(c => c.cardId)
-    const cardKnowledgeMap = await buildCardKnowledge(userContext, userId, env)
+    const cardKnowledgeMap = await buildCardKnowledge(userContext, userId, env, cardKeys)
 
     // Run agent and build response
     return await runAgentAndBuildResponse(product, cardKeys, cardKnowledgeMap, userContext, env, apiKey)

@@ -5,6 +5,7 @@ import { connectDB } from '@/lib/mongodb';
 import { Transaction } from '@/lib/models/Transaction';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import logger from '@/lib/logger';
+import { toErrorResponse } from '@/lib/errors';
 
 export async function GET(request: Request) {
   try {
@@ -74,9 +75,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ transaction });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create transaction' },
-      { status: 500 }
-    );
+    logger.error({ error }, '[POST /api/transactions]');
+    const { error: err, status } = toErrorResponse(error);
+    return NextResponse.json(err, { status });
   }
 }

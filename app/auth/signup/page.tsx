@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,8 +37,12 @@ export default function SignUpPage() {
       } else {
         router.push('/auth/signin');
       }
-    } catch (error) {
-      console.error('Signup exception:', error);
+    } catch {
+      toast({
+        title: 'Signup Error',
+        description: 'An error occurred. Please try again.',
+        variant: 'destructive',
+      });
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);

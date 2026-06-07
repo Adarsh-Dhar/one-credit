@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Settings() {
   const { data: session } = useSession();
+  const { toast } = useToast();
   const [apiKey, setApiKey] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,8 +87,12 @@ return
             setProfile(data.profile);
           }
         }
-      } catch (err) {
-        console.error('Failed to load profile:', err);
+      } catch {
+        toast({
+          title: 'Error',
+          description: 'Failed to load profile',
+          variant: 'destructive',
+        });
       } finally {
         setProfileLoading(false);
       }

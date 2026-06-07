@@ -9,9 +9,11 @@ import Link from 'next/link';
 import { CardDefinition } from '@/lib/cards';
 import { useWallet } from '@/hooks/useWallet';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Dashboard() {
   const { wallet, cards, loading, session } = useWallet();
+  const { toast } = useToast();
   const [selectedCard, setSelectedCard] = useState<CardDefinition | null>(null);
   const [cardDetails, setCardDetails] = useState<any>(null);
 
@@ -28,8 +30,12 @@ export default function Dashboard() {
       const data = await response.json();
       const fullCard = data.cards.find((c: any) => c.card_id === card.key);
       setCardDetails(fullCard);
-    } catch (error) {
-      console.error('Error fetching card details:', error);
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch card details',
+        variant: 'destructive',
+      });
     }
   };
 
