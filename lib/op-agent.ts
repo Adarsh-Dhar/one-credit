@@ -110,7 +110,6 @@ export interface CardResult {
   industryAssumedCpp: number
   basePointsEarned: number
   bonusPointsEarned: number
-  existingPoints: { balance: number; valueUsd: number; note: string } | null
   statementCreditApplied: number
   feeWaiverActive: boolean
   feeWaiverNote: string | null
@@ -153,6 +152,105 @@ interface OPAgentInput {
 
 // ─── Deterministic math pass (no AI) ─────────────────────────────────────────
 
+export function checkCategoryExclusion(
+  category: string,
+  excludedCategories: string[]
+): { confirmedEarn: boolean; exclusionReason: string | null; earnRate: number } {
+  if (excludedCategories.some(exc => category.includes(exc.toLowerCase()))) {
+    return {
+      confirmedEarn: false,
+      exclusionReason: `Category "${category}" is excluded for this card`,
+      earnRate: 0,
+    }
+  }
+  return { confirmedEarn: true, exclusionReason: null, earnRate: 0 }
+}
+
+export function applyRotatingBonus(
+  category: string,
+  rotatingCategory: CardKnowledge['rotatingCategory'],
+  baseRate: number,
+  price: number
+): { earnRate: number; bonusPoints: number; rotatingBonusApplied: boolean } {
+  if (rotatingCategory?.isActive && rotatingCategory.activeCategories.some(cat => category.includes(cat.toLowerCase()))) {
+    const earnRate = rotatingCategory.multiplier
+    const bonusPoints = (price * (earnRate - baseRate)) / 100
+    return { earnRate, bonusPoints, rotatingBonusApplied: true }
+  }
+  return { earnRate: baseRate, bonusPoints: 0, rotatingBonusApplied: false }
+}
+
+export function applyPortalBonus(
+  category: string,
+  portalBonuses: CardKnowledge['portalBonuses'],
+  baseRate: number,
+  price: number
+): { earnRate: number; bonusPoints: number; portalBonusApplied: boolean; portalBonusName: string | null; portalBonusUrl: string | null } {
+  for (const bonus of portalBonuses) {
+    if (bonus.categories.some(cat => category.includes(cat.toLowerCase()))) {
+      const earnRate = bonus.bonusMultiplier
+      const bonusPoints = (price * (earnRate - baseRate)) / 100
+      return {
+        earnRate,
+        bonusPoints,
+        portalBonusApplied: true,
+        portalBonusName: bonus.portalName,
+        portalBonusUrl: bonus.portalUrl,
+      }
+    }
+  }
+  return { earnRate: baseRate, bonusPoints: 0, portalBonusApplied: false, portalBonusName: null, portalBonusUrl: null }
+}
+
+export function applyEmiOverride(
+  isEmi: boolean,
+  emiEarnRate: number,
+  currentEarnRate: number
+): number {
+  return isEmi && emiEarnRate > 0 ? emiEarnRate : currentEarnRate
+}
+
+export function checkMonthlyCap(
+  price: number,
+  earnRate: number,
+  monthlyCapPoints: number | null
+): { earnRate: number; capBreached: boolean } {
+  if (monthlyCapPoints && (price * earnRate / 100) > monthlyCapPoints) {
+    return {
+      capBreached: true,
+      earnRate: (monthlyCapPoints * 100) / price,
+    }
+  }
+  return { earnRate, capBreached: false }
+}
+
+export function calculateCppTiers(
+  redemptionPaths: CardKnowledge['redemptionPaths'],
+  actualAvgCppAchieved: number | null,
+  bestRedemptionRatePerPoint: number
+): { conservativeCpp: number; realisticCpp: number; industryAssumedCpp: number } {
+  const conservativeCpp = redemptionPaths[0]?.ratePerPoint ?? 1.0
+  const realisticCpp = actualAvgCppAchieved ?? bestRedemptionRatePerPoint
+  const industryAssumedCpp = INDUSTRY_STANDARD_CPP
+  return { conservativeCpp, realisticCpp, industryAssumedCpp }
+}
+
+export function calculateNetCost(
+  price: number,
+  trueRewardValueUsd: number,
+  industryRewardValue: number,
+  feeBurdenUsd: number,
+  floatValueUsd: number,
+  foreignFeeUsd: number,
+  statementCreditApplied: number
+): { netCost: number; industryCost: number; savings: number; effectiveDiscountPercent: number } {
+  const netCost = price - trueRewardValueUsd + feeBurdenUsd - floatValueUsd + foreignFeeUsd - statementCreditApplied
+  const industryCost = price - industryRewardValue + feeBurdenUsd - floatValueUsd + foreignFeeUsd - statementCreditApplied
+  const savings = industryCost - netCost
+  const effectiveDiscountPercent = ((price - netCost) / price) * 100
+  return { netCost, industryCost, savings, effectiveDiscountPercent }
+}
+
 function calculateCardResult(
   cardKey: string,
   card: CardKnowledge,
@@ -162,65 +260,57 @@ function calculateCardResult(
   const price = product.price
   const isEmi = product.isEmi
   const category = product.category.toLowerCase()
+  const baseRate = card.earnRules[0]?.rate ?? 1
 
-  // Determine earn rate
-  let earnRate = card.earnRules[0]?.rate ?? 1 // Default to base rate
+  // Initialize state
   let confirmedEarn = true
   let exclusionReason: string | null = null
   let capBreached = false
-  let basePoints = 0
-  let bonusPoints = 0
   let rotatingBonusApplied = false
   let portalBonusApplied = false
   let portalBonusName: string | null = null
   let portalBonusUrl: string | null = null
 
-  // Check exclusions
-  if (card.excludedCategories.some(exc => category.includes(exc.toLowerCase()))) {
-    confirmedEarn = false
-    exclusionReason = `Category "${category}" is excluded for this card`
-    earnRate = 0
-  }
+  // Step 1: Check exclusions
+  const exclusionResult = checkCategoryExclusion(category, card.excludedCategories)
+  confirmedEarn = exclusionResult.confirmedEarn
+  exclusionReason = exclusionResult.exclusionReason
+  let earnRate = exclusionResult.earnRate || baseRate
 
-  // Check rotating category bonus
-  if (card.rotatingCategory?.isActive && card.rotatingCategory.activeCategories.some(cat => category.includes(cat.toLowerCase()))) {
-    earnRate = card.rotatingCategory.multiplier
-    bonusPoints = (price * (earnRate - card.earnRules[0].rate)) / 100
-    rotatingBonusApplied = true
-  }
+  // Step 2: Apply rotating bonus
+  const rotatingResult = applyRotatingBonus(category, card.rotatingCategory, baseRate, price)
+  earnRate = rotatingResult.earnRate
+  let bonusPoints = rotatingResult.bonusPoints
+  rotatingBonusApplied = rotatingResult.rotatingBonusApplied
 
-  // Check portal bonuses
-  for (const bonus of card.portalBonuses) {
-    if (bonus.categories.some(cat => category.includes(cat.toLowerCase()))) {
-      earnRate = bonus.bonusMultiplier
-      portalBonusApplied = true
-      portalBonusName = bonus.portalName
-      portalBonusUrl = bonus.portalUrl
-      bonusPoints = (price * (earnRate - card.earnRules[0].rate)) / 100
-      break
-    }
-  }
+  // Step 3: Apply portal bonus
+  const portalResult = applyPortalBonus(category, card.portalBonuses, baseRate, price)
+  earnRate = portalResult.earnRate
+  bonusPoints = portalResult.bonusPoints
+  portalBonusApplied = portalResult.portalBonusApplied
+  portalBonusName = portalResult.portalBonusName
+  portalBonusUrl = portalResult.portalBonusUrl
 
-  // EMI override
-  if (isEmi && card.emiEarnRate > 0) {
-    earnRate = card.emiEarnRate
-  }
+  // Step 4: Apply EMI override
+  earnRate = applyEmiOverride(isEmi, card.emiEarnRate, earnRate)
 
-  // Check monthly cap
-  if (card.monthlyCapPoints && (price * earnRate / 100) > card.monthlyCapPoints) {
-    capBreached = true
-    earnRate = (card.monthlyCapPoints * 100) / price
-  }
+  // Step 5: Check monthly cap
+  const capResult = checkMonthlyCap(price, earnRate, card.monthlyCapPoints)
+  earnRate = capResult.earnRate
+  capBreached = capResult.capBreached
 
   // Calculate points
-  basePoints = (price * card.earnRules[0].rate) / 100
+  const basePoints = (price * baseRate) / 100
   const totalPoints = (price * earnRate) / 100
   bonusPoints = totalPoints - basePoints
 
-  // CPP tiers
-  const conservativeCpp = card.redemptionPaths[0]?.ratePerPoint ?? 1.0
-  const realisticCpp = userContext.behaviour?.actualAvgCppAchieved ?? card.bestRedemptionRatePerPoint
-  const industryAssumedCpp = INDUSTRY_STANDARD_CPP
+  // Step 6: Calculate CPP tiers
+  const cppResult = calculateCppTiers(
+    card.redemptionPaths,
+    userContext.behaviour?.actualAvgCppAchieved,
+    card.bestRedemptionRatePerPoint
+  )
+  const { conservativeCpp, realisticCpp, industryAssumedCpp } = cppResult
 
   // Calculate reward value
   const trueRewardValueUsd = (totalPoints * realisticCpp) / 100
@@ -246,11 +336,17 @@ function calculateCardResult(
   // Foreign transaction fee
   const foreignFeeUsd = product.isForeignMerchant ? (price * card.foreignTxnFeePct / 100) : 0
 
-  // Calculate net cost
-  const netCost = price - trueRewardValueUsd + feeBurdenUsd - floatValueUsd + foreignFeeUsd - statementCreditApplied
-  const industryCost = price - industryRewardValue + feeBurdenUsd - floatValueUsd + foreignFeeUsd - statementCreditApplied
-  const savings = industryCost - netCost
-  const effectiveDiscountPercent = ((price - netCost) / price) * 100
+  // Step 7: Calculate net cost
+  const costResult = calculateNetCost(
+    price,
+    trueRewardValueUsd,
+    industryRewardValue,
+    feeBurdenUsd,
+    floatValueUsd,
+    foreignFeeUsd,
+    statementCreditApplied
+  )
+  const { netCost, industryCost, savings, effectiveDiscountPercent } = costResult
 
   // Build earn audit
   const earnAudit: EarnAudit = {
@@ -286,7 +382,6 @@ function calculateCardResult(
     industryAssumedCpp,
     basePointsEarned: basePoints,
     bonusPointsEarned: bonusPoints,
-    existingPoints: null,
     statementCreditApplied,
     feeWaiverActive,
     feeWaiverNote,

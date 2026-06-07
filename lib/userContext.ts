@@ -223,7 +223,7 @@ function computeOpTotals(cardStates: CardLiveState[]): { totalOpTokens: number; 
   return { totalOpTokens, totalOpBalanceUsd }
 }
 
-function computeRedemptionStats(redemptionTxns: TransactionLean[]): {
+export function computeRedemptionStats(redemptionTxns: TransactionLean[]): {
   actualAvgCppAchieved: number | null
   totalPointsRedeemed90d: number
   redemptionCount90d: number
@@ -240,7 +240,7 @@ function computeRedemptionStats(redemptionTxns: TransactionLean[]): {
   return { actualAvgCppAchieved, totalPointsRedeemed90d, redemptionCount90d }
 }
 
-function computeMonthlyTrend(monthBuckets: Record<string, Record<string, number>>): {
+export function computeMonthlyTrend(monthBuckets: Record<string, Record<string, number>>): {
   monthlyTrend: SpendingBehaviour['monthlyTrend']
   momSpendChangePct: number | null
   fastestGrowingCategory: string | null
@@ -284,7 +284,7 @@ function computeMonthlyTrend(monthBuckets: Record<string, Record<string, number>
   return { monthlyTrend, momSpendChangePct, fastestGrowingCategory }
 }
 
-function buildCardCategoryBreakdown(
+export function buildCardCategoryBreakdown(
   cardCategoryMap: Record<string, Record<string, { total: number; count: number }>>
 ): SpendingBehaviour['cardCategoryBreakdown'] {
   const result: SpendingBehaviour['cardCategoryBreakdown'] = {}
@@ -323,42 +323,42 @@ function aggregateSpendingBehaviour(txns: TransactionLean[], totalSpend: number)
   let emiCount = 0
 
   for (const tx of txns) {
-    const cat = tx.category ?? 'other'
-    const cid = tx.cardId
-    const m = (tx.merchant ?? 'unknown').toLowerCase().trim()
+    const category = tx.category ?? 'other'
+    const cardId = tx.cardId
+    const merchant = (tx.merchant ?? 'unknown').toLowerCase().trim()
     const month = (tx.createdAt as Date).toISOString().slice(0, 7)
     const amt = tx.amountUsd ?? 0
 
     // cross-card category aggregate
-    categoryMap[cat] ??= { total: 0, count: 0 }
-    categoryMap[cat].total += amt
-    categoryMap[cat].count += 1
+    categoryMap[category] ??= { total: 0, count: 0 }
+    categoryMap[category].total += amt
+    categoryMap[category].count += 1
     if (tx.isEmi) {
       emiCount++
     }
 
     // per-card category
-    cardCategoryMap[cid] ??= {}
-    cardCategoryMap[cid][cat] ??= { total: 0, count: 0 }
-    cardCategoryMap[cid][cat].total += amt
-    cardCategoryMap[cid][cat].count += 1
+    cardCategoryMap[cardId] ??= {}
+    cardCategoryMap[cardId][category] ??= { total: 0, count: 0 }
+    cardCategoryMap[cardId][category].total += amt
+    cardCategoryMap[cardId][category].count += 1
 
     // global merchant
-    merchantMap[m] ??= { total: 0, count: 0, categories: {}, cardCounts: {} }
-    merchantMap[m].total += amt
-    merchantMap[m].count += 1
-    merchantMap[m].categories[cat] = (merchantMap[m].categories[cat] ?? 0) + 1
-    merchantMap[m].cardCounts[cid] = (merchantMap[m].cardCounts[cid] ?? 0) + 1
+    merchantMap[merchant] ??= { total: 0, count: 0, categories: {}, cardCounts: {} }
+    merchantMap[merchant].total += amt
+    merchantMap[merchant].count += 1
+    merchantMap[merchant].categories[category] = (merchantMap[merchant].categories[category] ?? 0) + 1
+    merchantMap[merchant].cardCounts[cardId] = (merchantMap[merchant].cardCounts[cardId] ?? 0) + 1
 
     // per-card merchant
-    cardMerchantMap[cid] ??= {}
-    cardMerchantMap[cid][m] ??= { total: 0, count: 0 }
-    cardMerchantMap[cid][m].total += amt
-    cardMerchantMap[cid][m].count += 1
+    cardMerchantMap[cardId] ??= {}
+    cardMerchantMap[cardId][merchant] ??= { total: 0, count: 0 }
+    cardMerchantMap[cardId][merchant].total += amt
+    cardMerchantMap[cardId][merchant].count += 1
 
     // monthly trend
     monthBuckets[month] ??= {}
-    monthBuckets[month][cat] = (monthBuckets[month][cat] ?? 0) + amt
+    monthBuckets[month][category] = (monthBuckets[month][category] ?? 0) + amt
   }
 
   const categoryBreakdown = Object.entries(categoryMap)
