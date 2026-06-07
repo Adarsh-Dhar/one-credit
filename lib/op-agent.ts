@@ -110,8 +110,6 @@ export interface CardResult {
   industryAssumedCpp: number
   basePointsEarned: number
   bonusPointsEarned: number
-  utilizationWarning: string | null
-  aprWarning: string | null
   existingPoints: { balance: number; valueUsd: number; note: string } | null
   statementCreditApplied: number
   feeWaiverActive: boolean
@@ -288,8 +286,6 @@ function calculateCardResult(
     industryAssumedCpp,
     basePointsEarned: basePoints,
     bonusPointsEarned: bonusPoints,
-    utilizationWarning: null,
-    aprWarning: null,
     existingPoints: null,
     statementCreditApplied,
     feeWaiverActive,

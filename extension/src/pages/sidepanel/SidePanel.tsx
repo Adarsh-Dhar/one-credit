@@ -35,8 +35,6 @@ interface CardResult {
   industryAssumedCpp: number
   basePointsEarned: number
   bonusPointsEarned: number
-  utilizationWarning: string | null
-  aprWarning: string | null
   existingPoints: { balance: number; valueUsd: number; note: string } | null
   statementCreditApplied: number
   milestoneCreditUsd: number
