@@ -11,6 +11,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import logger from '@/lib/logger'
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const INDUSTRY_STANDARD_CPP = 1.0
+const FLOAT_PERIOD_DAYS = 30
+const DAYS_PER_YEAR = 365
+
 // ─── Types matching SidePanel.tsx ─────────────────────────────────────────────
 
 export interface CardKnowledge {
@@ -99,12 +105,9 @@ export interface CardResult {
   aprWarning: string | null
   existingPoints: { balance: number; valueUsd: number; note: string } | null
   statementCreditApplied: number
-  milestoneCreditUsd: number
   feeWaiverActive: boolean
   feeWaiverNote: string | null
   rotatingBonusApplied: boolean
-  opConservationPenalty: number
-  opVelocityBonus: number
   foreignFeeUsd: number
   rewardType: 'points' | 'miles' | 'cashback'
 }
@@ -155,7 +158,6 @@ function calculateCardResult(
   const price = product.price
   const isEmi = product.isEmi
   const category = product.category.toLowerCase()
-  // const merchant = product.merchant.toLowerCase() // Available for future merchant-specific logic
 
   // Determine earn rate
   let earnRate = card.earnRules[0]?.rate ?? 1 // Default to base rate
@@ -214,7 +216,7 @@ function calculateCardResult(
   // CPP tiers
   const conservativeCpp = card.redemptionPaths[0]?.ratePerPoint ?? 1.0
   const realisticCpp = userContext.behaviour?.actualAvgCppAchieved ?? card.bestRedemptionRatePerPoint
-  const industryAssumedCpp = 1.0 // Industry standard baseline
+  const industryAssumedCpp = INDUSTRY_STANDARD_CPP
 
   // Calculate reward value
   const trueRewardValueUsd = (totalPoints * realisticCpp) / 100
@@ -226,7 +228,7 @@ function calculateCardResult(
   const feeWaiverNote = feeWaiverActive ? 'Waived based on spend' : null
 
   // Float value (30-day grace period at risk-free rate)
-  const floatValueUsd = (price * riskFreeRatePercent / 100) * (30 / 365)
+  const floatValueUsd = (price * riskFreeRatePercent / 100) * (FLOAT_PERIOD_DAYS / DAYS_PER_YEAR)
 
   // Statement credits
   let statementCreditApplied = 0
@@ -237,17 +239,8 @@ function calculateCardResult(
     }
   }
 
-  // Milestone bonuses (simplified - assume not triggered for single purchase)
-  const milestoneCreditUsd = 0
-
   // Foreign transaction fee
   const foreignFeeUsd = product.isForeignMerchant ? (price * card.foreignTxnFeePct / 100) : 0
-
-  // OP conservation penalty (simplified)
-  const opConservationPenalty = 0
-
-  // OP velocity bonus (simplified)
-  const opVelocityBonus = 0
 
   // Calculate net cost
   const netCost = price - trueRewardValueUsd + feeBurdenUsd - floatValueUsd + foreignFeeUsd - statementCreditApplied
@@ -293,12 +286,9 @@ function calculateCardResult(
     aprWarning: null,
     existingPoints: null,
     statementCreditApplied,
-    milestoneCreditUsd,
     feeWaiverActive,
     feeWaiverNote,
     rotatingBonusApplied,
-    opConservationPenalty,
-    opVelocityBonus,
     foreignFeeUsd,
     rewardType: card.rewardType,
   }

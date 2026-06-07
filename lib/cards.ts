@@ -3,6 +3,7 @@
 import { connectDB } from './mongodb';
 import { FiatCard, IFiatCard } from './models/FiatCard';
 import logger from '@/lib/logger';
+import { CARD_TYPE_COLORS, buildEarnRates } from './card-constants';
 
 export type CardKey = string;
 
@@ -37,43 +38,32 @@ export interface CardDefinition {
   perks: string[];
 }
 
-// Color mapping based on card type
-const typeToColor: Record<string, string> = {
-  travel: 'from-blue-600 to-indigo-800',
-  dining: 'from-yellow-500 to-orange-600',
-  cashback: 'from-emerald-500 to-teal-700',
-  fuel: 'from-orange-500 to-red-600',
-  shopping: 'from-violet-500 to-purple-700',
-  crypto: 'from-yellow-400 to-amber-600',
-  general: 'from-cyan-500 to-blue-600',
-  business: 'from-slate-600 to-slate-800',
-  student: 'from-pink-500 to-rose-700',
-};
+// Color mapping based on card type - now using shared constants from card-constants.ts
 
 // Map points program names to TRANSFER_CPP lookup keys
 function mapProgramName(programName: string | null | undefined): string | undefined {
   if (!programName) {
-return undefined;
-}
+    return undefined;
+  }
   const lower = programName.toLowerCase();
   if (lower.includes('ultimate rewards')) {
-return 'chase_ur';
-}
+    return 'chase_ur';
+  }
   if (lower.includes('membership rewards')) {
-return 'amex_mr';
-}
+    return 'amex_mr';
+  }
   if (lower.includes('venture rewards')) {
-return 'cap1_miles';
-}
+    return 'cap1_miles';
+  }
   if (lower.includes('thankyou')) {
-return 'citi_ty';
-}
+    return 'citi_ty';
+  }
   if (lower.includes('hilton honors')) {
-return 'hilton';
-}
+    return 'hilton';
+  }
   if (lower.includes('marriott bonvoy')) {
-return 'marriott';
-}
+    return 'marriott';
+  }
   return undefined;
 }
 
@@ -84,75 +74,38 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
   // Determine card type for UI
   let type: CardDefinition['type'] = 'general';
   if (card_type === 'business') {
-type = 'business';
-} else if (display_name.toLowerCase().includes('student')) {
-type = 'student';
-} else if (currency_type === 'MILES' || display_name.toLowerCase().includes('travel') || display_name.toLowerCase().includes('sapphire')) {
-type = 'travel';
-} else if (display_name.toLowerCase().includes('dining') || display_name.toLowerCase().includes('restaurant')) {
-type = 'dining';
-} else if (currency_type === 'USD' || display_name.toLowerCase().includes('cash')) {
-type = 'cashback';
-} else if (display_name.toLowerCase().includes('fuel') || display_name.toLowerCase().includes('gas')) {
-type = 'fuel';
-} else if (display_name.toLowerCase().includes('shop') || display_name.toLowerCase().includes('online')) {
-type = 'shopping';
-} else if (display_name.toLowerCase().includes('crypto')) {
-type = 'crypto';
-}
-
-  // Extract earn rates from rewards structure
-  const earnRates = {
-    flights: 1.0,
-    hotel: 1.0,
-    dining: 1.0,
-    electronics: 1.0,
-    groceries: 1.0,
-    fuel: 1.0,
-    shopping: 1.0,
-    crypto: 1.0,
-    general: rewards_structure.base_multiplier || 1.0,
-  };
-
-  // Map fixed categories to earn rates
-  if (rewards_structure.fixed_categories) {
-    for (const cat of rewards_structure.fixed_categories) {
-      const category = cat.category.toLowerCase();
-      const multiplier = cat.multiplier;
-      
-      if (category.includes('travel') || category.includes('flight')) {
-earnRates.flights = multiplier;
-}
-      if (category.includes('hotel') || category.includes('lodging')) {
-earnRates.hotel = multiplier;
-}
-      if (category.includes('dining') || category.includes('restaurant')) {
-earnRates.dining = multiplier;
-}
-      if (category.includes('electronics') || category.includes('tech')) {
-earnRates.electronics = multiplier;
-}
-      if (category.includes('grocer') || category.includes('supermarket')) {
-earnRates.groceries = multiplier;
-}
-      if (category.includes('gas') || category.includes('fuel') || category.includes('station')) {
-earnRates.fuel = multiplier;
-}
-      if (category.includes('shop') || category.includes('online') || category.includes('retail')) {
-earnRates.shopping = multiplier;
-}
-    }
+    type = 'business';
+  } else if (display_name.toLowerCase().includes('student')) {
+    type = 'student';
+  } else if (currency_type === 'MILES' || display_name.toLowerCase().includes('travel') || display_name.toLowerCase().includes('sapphire')) {
+    type = 'travel';
+  } else if (display_name.toLowerCase().includes('dining') || display_name.toLowerCase().includes('restaurant')) {
+    type = 'dining';
+  } else if (currency_type === 'USD' || display_name.toLowerCase().includes('cash')) {
+    type = 'cashback';
+  } else if (display_name.toLowerCase().includes('fuel') || display_name.toLowerCase().includes('gas')) {
+    type = 'fuel';
+  } else if (display_name.toLowerCase().includes('shop') || display_name.toLowerCase().includes('online')) {
+    type = 'shopping';
+  } else if (display_name.toLowerCase().includes('crypto')) {
+    type = 'crypto';
   }
+
+  // Extract earn rates from rewards structure using shared function
+  const earnRates = buildEarnRates(
+    rewards_structure.fixed_categories || [],
+    rewards_structure.base_multiplier || 1.0
+  );
 
   // Calculate default balance based on currency type - use credit_token_balance (rewards) not current_balance_owed (debt)
   let defaultBalance = 0;
   if (currency_type === 'POINTS') {
-defaultBalance = fiatCard.points_balance || 30000;
-} else if (currency_type === 'MILES') {
-defaultBalance = 50000;
-} else {
-defaultBalance = fiatCard.credit_token_balance || 150;
-}
+    defaultBalance = fiatCard.points_balance || 30000;
+  } else if (currency_type === 'MILES') {
+    defaultBalance = 50000;
+  } else {
+    defaultBalance = fiatCard.credit_token_balance || 150;
+  }
 
 
   // Combine perks
@@ -167,7 +120,7 @@ defaultBalance = fiatCard.credit_token_balance || 150;
     name: display_name,
     issuer: network,
     type,
-    color: typeToColor[type] || typeToColor.general,
+    color: CARD_TYPE_COLORS[type] || CARD_TYPE_COLORS.general,
     currency: currency_type.toLowerCase(),
     defaultBalance,
     pointsProgramKey: mapProgramName(fiatCard.points_program_name),
@@ -192,7 +145,7 @@ export async function getCards(userId: string): Promise<CardDefinition[]> {
     const fiatCards = await FiatCard.find({ user_id: userId }).lean();
     return fiatCards.map(transformFiatCard);
   } catch (error) {
-    console.error('Error fetching cards from database:', error);
+    logger.error({ error }, 'Error fetching cards from database');
     return [];
   }
 }
@@ -228,8 +181,8 @@ export async function getCard(key: CardKey, userId: string): Promise<CardDefinit
       })
       .lean();
     if (!fiatCard) {
-return undefined;
-}
+      return undefined;
+    }
     return transformFiatCard(fiatCard);
   } catch (error) {
     logger.error({ error }, 'Error fetching card from database');

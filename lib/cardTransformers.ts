@@ -3,6 +3,29 @@
 // Shared card transformation utilities to avoid duplication
 
 import { IFiatCard } from './models/FiatCard';
+import { CARD_TYPE_COLORS, buildEarnRates } from './card-constants';
+
+export interface StatementCredit {
+  name: string;
+  amount_usd: number;
+  reset_period: string;
+  merchant_categories?: string[];
+}
+
+export interface PortalBonus {
+  portal_name: string;
+  portal_url: string;
+  categories: string[];
+  bonus_multiplier: number;
+  bonus_type: string;
+}
+
+export interface TransferPartner {
+  program: string;
+  ratio: string;
+  cpp_min: number;
+  cpp_max: number;
+}
 
 export interface WalletCardDetail {
   key: string;
@@ -16,16 +39,16 @@ export interface WalletCardDetail {
   value: number;
   earnRates: Record<string, number>;
   redemptionRate: string;
-  statementCredits: any[];
-  portalBonuses: any[];
-  protections: any;
-  transferPartners: any[];
+  statementCredits: StatementCredit[];
+  portalBonuses: PortalBonus[];
+  protections: unknown | null;
+  transferPartners: TransferPartner[];
   pointsProgram: {
     name: string;
     cppMin: number;
     cppMax: number;
   } | null;
-  perks: any[];
+  perks: string[];
   annualFee: number;
   cardImageUrl: string;
   cardDescription: string;
@@ -34,45 +57,22 @@ export interface WalletCardDetail {
   features: string[];
 }
 
-function getCategoryMultiplier(fixedCategories: any[], targetCategory: string): number {
-  const categoryMap: Record<string, string> = {
-    flights: 'travel',
-    hotel: 'lodging',
-    dining: 'restaurant',
-    groceries: 'grocery',
-    fuel: 'gas',
-    shopping: 'retail',
-    pharmacy: 'drugstore',
-    electronics: 'electronics',
-    streaming: 'streaming',
-  };
-  const normalizedTarget = categoryMap[targetCategory] || targetCategory;
-  return fixedCategories.find((c: any) => c.category === normalizedTarget)?.multiplier ?? 1;
-}
 
 export function transformFiatCardToWalletDetail(card: IFiatCard, value: number): WalletCardDetail {
   const rewardsStructure = card.rewards_structure || {};
   const pointsValueCents = card.points_value_cents || 1.0;
 
-  const earnRates = {
-    flights: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'flights'),
-    hotel: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'hotel'),
-    dining: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'dining'),
-    groceries: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'groceries'),
-    fuel: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'fuel'),
-    shopping: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'shopping'),
-    pharmacy: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'pharmacy'),
-    electronics: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'electronics'),
-    streaming: getCategoryMultiplier(rewardsStructure.fixed_categories || [], 'streaming'),
-    general: rewardsStructure.base_multiplier,
-  };
+  const earnRates = buildEarnRates(
+    rewardsStructure.fixed_categories || [],
+    rewardsStructure.base_multiplier
+  );
 
   // Build points program info for POINTS-type cards
   let pointsProgram = null;
   if (card.currency_type === 'POINTS' || card.currency_type === 'MILES') {
     const transferPartners = card.benefits_and_credits?.transfer_partners || [];
-    const cppMin = transferPartners.length > 0 ? Math.min(...transferPartners.map((p: any) => p.cpp_min)) : pointsValueCents;
-    const cppMax = transferPartners.length > 0 ? Math.max(...transferPartners.map((p: any) => p.cpp_max)) : pointsValueCents;
+    const cppMin = transferPartners.length > 0 ? Math.min(...transferPartners.map((p: TransferPartner) => p.cpp_min)) : pointsValueCents;
+    const cppMax = transferPartners.length > 0 ? Math.max(...transferPartners.map((p: TransferPartner) => p.cpp_max)) : pointsValueCents;
     pointsProgram = {
       name: card.points_program_name || 'Unknown',
       cppMin,
@@ -111,16 +111,5 @@ export function transformFiatCardToWalletDetail(card: IFiatCard, value: number):
 }
 
 function getCardColor(cardType: string): string {
-  const typeColors: Record<string, string> = {
-    travel: 'from-blue-600 to-purple-600',
-    dining: 'from-orange-500 to-red-600',
-    cashback: 'from-green-500 to-emerald-600',
-    fuel: 'from-yellow-500 to-orange-600',
-    shopping: 'from-pink-500 to-rose-600',
-    crypto: 'from-violet-500 to-purple-600',
-    general: 'from-slate-500 to-slate-700',
-    business: 'from-indigo-600 to-blue-600',
-    student: 'from-teal-500 to-cyan-600',
-  };
-  return typeColors[cardType] || typeColors.general;
+  return CARD_TYPE_COLORS[cardType] || CARD_TYPE_COLORS.general;
 }

@@ -12,20 +12,41 @@
 //   3. Gemini returns a UserPersona + card recommendation rationale
 //   4. Log the inference back to Dynatrace via the Logs Ingest API
 
-import { GoogleGenerativeAI, Tool, FunctionDeclaration } from '@google/generative-ai'
+import { GoogleGenerativeAI, Tool, FunctionDeclaration, GenerativeModel } from '@google/generative-ai'
 import logger from '@/lib/logger'
 import type { RUMSignals } from '@/lib/types'
 import { RUMSignals as RUMSignalsModel } from '@/lib/models/RUMSignals'
+import { getEnv } from '@/lib/env'
 
 // Re-export RUMSignals from lib/types for backward compatibility
 export type { RUMSignals }
+
+// ─── Gemini Types ─────────────────────────────────────────────────────────────
+
+export interface GeminiPart {
+  text?: string
+  functionCall?: {
+    name: string
+    args: Record<string, unknown>
+  }
+  functionResponse?: {
+    name: string
+    response: { content: string }
+  }
+}
+
+export interface GeminiContent {
+  role: 'user' | 'model'
+  parts: GeminiPart[]
+}
 
 // ─── Dynatrace config (add to .env) ──────────────────────────────────────────
 // DT_ENV_URL=https://<env-id>.live.dynatrace.com or https://<tenant>.apps.dynatrace.com (Platform)
 // DT_API_TOKEN=dt0c01.<token>   (needs: logs.ingest  +  DTAQLAccess  +  apiTokens.read)
 
-const DT_ENV_URL  = process.env.DT_ENV_URL  ?? ''
-const DT_API_TOKEN = process.env.DT_API_TOKEN ?? ''
+const env = getEnv()
+const DT_ENV_URL  = env.DT_ENV_URL  ?? ''
+const DT_API_TOKEN = env.DT_API_TOKEN ?? ''
 
 // Platform URLs require Bearer auth, classic SaaS uses Api-Token
 const IS_PLATFORM_URL = DT_ENV_URL.includes('.apps.dynatrace.com')
@@ -176,77 +197,82 @@ async function executeDTTool(
     'Content-Type': 'application/json',
   }
 
-  switch (toolName) {
-
-    case 'dt_get_rum_sessions': {
-      const lookback = (args.lookbackMinutes as number) ?? 60
-      const now = Date.now()
-      const from = now - lookback * 60_000
-
-      // Dynatrace Sessions API v2 - Platform URLs use same path as classic
-      const res = await fetch(
-        `${DT_ENV_URL}/api/v1/userSessionQueryLanguage/table?` +
-        new URLSearchParams({
-          query: `SELECT * FROM usersession WHERE userId = '${args.userId}' LIMIT 50`,
-          startTimestamp: String(from),
-          endTimestamp:   String(now),
-        }),
-        { headers },
-      )
-      if (!res.ok) {
-        const errorText = await res.text()
-        logger.error({ status: res.status, errorText }, '[rum-agent] DT RUM sessions error details')
-        throw new Error(`DT RUM sessions error: ${res.status}`)
-}
-      return res.json()
-    }
-
-    case 'dt_get_custom_events': {
-      const lookback = (args.lookbackMinutes as number) ?? 60
-      const now = Date.now()
-      const from = now - lookback * 60_000
-      const eventFilter = (args.eventTypes as string[])?.length
-        ? `AND eventType IN (${(args.eventTypes as string[]).map(e => `'${e}'`).join(',')})`
-        : ''
-
-      const res = await fetch(
-        `${DT_ENV_URL}/api/v1/userSessionQueryLanguage/table?` +
-        new URLSearchParams({
-          query: `SELECT * FROM useraction WHERE userId = '${args.userId}' ${eventFilter} LIMIT 200`,
-          startTimestamp: String(from),
-          endTimestamp:   String(now),
-        }),
-        { headers },
-      )
-      if (!res.ok) {
-throw new Error(`DT custom events error: ${res.status}`)
-}
-      return res.json()
-    }
-
-    case 'dt_get_apm_metrics': {
-      const endpoints = (args.endpoints as string[]) ?? [
-        '/api/extension/analyze',
-        '/api/ai/analyze',
-      ]
-      const res = await fetch(
-        `${DT_ENV_URL}/api/v2/metrics/query?` +
-        new URLSearchParams({
-          metricSelector: `builtin:service.requestCount.total:filter(in("dt.entity.service_method",entitySelector("type(SERVICE_METHOD),serviceName(~"${endpoints.join('|')}~")")))`,
-          resolution:     '5m',
-        }),
-        { headers },
-      )
-      if (!res.ok) {
-throw new Error(`DT APM metrics error: ${res.status}`)
-}
-      return res.json()
-    }
-
-    default:
-      throw new Error(`Unknown DT tool: ${toolName}`)
+  const executor = DT_TOOL_EXECUTORS[toolName]
+  if (executor) {
+    return executor(args, headers)
   }
+  throw new Error(`Unknown DT tool: ${toolName}`)
 }
+
+// ─── DT Tool Executor Map ─────────────────────────────────────────────────
+
+type DTToolExecutor = (args: Record<string, unknown>, headers: HeadersInit) => Promise<unknown>;
+
+const DT_TOOL_EXECUTORS: Record<string, DTToolExecutor> = {
+  dt_get_rum_sessions: async (args, headers) => {
+    const lookback = (args.lookbackMinutes as number) ?? 60
+    const now = Date.now()
+    const from = now - lookback * 60_000
+
+    const res = await fetch(
+      `${DT_ENV_URL}/api/v1/userSessionQueryLanguage/table?` +
+      new URLSearchParams({
+        query: `SELECT * FROM usersession WHERE userId = '${args.userId}' LIMIT 50`,
+        startTimestamp: String(from),
+        endTimestamp:   String(now),
+      }),
+      { headers },
+    )
+    if (!res.ok) {
+      const errorText = await res.text()
+      logger.error({ status: res.status, errorText }, '[rum-agent] DT RUM sessions error details')
+      throw new Error(`DT RUM sessions error: ${res.status}`)
+    }
+    return res.json()
+  },
+
+  dt_get_custom_events: async (args, headers) => {
+    const lookback = (args.lookbackMinutes as number) ?? 60
+    const now = Date.now()
+    const from = now - lookback * 60_000
+    const eventFilter = (args.eventTypes as string[])?.length
+      ? `AND eventType IN (${(args.eventTypes as string[]).map(e => `'${e}'`).join(',')})`
+      : ''
+
+    const res = await fetch(
+      `${DT_ENV_URL}/api/v1/userSessionQueryLanguage/table?` +
+      new URLSearchParams({
+        query: `SELECT * FROM useraction WHERE userId = '${args.userId}' ${eventFilter} LIMIT 200`,
+        startTimestamp: String(from),
+        endTimestamp:   String(now),
+      }),
+      { headers },
+    )
+    if (!res.ok) {
+      throw new Error(`DT custom events error: ${res.status}`)
+    }
+    return res.json()
+  },
+
+  dt_get_apm_metrics: async (args, headers) => {
+    const endpoints = (args.endpoints as string[]) ?? [
+      '/api/extension/analyze',
+      '/api/ai/analyze',
+    ]
+    const res = await fetch(
+      `${DT_ENV_URL}/api/v2/metrics/query?` +
+      new URLSearchParams({
+        metricSelector: `builtin:service.requestCount.total:filter(in("dt.entity.service_method",entitySelector("type(SERVICE_METHOD),serviceName(~"${endpoints.join('|')}~")")))`,
+        resolution:     '5m',
+      }),
+      { headers },
+    )
+    if (!res.ok) {
+      throw new Error(`DT APM metrics error: ${res.status}`)
+    }
+    return res.json()
+  },
+};
 
 // ─── Mock signals (used when DT creds are absent, e.g. local dev) ─────────────
 
@@ -339,28 +365,37 @@ async function logPersonaToDynatrace(
   }
 }
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const MAX_AGENTIC_ITERATIONS = 6
+const MAX_GEMINI_RETRIES = 3
+const INITIAL_RETRY_DELAY_MS = 1000
+const UNKNOWN_PERSONA_CONFIDENCE_CEILING = 0.4
+const GEMINI_FLASH_MODEL = 'gemini-2.5-flash'
+const GEMINI_PRO_MODEL = 'gemini-pro'
+
 // ─── The agent ────────────────────────────────────────────────────────────────
 
 async function generateContentWithRetry(
-  model: any,
-  contents: any[],
-  maxRetries = 3,
-): Promise<any> {
+  model: GenerativeModel,
+  contents: GeminiContent[],
+  maxRetries = MAX_GEMINI_RETRIES,
+): Promise<{ response: { candidates: Array<{ content: { parts: GeminiPart[] } }> } }> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const result = await model.generateContent({ contents });
       return result;
-    } catch (error: any) {
-      const isRetryable = 
-        error?.status === 503 || 
-        error?.status === 429 ||
-        error?.message?.includes('high demand') ||
-        error?.message?.includes('quota') ||
-        error?.message?.includes('Service Unavailable');
+    } catch (error: unknown) {
+      const isRetryable =
+        (error as { status?: number })?.status === 503 ||
+        (error as { status?: number })?.status === 429 ||
+        (error as { message?: string })?.message?.includes('high demand') ||
+        (error as { message?: string })?.message?.includes('quota') ||
+        (error as { message?: string })?.message?.includes('Service Unavailable');
       
       if (isRetryable && attempt < maxRetries - 1) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        logger.warn({ attempt, delay, error: error.message }, '[rum-agent] Retrying Gemini request');
+        const delay = Math.pow(2, attempt) * INITIAL_RETRY_DELAY_MS
+        logger.warn({ attempt, delay, error: (error as Error).message }, '[rum-agent] Retrying Gemini request');
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
         throw error;
@@ -371,7 +406,7 @@ async function generateContentWithRetry(
 }
 
 async function runRUMAgentWithModel(
-  userId: string,
+  userEmail: string,
   geminiApiKey: string,
   modelName: string,
   extractedPrefs?: import('./models/UserIntent').ExtractedPrefs,
@@ -387,11 +422,11 @@ async function runRUMAgentWithModel(
   const User = (await import('@/lib/models/User')).User;
   const FiatCard = (await import('@/lib/models/FiatCard')).FiatCard;
   const [user, fiatCards] = await Promise.all([
-    User.findOne({ email: userId }),
+    User.findOne({ email: userEmail }),
     FiatCard.find({})
   ]);
   const userProfile = user?.profile || null;
-  const cardsOwned = fiatCards.map((card: any) => card.display_name);
+  const cardsOwned = fiatCards.map((card: { display_name: string }) => card.display_name);
 
   // ── Agentic loop: Gemini may call DT tools multiple times ─────────────────
 
@@ -449,7 +484,7 @@ Map the signals you retrieve to exactly ONE persona label:
 | FeeInsensitive    | scrolledPastAnnualFee = true without pause                         |
 | FeeAverse         | dwellOnAnnualFeeField > 10s + backNavAfterRecommendation = true    |
 
-If signals are ambiguous or missing, return label "Unknown" with confidence < 0.4.
+If signals are ambiguous or missing, return label "Unknown" with confidence < ${UNKNOWN_PERSONA_CONFIDENCE_CEILING}.
 
 ## OUTPUT FORMAT
 After calling the tools, respond ONLY with a JSON object — no markdown, no preamble:
@@ -473,7 +508,7 @@ After calling the tools, respond ONLY with a JSON object — no markdown, no pre
 }
 `.trim()
 
-  const userMessage = `Infer the persona for userId: ${userId}. Call the Dynatrace tools now.
+  const userMessage = `Infer the persona for userId: ${userEmail}. Call the Dynatrace tools now.
 
 ${userProfile || cardsOwned.length > 0 ? `
 ## USER PROFILE
@@ -482,7 +517,7 @@ ${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
 `
 
   // Start with the initial message
-  let contents: any = [
+  let contents: GeminiContent[] = [
     {
       role: 'user',
       parts: [{ text: `${systemPrompt}\n\n${userMessage}` }],
@@ -491,9 +526,8 @@ ${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
 
   let finalText = ''
   let iterations = 0
-  const MAX_ITERATIONS = 6
 
-  while (iterations < MAX_ITERATIONS) {
+  while (iterations < MAX_AGENTIC_ITERATIONS) {
     iterations++
 
     const result = await generateContentWithRetry(model, contents)
@@ -507,27 +541,27 @@ ${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
     ]
 
     // Check for tool calls
-    const toolCalls = parts.filter((p: { functionCall: any }) => p.functionCall)
+    const toolCalls = parts.filter((p: GeminiPart) => p.functionCall)
 
     if (toolCalls.length === 0) {
       // No more tool calls → model gave its final text answer
-      finalText = parts.map((p: { text: any }) => p.text ?? '').join('')
+      finalText = parts.map((p: GeminiPart) => p.text ?? '').join('')
       break
     }
 
     // Execute each tool call and build the function-response turn
     const toolResponses = await Promise.all(
-      toolCalls.map(async (part: { functionCall: any }) => {
+      toolCalls.map(async (part: GeminiPart) => {
         const fc   = part.functionCall!
         const name = fc.name
         const args = (fc.args ?? {}) as Record<string, unknown>
 
         // Ensure userId is always passed to DT tools
         if (!args.userId) {
-args.userId = userId
-}
+          args.userId = userEmail
+        }
 
-        logger.info({ tool: name, userId }, '[rum-agent] Calling Dynatrace MCP tool')
+        logger.info({ tool: name, userId: userEmail }, '[rum-agent] Calling Dynatrace MCP tool')
 
         let response: unknown
         try {
@@ -549,7 +583,7 @@ args.userId = userId
     // Feed tool results back to Gemini
     contents = [
       ...contents,
-      { role: 'user' as const, parts: toolResponses },
+      { role: 'user' as const, parts: toolResponses as GeminiPart[] },
     ]
   }
 
@@ -572,7 +606,7 @@ args.userId = userId
   // ── Log persona inference back to Dynatrace ────────────────────────────────
 
   const dynatraceLogId = await logPersonaToDynatrace(
-    userId,
+    userEmail,
     parsed.persona,
     parsed.agentReasoning,
     extractedPrefs ? 'chat_override' : 'rum_inferred',
@@ -580,12 +614,12 @@ args.userId = userId
   )
 
   logger.info(
-    { userId, persona: parsed.persona.label, confidence: parsed.persona.confidence, dynatraceLogId },
+    { userId: userEmail, persona: parsed.persona.label, confidence: parsed.persona.confidence, dynatraceLogId },
     '[rum-agent] Persona inferred',
   )
 
   return {
-    userId,
+    userId: userEmail,
     persona:              parsed.persona,
     dynatraceLogId,
     rawGeminiReasoning:   parsed.agentReasoning,
@@ -600,18 +634,18 @@ export async function runRUMAgent(
   // Try gemini-2.5-flash first, fall back to gemini-pro if it fails
   try {
     logger.info('[rum-agent] Attempting persona inference with gemini-2.5-flash');
-    return await runRUMAgentWithModel(userId, geminiApiKey, 'gemini-2.5-flash', extractedPrefs);
-  } catch (error: any) {
+    return await runRUMAgentWithModel(userId, geminiApiKey, GEMINI_FLASH_MODEL, extractedPrefs);
+  } catch (error: unknown) {
     const isRetryable =
-      error?.status === 503 ||
-      error?.status === 429 ||
-      error?.message?.includes('high demand') ||
-      error?.message?.includes('quota') ||
-      error?.message?.includes('Service Unavailable');
+      (error as { status?: number })?.status === 503 ||
+      (error as { status?: number })?.status === 429 ||
+      (error as { message?: string })?.message?.includes('high demand') ||
+      (error as { message?: string })?.message?.includes('quota') ||
+      (error as { message?: string })?.message?.includes('Service Unavailable');
 
     if (isRetryable) {
       logger.warn('[rum-agent] gemini-2.5-flash unavailable, falling back to gemini-pro');
-      return await runRUMAgentWithModel(userId, geminiApiKey, 'gemini-pro', extractedPrefs);
+      return await runRUMAgentWithModel(userId, geminiApiKey, GEMINI_PRO_MODEL, extractedPrefs);
     }
     throw error;
   }

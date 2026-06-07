@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Sanitize user-controlled strings before prompt interpolation
+export function sanitizeForPrompt(s: string, maxLen = 200): string {
+  return s.replace(/[`${}\\]/g, '').slice(0, maxLen)
+}
+
 // Infer category intelligently from product name
 export function inferCategory(productName: string, merchant: string): string {
   const name = productName.toLowerCase()

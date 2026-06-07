@@ -11,6 +11,16 @@ import { connectDB } from '@/lib/mongodb'
 import { FiatCard } from '@/lib/models/FiatCard'
 import { Transaction } from '@/lib/models/Transaction'
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const BEHAVIOUR_WINDOW_DAYS = 90
+const ANNUAL_WINDOW_DAYS = 365
+const AVG_DAYS_PER_MONTH = 30.44
+const FREQUENT_TRAVEL_THRESHOLD_PCT = 15
+const FREQUENT_DINER_THRESHOLD_PCT = 12
+const ONLINE_SHOPPER_THRESHOLD_PCT = 20
+const GROCERY_DOMINANT_THRESHOLD_PCT = 20
+
 export interface CardLiveState {
   cardId: string
   displayName: string
@@ -115,9 +125,88 @@ export interface UserContext {
   totalOpBalanceUsd: number    // sum of each card's tokenBalance * op_cents_per_token / 100
 }
 
+// ─── Helper Functions ───────────────────────────────────────────────────────
+
+function buildCardLiveStates(
+  cards: IFiatCard[],
+  annualTxns: any[],
+  annualSpendByCard: Record<string, number>
+): CardLiveState[] {
+  return cards.map(card => {
+    const limit = card.credit_limit ?? null
+    const owed = card.current_balance_owed ?? 0
+    const available = limit !== null ? limit - owed : null
+    const utilization = limit ? (owed / limit) * 100 : null
+
+    const categoryCapProgress = (card.rewards_structure.fixed_categories ?? [])
+      .filter((fc: { cap_amount_usd: number | null | undefined }) => fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined)
+      .map((fc: { cap_amount_usd: number | null | undefined; category: string; current_spend_towards_cap?: number }) => ({
+        category: fc.category,
+        spentTowardsCap: fc.current_spend_towards_cap ?? 0,
+        capLimit: fc.cap_amount_usd ?? null,
+        remainingCapRoom: fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined
+          ? fc.cap_amount_usd - (fc.current_spend_towards_cap ?? 0)
+          : null,
+      }))
+
+    const pointsBalance = card.points_balance ?? 0
+    let pointsValueUsd: number
+    if (card.currency_type === 'USD' && card.op_redemption && (card.credit_token_balance ?? 0) > 0) {
+      pointsValueUsd = parseFloat(
+        ((card.credit_token_balance ?? 0) * (card.op_redemption.op_cents_per_token / 100)).toFixed(2)
+      )
+    } else {
+      pointsValueUsd = parseFloat((pointsBalance * ((card.points_value_cents ?? 100) / 100)).toFixed(2))
+    }
+
+    let opTokenState: CardLiveState['opTokenState'] = null
+    if (card.currency_type === 'USD' && card.op_redemption) {
+      const tokenBalance = card.credit_token_balance ?? 0
+      const centsPerToken = card.op_redemption.op_cents_per_token
+      const minThreshold = card.op_redemption.min_redeem_tokens
+      opTokenState = {
+        tokenBalance,
+        tokenValueUsd: parseFloat((tokenBalance * (centsPerToken / 100)).toFixed(2)),
+        opCentsPerToken: centsPerToken,
+        minRedeemThreshold: minThreshold,
+        isTokenLow: tokenBalance < minThreshold,
+      }
+    }
+
+    return {
+      cardId: card.card_id,
+      displayName: card.display_name,
+      creditLimit: limit,
+      currentBalanceOwed: owed,
+      availableCredit: available,
+      utilizationPct: utilization ? Math.round(utilization * 10) / 10 : null,
+      standardAprPct: card.financials.standard_apr * 100,
+      pointsBalance,
+      pointsValueUsd,
+      opTokenState,
+      categoryCapProgress,
+      annualSpendUsd: parseFloat((annualSpendByCard[card.card_id] ?? 0).toFixed(2)),
+    }
+  })
+}
+
+function computeOpTotals(cardStates: CardLiveState[]): { totalOpTokens: number; totalOpBalanceUsd: number } {
+  let totalOpTokens = 0
+  let totalOpBalanceUsd = 0
+
+  for (const card of cardStates) {
+    if (card.opTokenState) {
+      totalOpTokens += card.opTokenState.tokenBalance
+      totalOpBalanceUsd += card.opTokenState.tokenValueUsd
+    }
+  }
+
+  return { totalOpTokens, totalOpBalanceUsd }
+}
+
 // ─── Main builder ─────────────────────────────────────────────────────────────
 
-export async function buildUserContext(userId: string, preFetchedCards?: any[]): Promise<UserContext> {
+export async function buildUserContext(userId: string, preFetchedCards?: IFiatCard[]): Promise<UserContext> {
   await connectDB()
 
   // 1. Fetch all cards (or use pre-fetched)
@@ -142,7 +231,7 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
 
   // 2. Fetch last 90 days of transactions
   const since = new Date()
-  since.setDate(since.getDate() - 90)
+  since.setDate(since.getDate() - BEHAVIOUR_WINDOW_DAYS)
   const txns = await Transaction.find({
     userId,
     type: 'spend',
@@ -175,7 +264,7 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
 
   // 2b. Fetch last 365 days of transactions for annual spend
   const since365 = new Date()
-  since365.setDate(since365.getDate() - 365)
+  since365.setDate(since365.getDate() - ANNUAL_WINDOW_DAYS)
   const annualTxns = await Transaction.find({
     userId,
     type: 'spend',
@@ -191,72 +280,12 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
 
   // ── Card live states ──────────────────────────────────────────────────────
 
-  // Build per-card annual spend map
   const annualSpendByCard: Record<string, number> = {}
   for (const tx of annualTxns) {
     annualSpendByCard[tx.cardId] = (annualSpendByCard[tx.cardId] ?? 0) + (tx.amountUsd ?? 0)
   }
 
-  const cardStates: CardLiveState[] = cards.map(card => {
-    const limit = card.credit_limit ?? null
-    const owed = card.current_balance_owed ?? 0
-    const available = limit !== null ? limit - owed : null
-    const utilization = limit ? (owed / limit) * 100 : null
-
-    // Cap progress per category
-    const categoryCapProgress = (card.rewards_structure.fixed_categories ?? [])
-      .filter((fc: any) => fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined)
-      .map((fc: any) => ({
-        category: fc.category,
-        spentTowardsCap: fc.current_spend_towards_cap ?? 0,
-        capLimit: fc.cap_amount_usd ?? null,
-        remainingCapRoom: fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined
-          ? fc.cap_amount_usd - (fc.current_spend_towards_cap ?? 0)
-          : null,
-      }))
-
-    // Points value — for USD cards use credit_token_balance * op_cents_per_token
-    const pointsBalance = card.points_balance ?? 0
-    let pointsValueUsd: number
-    if (card.currency_type === 'USD' && card.op_redemption && (card.credit_token_balance ?? 0) > 0) {
-      pointsValueUsd = parseFloat(
-        ((card.credit_token_balance ?? 0) * (card.op_redemption.op_cents_per_token / 100)).toFixed(2)
-      )
-    } else {
-      pointsValueUsd = parseFloat((pointsBalance * ((card.points_value_cents ?? 100) / 100)).toFixed(2))
-    }
-
-    // OP token state (USD cards with op_redemption configured)
-    let opTokenState: CardLiveState['opTokenState'] = null
-    if (card.currency_type === 'USD' && card.op_redemption) {
-      const tokenBalance = card.credit_token_balance ?? 0
-      const centsPerToken = card.op_redemption.op_cents_per_token
-      const minThreshold = card.op_redemption.min_redeem_tokens
-      opTokenState = {
-        tokenBalance,
-        tokenValueUsd: parseFloat((tokenBalance * (centsPerToken / 100)).toFixed(2)),
-        opCentsPerToken: centsPerToken,
-        minRedeemThreshold: minThreshold,
-        isTokenLow: tokenBalance < minThreshold,
-      }
-    }
-
-    return {
-      cardId: card.card_id,
-      displayName: card.display_name,
-      creditLimit: limit,
-      currentBalanceOwed: owed,
-      availableCredit: available,
-      utilizationPct: utilization ? Math.round(utilization * 10) / 10 : null,
-      standardAprPct: card.financials.standard_apr * 100,
-      pointsBalance,
-      pointsValueUsd,
-      opTokenState,
-      categoryCapProgress,
-      // Fix: annualSpendUsd was dividing by 90 instead of using the raw 365-day total
-      annualSpendUsd: parseFloat((annualSpendByCard[card.card_id] ?? 0).toFixed(2)),
-    }
-  })
+  const cardStates = buildCardLiveStates(cards, annualTxns, annualSpendByCard)
 
   // ── Spending behaviour ────────────────────────────────────────────────────
 
@@ -279,28 +308,28 @@ export async function buildUserContext(userId: string, preFetchedCards?: any[]):
 
     // cross-card category aggregate
     if (!categoryMap[cat]) {
-categoryMap[cat] = { total: 0, count: 0 }
-}
+      categoryMap[cat] = { total: 0, count: 0 }
+    }
     categoryMap[cat].total += amt
     categoryMap[cat].count += 1
     if (tx.isEmi) {
-emiCount++
-}
+      emiCount++
+    }
 
     // per-card category
     if (!cardCategoryMap[cid]) {
-cardCategoryMap[cid] = {}
-}
+      cardCategoryMap[cid] = {}
+    }
     if (!cardCategoryMap[cid][cat]) {
-cardCategoryMap[cid][cat] = { total: 0, count: 0 }
-}
+      cardCategoryMap[cid][cat] = { total: 0, count: 0 }
+    }
     cardCategoryMap[cid][cat].total += amt
     cardCategoryMap[cid][cat].count += 1
 
     // global merchant
     if (!merchantMap[m]) {
-merchantMap[m] = { total: 0, count: 0, categories: {}, cardCounts: {} }
-}
+      merchantMap[m] = { total: 0, count: 0, categories: {}, cardCounts: {} }
+    }
     merchantMap[m].total += amt
     merchantMap[m].count += 1
     merchantMap[m].categories[cat] = (merchantMap[m].categories[cat] ?? 0) + 1
@@ -308,18 +337,18 @@ merchantMap[m] = { total: 0, count: 0, categories: {}, cardCounts: {} }
 
     // per-card merchant
     if (!cardMerchantMap[cid]) {
-cardMerchantMap[cid] = {}
-}
+      cardMerchantMap[cid] = {}
+    }
     if (!cardMerchantMap[cid][m]) {
-cardMerchantMap[cid][m] = { total: 0, count: 0 }
-}
+      cardMerchantMap[cid][m] = { total: 0, count: 0 }
+    }
     cardMerchantMap[cid][m].total += amt
     cardMerchantMap[cid][m].count += 1
 
     // monthly trend
     if (!monthBuckets[month]) {
-monthBuckets[month] = {}
-}
+      monthBuckets[month] = {}
+    }
     monthBuckets[month][cat] = (monthBuckets[month][cat] ?? 0) + amt
   }
 
@@ -410,7 +439,7 @@ monthBuckets[month] = {}
   const earliestTx = txns.length > 0
     ? new Date(Math.min(...txns.map(t => new Date(t.createdAt as Date).getTime())))
     : since
-  const actualMonths = Math.max(1, (Date.now() - earliestTx.getTime()) / (1000 * 60 * 60 * 24 * 30.44))
+  const actualMonths = Math.max(1, (Date.now() - earliestTx.getTime()) / (1000 * 60 * 60 * 24 * AVG_DAYS_PER_MONTH))
   const monthlyAvgSpendUsd = parseFloat((totalSpend / actualMonths).toFixed(2))
 
   // CPP from actual redemption transactions
@@ -434,10 +463,10 @@ monthBuckets[month] = {}
     topMerchants,
     cardTopMerchants,
     topCategory,
-    isFrequentTraveller: getShare('travel') > 15,
-    isFrequentDiner: getShare('dining') > 12,
-    isOnlineShopper: (getShare('shopping') + getShare('electronics')) > 20,
-    isGroceryDominant: getShare('grocery') > 20,
+    isFrequentTraveller: getShare('travel') > FREQUENT_TRAVEL_THRESHOLD_PCT,
+    isFrequentDiner: getShare('dining') > FREQUENT_DINER_THRESHOLD_PCT,
+    isOnlineShopper: (getShare('shopping') + getShare('electronics')) > ONLINE_SHOPPER_THRESHOLD_PCT,
+    isGroceryDominant: getShare('grocery') > GROCERY_DOMINANT_THRESHOLD_PCT,
     monthlyAvgSpendUsd,
     monthlyTrend,
     momSpendChangePct,
@@ -449,12 +478,7 @@ monthBuckets[month] = {}
   }
 
   // ── Cross-card OP token totals ─────────────────────────────────────────────
-  const totalOpTokens = cardStates.reduce(
-    (sum, c) => sum + (c.opTokenState?.tokenBalance ?? 0), 0
-  )
-  const totalOpBalanceUsd = parseFloat(
-    cardStates.reduce((sum, c) => sum + (c.opTokenState?.tokenValueUsd ?? 0), 0).toFixed(2)
-  )
+  const { totalOpTokens, totalOpBalanceUsd } = computeOpTotals(cardStates)
 
   return { userId, cards: cardStates, behaviour, totalOpTokens, totalOpBalanceUsd }
 }

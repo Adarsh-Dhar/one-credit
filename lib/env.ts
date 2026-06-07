@@ -37,6 +37,10 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.string().url('Invalid UPSTASH_REDIS_REST_URL format').optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1, 'UPSTASH_REDIS_REST_TOKEN is required').optional(),
 
+  // Dynatrace (for RUM agent)
+  DT_ENV_URL: z.string().url('Invalid DT_ENV_URL format').optional(),
+  DT_API_TOKEN: z.string().min(1, 'DT_API_TOKEN is required').optional(),
+
   // Development Origins
   ALLOWED_DEV_ORIGINS: z.string().optional().default(''),
 
