@@ -6,7 +6,7 @@ export interface Product {
   originalPrice?: number | null
   url: string
   category: string
-  source: 'amazon' | 'walmart' | 'bestbuy' | 'target' | 'ebay'
+  source: 'amazon' | 'walmart' | 'bestbuy' | 'target' | 'ebay' | 'generic'
   detectedAt: string
 }
 
@@ -33,6 +33,8 @@ export interface Message {
     | 'GET_USER_SESSION'
     | 'GET_SESSION'
     | 'RUM_EVENTS'
+    | 'START_PICKER'
+    | 'PICKER_RESULT'
   data?: any
   product?: Product
   userId?: string

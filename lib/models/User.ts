@@ -16,7 +16,6 @@ const UserSchema = new mongoose.Schema(
     profile: {
       homeAirport: String,
       topSpendCategories: [{ type: String, enum: ['dining', 'groceries', 'travel', 'gas', 'streaming', 'other'] }],
-      cardsOwned: [String],
       carryBalance: { type: String, enum: ['yes', 'sometimes', 'never'] },
     },
   },

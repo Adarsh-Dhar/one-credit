@@ -378,10 +378,15 @@ async function runRUMAgentWithModel(
     tools: [{ functionDeclarations: DynatraceTools } as Tool],
   });
 
-  // Fetch user profile from MongoDB
+  // Fetch user profile from MongoDB and cards from FiatCard
   const User = (await import('@/lib/models/User')).User;
-  const user = await User.findOne({ email: userId });
+  const FiatCard = (await import('@/lib/models/FiatCard')).FiatCard;
+  const [user, fiatCards] = await Promise.all([
+    User.findOne({ email: userId }),
+    FiatCard.find({})
+  ]);
   const userProfile = user?.profile || null;
+  const cardsOwned = fiatCards.map((card: any) => card.display_name);
 
   // ── Agentic loop: Gemini may call DT tools multiple times ─────────────────
 
@@ -403,7 +408,7 @@ Call all three tools before inferring the persona.
 You will also receive the user's self-reported profile data:
 - homeAirport: User's home airport code (e.g., JFK, LHR, BOM)
 - topSpendCategories: Top 2 spending categories (dining, groceries, travel, gas, streaming, other)
-- cardsOwned: List of cards the user already owns
+- cardsOwned: List of cards actually in the user's wallet (sourced from the database)
 - carryBalance: Whether user carries a balance (yes, sometimes, never)
 
 Use this profile data to cross-check and strengthen your persona inference.
@@ -449,9 +454,9 @@ After calling the tools, respond ONLY with a JSON object — no markdown, no pre
 
   const userMessage = `Infer the persona for userId: ${userId}. Call the Dynatrace tools now.
 
-${userProfile ? `
+${userProfile || cardsOwned.length > 0 ? `
 ## USER PROFILE
-${JSON.stringify(userProfile, null, 2)}
+${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
 ` : '(No profile data available)'}
 `
 

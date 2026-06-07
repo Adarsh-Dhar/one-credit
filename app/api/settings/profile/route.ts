@@ -10,7 +10,6 @@ import { z } from 'zod';
 const ProfileSchema = z.object({
   homeAirport: z.string().optional(),
   topSpendCategories: z.array(z.enum(['dining', 'groceries', 'travel', 'gas', 'streaming', 'other'])).max(2).optional(),
-  cardsOwned: z.array(z.string()).optional(),
   carryBalance: z.enum(['yes', 'sometimes', 'never']).optional(),
 });
 

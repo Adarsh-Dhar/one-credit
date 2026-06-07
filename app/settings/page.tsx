@@ -20,10 +20,45 @@ export default function Settings() {
   const [profile, setProfile] = useState({
     homeAirport: '',
     topSpendCategories: [] as string[],
-    cardsOwned: [] as string[],
     carryBalance: '' as 'yes' | 'sometimes' | 'never',
   });
   const [profileLoading, setProfileLoading] = useState(false);
+  const [airportLoading, setAirportLoading] = useState(false)
+  const [categoryLoading, setCategoryLoading] = useState(false)
+
+  const handleDetectAirport = () => {
+    if (!navigator.geolocation) return
+    setAirportLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const res = await fetch(
+            `/api/settings/nearest-airport?lat=${coords.latitude}&lng=${coords.longitude}`
+          )
+          const data = await res.json()
+          if (data.airport?.iata) {
+            setProfile(p => ({ ...p, homeAirport: data.airport.iata }))
+          }
+        } finally {
+          setAirportLoading(false)
+        }
+      },
+      () => setAirportLoading(false)   // user denied location
+    )
+  }
+
+  const handleDetectCategories = async () => {
+    setCategoryLoading(true)
+    try {
+      const res = await fetch('/api/settings/top-categories')
+      const data = await res.json()
+      if (data.topCategories?.length) {
+        setProfile(p => ({ ...p, topSpendCategories: data.topCategories }))
+      }
+    } finally {
+      setCategoryLoading(false)
+    }
+  }
 
   // Auto-populate email from authenticated session
   useEffect(() => {
@@ -34,7 +69,9 @@ export default function Settings() {
 
   // Load profile on mount
   useEffect(() => {
-    if (!session?.user?.email) return;
+    if (!session?.user?.email) {
+      return;
+    }
     
     const loadProfile = async () => {
       setProfileLoading(true);
@@ -133,76 +170,74 @@ throw new Error('Failed to save');
             <div className="space-y-4">
               <div>
                 <Label className="text-white mb-2 block">Home Airport</Label>
-                <Input
-                  type="text"
-                  placeholder="e.g. JFK, LHR, BOM"
-                  value={profile.homeAirport}
-                  onChange={(e) => setProfile({ ...profile, homeAirport: e.target.value })}
-                  className="bg-slate-600/50 border-slate-500 text-white placeholder:text-slate-400"
-                />
-              </div>
-
-              <div>
-                <Label className="text-white mb-2 block">Top 2 Spend Categories</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={profile.topSpendCategories[0] || ''}
-                    onChange={(e) => {
-                      const newCats = [...profile.topSpendCategories];
-                      newCats[0] = e.target.value;
-                      setProfile({ ...profile, topSpendCategories: newCats });
-                    }}
-                    className="bg-slate-600/50 border-slate-500 text-white p-2 rounded"
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="e.g. JFK, LHR, BOM"
+                    value={profile.homeAirport}
+                    onChange={(e) => setProfile({ ...profile, homeAirport: e.target.value })}
+                    className="bg-slate-600/50 border-slate-500 text-white placeholder:text-slate-400 flex-1"
+                  />
+                  <Button
+                    onClick={handleDetectAirport}
+                    disabled={airportLoading}
+                    variant="outline"
+                    className="border-slate-500 text-slate-300 hover:text-white hover:bg-slate-600 whitespace-nowrap"
                   >
-                    <option value="">Select...</option>
-                    <option value="dining">Dining</option>
-                    <option value="groceries">Groceries</option>
-                    <option value="travel">Travel</option>
-                    <option value="gas">Gas</option>
-                    <option value="streaming">Streaming</option>
-                    <option value="other">Other</option>
-                  </select>
-                  <select
-                    value={profile.topSpendCategories[1] || ''}
-                    onChange={(e) => {
-                      const newCats = [...profile.topSpendCategories];
-                      newCats[1] = e.target.value;
-                      setProfile({ ...profile, topSpendCategories: newCats });
-                    }}
-                    className="bg-slate-600/50 border-slate-500 text-white p-2 rounded"
-                  >
-                    <option value="">Select...</option>
-                    <option value="dining">Dining</option>
-                    <option value="groceries">Groceries</option>
-                    <option value="travel">Travel</option>
-                    <option value="gas">Gas</option>
-                    <option value="streaming">Streaming</option>
-                    <option value="other">Other</option>
-                  </select>
+                    {airportLoading ? (
+                      <Loader className="w-4 h-4 animate-spin" />
+                    ) : (
+                      '📍 Detect'
+                    )}
+                  </Button>
                 </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Or click Detect to auto-find from your location.
+                </p>
               </div>
 
               <div>
-                <Label className="text-white mb-2 block">Cards You Already Own</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-white">Top Spend Categories</Label>
+                  <Button
+                    onClick={handleDetectCategories}
+                    disabled={categoryLoading}
+                    variant="outline"
+                    className="border-slate-500 text-slate-300 hover:text-white hover:bg-slate-600 text-xs h-7 px-2"
+                  >
+                    {categoryLoading ? (
+                      <Loader className="w-3 h-3 animate-spin mr-1" />
+                    ) : (
+                      '⚡'
+                    )}
+                    {categoryLoading ? 'Analysing...' : 'Auto-detect from transactions'}
+                  </Button>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {['Chase Freedom Unlimited', 'Citi Double Cash', 'Amex Gold', 'Amex Platinum', 'Capital One Venture', 'Discover It'].map((card) => (
-                    <label key={card} className="flex items-center gap-2 text-slate-300 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={profile.cardsOwned.includes(card)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setProfile({ ...profile, cardsOwned: [...profile.cardsOwned, card] });
-                          } else {
-                            setProfile({ ...profile, cardsOwned: profile.cardsOwned.filter(c => c !== card) });
-                          }
-                        }}
-                        className="bg-slate-600/50 border-slate-500"
-                      />
-                      {card}
-                    </label>
+                  {[0, 1].map((i) => (
+                    <select
+                      key={i}
+                      value={profile.topSpendCategories[i] || ''}
+                      onChange={(e) => {
+                        const newCats = [...profile.topSpendCategories]
+                        newCats[i] = e.target.value
+                        setProfile({ ...profile, topSpendCategories: newCats })
+                      }}
+                      className="bg-slate-600/50 border-slate-500 text-white p-2 rounded"
+                    >
+                      <option value="">Select...</option>
+                      <option value="dining">Dining</option>
+                      <option value="groceries">Groceries</option>
+                      <option value="travel">Travel</option>
+                      <option value="gas">Gas</option>
+                      <option value="streaming">Streaming</option>
+                      <option value="other">Other</option>
+                    </select>
                   ))}
                 </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Auto-detect picks these from your real transaction history.
+                </p>
               </div>
 
               <div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { CreditCard, Settings, ExternalLink, Sparkles, Calculator, User } from 'lucide-react'
+import { CreditCard, Settings, ExternalLink, Sparkles, Calculator, User, Crosshair } from 'lucide-react'
 
 interface DetectedProduct {
   name: string
@@ -18,58 +18,116 @@ export function Popup() {
   const [product, setProduct] = useState<DetectedProduct | null>(null)
   const [session, setSession] = useState<UserSession>({})
   const [calculating, setCalculating] = useState(false)
+  const [pickerStep, setPickerStep] = useState<'idle' | 'name' | 'price'>('idle')
+  const [pickerError, setPickerError] = useState<string | null>(null)
+  const [cardCount, setCardCount] = useState<number>(0)
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'not-connected'>('not-connected')
 
   useEffect(() => {
-    // Try to fetch session from web app API via background script (avoids CSP)
-    chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
-      if (response?.success && response?.data?.user?.email) {
-        setSession({
-          userEmail: response.data.user.email,
-          userName: response.data.user.name,
-          userId: response.data.user.id,
-        })
-        // Store in local storage for persistence
-        chrome.storage.local.set({
-          userEmail: response.data.user.email,
-          userName: response.data.user.name,
-          userId: response.data.user.id,
-        })
-      } else {
-        // Fallback: read local storage (set by session bridge or background)
-        chrome.storage.local.get(
-          ['userEmail', 'userName', 'userId'],
-          (local) => {
-            if (local.userEmail) {
-              setSession({
-                userEmail: local.userEmail as string,
-                userName: local.userName as string | undefined,
-                userId: local.userId as string | undefined,
-              })
-            } else {
-              // Fallback: check sync storage (set manually via options page)
-              chrome.storage.sync.get(['accountEmail'], (sync) => {
-                if (sync.accountEmail) {
-                  setSession({ userEmail: sync.accountEmail as string })
-                }
-              })
-            }
-          }
-        )
-      }
+    // Fetch session directly from web app API
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    
+    fetch(`${API_BASE}/api/auth/session`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.user?.email) {
+          setSession({
+            userEmail: data.user.email,
+            userName: data.user.name,
+            userId: data.user.id,
+          })
+          setConnectionStatus('connected')
+          
+          // Store in local storage for persistence
+          chrome.storage.local.set({
+            userEmail: data.user.email,
+            userName: data.user.name,
+            userId: data.user.id,
+          })
 
-      // Always load product separately — independent of session state
-      chrome.storage.local.get(['lastDetectedProduct'], (local) => {
-        if (local.lastDetectedProduct) {
-          const rawProduct = local.lastDetectedProduct as DetectedProduct
-          // Convert price to USD if it's still in INR (fallback for cached data)
-          const productWithUsdPrice = {
-            ...rawProduct,
-            price: rawProduct.price > 10000 ? rawProduct.price / 90 : rawProduct.price,
-            originalPrice: rawProduct.originalPrice && rawProduct.originalPrice > 10000 ? rawProduct.originalPrice / 90 : rawProduct.originalPrice,
-          }
-          setProduct(productWithUsdPrice)
+          // Fetch card count from API
+          console.log('[OneCredit] Fetching card count for userId:', data.user.id)
+          fetch(`${API_BASE}/api/extension/card-count?userId=${data.user.id}`)
+            .then(res => {
+              console.log('[OneCredit] Card count API response status:', res.status)
+              return res.json()
+            })
+            .then(data => {
+              console.log('[OneCredit] Card count API response:', data)
+              if (data.cardCount !== undefined) {
+                setCardCount(data.cardCount)
+              } else {
+                console.error('[OneCredit] No cardCount in response:', data)
+              }
+            })
+            .catch(err => {
+              console.error('[OneCredit] Failed to fetch card count:', err)
+            })
+        } else {
+          setConnectionStatus('not-connected')
+          // Fallback: read local storage
+          chrome.storage.local.get(
+            ['userEmail', 'userName', 'userId'],
+            (local) => {
+              if (local.userEmail) {
+                setSession({
+                  userEmail: local.userEmail as string,
+                  userName: local.userName as string | undefined,
+                  userId: local.userId as string | undefined,
+                })
+                setConnectionStatus('connected')
+
+                // Fetch card count from API
+                if (local.userId) {
+                  console.log('[OneCredit] Fetching card count from fallback for userId:', local.userId)
+                  fetch(`${API_BASE}/api/extension/card-count?userId=${local.userId}`)
+                    .then(res => {
+                      console.log('[OneCredit] Card count API response status (fallback):', res.status)
+                      return res.json()
+                    })
+                    .then(data => {
+                      console.log('[OneCredit] Card count API response (fallback):', data)
+                      if (data.cardCount !== undefined) {
+                        setCardCount(data.cardCount)
+                      } else {
+                        console.error('[OneCredit] No cardCount in response (fallback):', data)
+                      }
+                    })
+                    .catch(err => {
+                      console.error('[OneCredit] Failed to fetch card count (fallback):', err)
+                    })
+                } else {
+                  console.log('[OneCredit] No userId found in local storage')
+                }
+              } else {
+                // Fallback: check sync storage (set manually via options page)
+                chrome.storage.sync.get(['accountEmail'], (sync) => {
+                  if (sync.accountEmail) {
+                    setSession({ userEmail: sync.accountEmail as string })
+                  }
+                })
+              }
+            }
+          )
         }
       })
+      .catch(err => {
+        console.error('[OneCredit] Failed to fetch session:', err)
+        setConnectionStatus('not-connected')
+      })
+
+    // Always load product separately — independent of session state
+    chrome.storage.local.get(['lastDetectedProduct'], (local) => {
+      if (local.lastDetectedProduct) {
+        const rawProduct = local.lastDetectedProduct as DetectedProduct
+        // Convert price to USD if it's still in INR (fallback for cached data)
+        const productWithUsdPrice = {
+          ...rawProduct,
+          price: rawProduct.price > 10000 ? rawProduct.price / 90 : rawProduct.price,
+          originalPrice: rawProduct.originalPrice && rawProduct.originalPrice > 10000 ? rawProduct.originalPrice / 90 : rawProduct.originalPrice,
+        }
+        setProduct(productWithUsdPrice)
+      }
     })
 
     const listener = (msg: any) => {
@@ -82,6 +140,17 @@ export function Popup() {
           originalPrice: rawProduct.originalPrice && rawProduct.originalPrice > 10000 ? rawProduct.originalPrice / 90 : rawProduct.originalPrice,
         }
         setProduct(productWithUsdPrice)
+      }
+      if (msg.type === 'PICKER_RESULT') {
+        if (msg.data?.error) {
+          setPickerStep('idle')
+          setPickerError('Could not read that — try clicking closer to the text.')
+        } else {
+          setPickerStep('idle')
+          setPickerError(null)
+          // product is already stored via PRODUCT_DETECTED, so it will
+          // arrive via PRODUCT_DETECTED_UPDATE — no extra work needed
+        }
       }
     }
     chrome.runtime.onMessage.addListener(listener)
@@ -113,6 +182,28 @@ return
     // Pass product context so SidePanel auto-triggers analysis
     chrome.storage.local.set({ pendingAnalysis: productWithUsdPrice })
     setCalculating(false)
+  }
+
+  const handleStartPicker = async () => {
+    setPickerError(null)
+    setPickerStep('name')
+
+    // Inject content script if not already there (handles sites not in manifest)
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (!tab.id) return
+
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['js/content.js'],
+      })
+    } catch {
+      // Already injected — safe to ignore
+    }
+
+    chrome.tabs.sendMessage(tab.id, { type: 'START_PICKER' })
+    // Close the popup so the user can click on the page
+    window.close()
   }
 
   const initials = session.userName
@@ -178,10 +269,30 @@ return
             </button>
           </div>
         ) : (
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
             <p className="text-slate-300 text-sm leading-relaxed">
-              AI-powered credit card optimizer. Navigate to an Amazon product page to get card recommendations.
+              No product detected on this page.
             </p>
+
+            {pickerStep !== 'idle' ? (
+              <div className="bg-purple-900/40 border border-purple-500/40 rounded-lg px-3 py-2.5 text-xs text-purple-300 leading-relaxed">
+                {pickerStep === 'name'
+                  ? '👆 Switch to the page and click the product name'
+                  : '👆 Now click the price'}
+              </div>
+            ) : (
+              <button
+                onClick={handleStartPicker}
+                className="w-full flex items-center justify-center gap-2 bg-purple-700 hover:bg-purple-600 text-white py-2.5 px-4 rounded-lg font-semibold text-sm transition-all"
+              >
+                <Crosshair className="w-4 h-4" />
+                Pick product from page
+              </button>
+            )}
+
+            {pickerError && (
+              <p className="text-xs text-red-400">{pickerError}</p>
+            )}
           </div>
         )}
 
@@ -189,30 +300,14 @@ return
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-slate-800/50 border border-purple-500/30 rounded-xl p-3">
             <p className="text-xs text-slate-400 mb-1">Status</p>
-            <p className="text-sm font-medium text-green-400">Active</p>
+            <p className={`text-sm font-medium ${connectionStatus === 'connected' ? 'text-green-400' : 'text-slate-400'}`}>
+              {connectionStatus === 'connected' ? 'Connected' : 'Not connected'}
+            </p>
           </div>
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3">
             <p className="text-xs text-slate-400 mb-1">Cards</p>
-            <p className="text-sm font-medium text-purple-300">12</p>
+            <p className="text-sm font-medium text-purple-300">{cardCount}</p>
           </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="space-y-3">
-          <button
-            onClick={handleOpenSidePanel}
-            className="w-full bg-gradient-to-r from-purple-600 to-yellow-500 hover:from-purple-700 hover:to-yellow-600 text-white py-3 px-4 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2"
-          >
-            <CreditCard className="w-4 h-4" />
-            Open Transaction Portal
-          </button>
-          <button
-            onClick={() => chrome.runtime.openOptionsPage()}
-            className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white py-3 px-4 rounded-xl font-medium text-sm transition-all border border-slate-600"
-          >
-            <Settings className="w-4 h-4" />
-            Settings
-          </button>
         </div>
 
         {/* Footer Links */}

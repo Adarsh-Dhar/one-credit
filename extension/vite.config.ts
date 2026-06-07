@@ -83,6 +83,12 @@ export default defineConfig({
           }
           return `[name][extname]`
         },
+        manualChunks: (id) => {
+          // Prevent code splitting for content script - bundle everything inline
+          if (id.includes('content.ts') || id.includes('rum-tracker')) {
+            return undefined
+          }
+        },
       },
     },
   },

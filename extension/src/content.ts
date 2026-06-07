@@ -1,9 +1,7 @@
 // Content script for OneCredit extension
 import type { Product } from '@/types'
-import { startRUMTracker } from './rum-tracker'
 
-// Initialize RUM tracker
-startRUMTracker()
+// RUM tracker initialization removed to prevent code splitting issues
 
 // Immediate log to verify content script is loaded
 if (process.env.NODE_ENV === 'development') {
@@ -234,6 +232,135 @@ chrome.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
     }
     // Trigger any UI updates needed
   }
+})
+
+// ─── Element Picker ────────────────────────────────────────────────────────────
+// Activated by the popup when the user is on an unknown site.
+// Two-step: first click captures the product name, second click captures the price.
+
+let pickerActive = false
+let pickerStep: 'name' | 'price' = 'name'
+let pickedName = ''
+let highlightOverlay: HTMLDivElement | null = null
+
+function createOverlay() {
+  const el = document.createElement('div')
+  el.style.cssText = `
+    position: fixed;
+    pointer-events: none;
+    border: 2px solid #8b5cf6;
+    background: rgba(139,92,246,0.12);
+    border-radius: 4px;
+    z-index: 2147483647;
+    transition: all 60ms ease;
+  `
+  document.body.appendChild(el)
+  return el
+}
+
+function positionOverlay(el: HTMLDivElement, target: Element) {
+  const r = target.getBoundingClientRect()
+  el.style.top    = `${r.top    + window.scrollY}px` 
+  el.style.left   = `${r.left   + window.scrollX}px` 
+  el.style.width  = `${r.width}px` 
+  el.style.height = `${r.height}px` 
+}
+
+function createToast(msg: string) {
+  const old = document.getElementById('oc-picker-toast')
+  if (old) old.remove()
+  const t = document.createElement('div')
+  t.id = 'oc-picker-toast'
+  t.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e1b4b;
+    color: #e9d5ff;
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid #7c3aed;
+    z-index: 2147483647;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  `
+  t.textContent = msg
+  document.body.appendChild(t)
+  return t
+}
+
+function stopPicker() {
+  pickerActive = false
+  document.body.style.cursor = ''
+  document.removeEventListener('mouseover', onMouseOver, true)
+  document.removeEventListener('click',     onPickerClick, true)
+  highlightOverlay?.remove()
+  highlightOverlay = null
+  document.getElementById('oc-picker-toast')?.remove()
+}
+
+function onMouseOver(e: MouseEvent) {
+  if (!pickerActive || !highlightOverlay) return
+  positionOverlay(highlightOverlay, e.target as Element)
+}
+
+function onPickerClick(e: MouseEvent) {
+  if (!pickerActive) return
+  e.preventDefault()
+  e.stopPropagation()
+
+  const text = (e.target as Element).textContent?.trim() || ''
+
+  if (pickerStep === 'name') {
+    pickedName = text
+    pickerStep = 'price'
+    createToast('✅ Name captured! Now click the price.')
+  } else {
+    // Extract numeric price from whatever was clicked
+    const raw = text.replace(/[^0-9.]/g, '')
+    const price = parseFloat(raw)
+
+    stopPicker()
+
+    if (!pickedName || isNaN(price) || price <= 0) {
+      chrome.runtime.sendMessage({
+        type: 'PICKER_RESULT',
+        data: { error: 'Could not read name or price' },
+      })
+      return
+    }
+
+    const product: Product = {
+      name:        pickedName,
+      price,
+      url:         window.location.href,
+      category:    'general',
+      source:      'generic',
+      detectedAt:  new Date().toISOString(),
+    }
+
+    // Store exactly like the auto-detected flow
+    chrome.runtime.sendMessage({ type: 'PRODUCT_DETECTED', data: product })
+    chrome.runtime.sendMessage({ type: 'PICKER_RESULT', data: { product } })
+  }
+}
+
+// Listen for START_PICKER from the popup
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.type !== 'START_PICKER') return
+  if (pickerActive) return   // already running
+
+  pickerActive = true
+  pickerStep   = 'name'
+  pickedName   = ''
+
+  highlightOverlay = createOverlay()
+  document.body.style.cursor = 'crosshair'
+  document.addEventListener('mouseover', onMouseOver, true)
+  document.addEventListener('click',     onPickerClick, true)
+  createToast('👆 Click the product name')
 })
 
 if (process.env.NODE_ENV === 'development') {

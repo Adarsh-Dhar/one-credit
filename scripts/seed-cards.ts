@@ -39,9 +39,9 @@
 //   └─────────────────────────────────────────────┴─────────────────────────────────────────┘
 
 import mongoose from 'mongoose'
-import { connectDB } from '../lib/mongodb.js'
-import { FiatCard } from '../lib/models/FiatCard.js'
-import { User } from '../lib/models/User.js'
+import { connectDB } from '../lib/mongodb'
+import { FiatCard } from '../lib/models/FiatCard'
+import { User } from '../lib/models/User'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
