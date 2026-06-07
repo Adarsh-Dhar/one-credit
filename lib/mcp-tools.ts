@@ -6,12 +6,6 @@ import { User } from '@/lib/models/User';
 
 export const MCPTools = [
   {
-    name: 'refresh_rates',
-    description:
-      '[STAGE 2] Sync live award charts and exchange rates from Fivetran into MongoDB BEFORE Gemini scores spending. Must complete before getUserBalances.',
-    parameters: { type: 'object', properties: {} },
-  },
-  {
     name: 'getUserBalances',
     description:
       '[STAGE 3] Fetch all raw card balances from MongoDB. Returns miles, points, and cash with their USD values. Note: value is the balance converted to USD (existing rewards), not the rewards earned from a new spend.',
@@ -39,34 +33,8 @@ export const MCPTools = [
       required: ['userId', 'cardDebits'],
     },
   },
-  {
-    name: 'sync_after_redemption',
-    description:
-      '[STAGE 6] Trigger Fivetran re-sync for one or more affected sources after a spend. Accepts array of sources.',
-    parameters: {
-      type: 'object',
-      properties: {
-        sources: {
-          type: 'array',
-          items: { type: 'string', enum: ['bank', 'rewards', 'airline', 'hotel'] },
-          description: 'All connectors that were involved in the redemption',
-        },
-      },
-      required: ['sources'],
-    },
-  },
-  {
-    name: 'get_sync_status',
-    description: 'Check if Fivetran connector data is fresh (under 2 hours old) before scoring.',
-    parameters: {
-      type: 'object',
-      properties: {
-        source: { type: 'string', enum: ['airline', 'bank', 'hotel', 'rewards'] },
-      },
-    },
-  },
 
-  // ── New Rewards tools ────────────────────────────────────────────────────────
+  // ── Rewards tools ───────────────────────────────────────────────────────────
 
   {
     name: 'sync_rewards',
@@ -152,8 +120,6 @@ export const executeMCPTool = async (
   toolInput: Record<string, unknown>
 ): Promise<unknown> => {
   switch (toolName) {
-    case 'refresh_rates':
-      return await refreshRates();
     case 'getUserBalances':
       return await getUserBalances(toolInput.userId as string);
     case 'updateBalances':
@@ -161,12 +127,8 @@ export const executeMCPTool = async (
         toolInput.userId as string,
         toolInput.cardDebits as Record<string, unknown>
       );
-    case 'sync_after_redemption':
-      return await syncAfterRedemption(toolInput.sources as string[]);
-    case 'get_sync_status':
-      return await getSyncStatus(toolInput.source as string | undefined);
 
-    // New rewards tools
+    // Rewards tools
     case 'sync_rewards':
       return await syncRewards(toolInput.sources as Array<'cardlytics' | 'network' | 'affiliate'> | undefined);
     case 'get_rewards_offers':
@@ -237,9 +199,6 @@ WORKFLOW FOR REWARDS QUESTIONS:
 4. Cross-reference results across all three sources before recommending.
 5. Always mention the rewardRate, merchantName, and source in your recommendation.
 
-WORKFLOW FOR SPEND OPTIMIZATION (unchanged):
-1. get_sync_status → 2. refresh_rates → 3. getUserBalances → 4. Reason over balances → 5. updateBalances → 6. sync_after_redemption
-
 SPEND OPTIMIZATION FORMULA (mandatory for all spend recommendations):
 CRITICAL: card.earnRates[category] is stored as a whole number percentage (e.g., 3 = 3%, NOT 0.03).
 Step 1 — Native reward (cash value): nativeReward = spendAmount × (card.earnRates[category] / 100)
@@ -274,20 +233,7 @@ Be specific: quote the actual cashback %, dollar amounts, and terms from the dat
 
 // ─── Tool implementations ─────────────────────────────────────────────────────
 
-// Stage 2: Proxy to Python Fivetran MCP server via internal API
-async function refreshRates() {
-  const res = await fetch(`${process.env.NEXTAUTH_URL}/api/fivetran/sync`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'refresh_rates' }),
-  });
-  if (!res.ok) {
-return { success: false, error: 'Fivetran sync failed' };
-}
-  return res.json();
-}
-
-// Stage 3: Real MongoDB read
+// Real MongoDB read
 async function getUserBalances(userId: string) {
   await connectDB();
   const { getCards } = await import('@/lib/cards');
@@ -410,36 +356,7 @@ async function updateBalances(userId: string, cardDebits: Record<string, unknown
   };
 }
 
-// Stage 6: Trigger Fivetran re-sync for ALL affected sources (array, not single string)
-async function syncAfterRedemption(sources: string[]) {
-  const results: Record<string, unknown> = {};
-  await Promise.all(
-    sources.map(async (source) => {
-      const res = await fetch(`${process.env.NEXTAUTH_URL}/api/fivetran/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'sync_after_redemption', source }),
-      });
-      results[source] = res.ok ? await res.json() : { error: 'Sync failed' };
-    })
-  );
-  return { success: true, sources, results, triggered_at: new Date().toISOString() };
-}
-
-// Freshness check
-async function getSyncStatus(source?: string) {
-  const res = await fetch(`${process.env.NEXTAUTH_URL}/api/fivetran/sync`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'get_sync_status', source }),
-  });
-  if (!res.ok) {
-return { error: 'Status check failed' };
-}
-  return res.json();
-}
-
-// ─── New rewards tool implementations ────────────────────────────────────────
+// ─── Rewards tool implementations ─────────────────────────────────────────────
 
 async function syncRewards(
   sources?: Array<'cardlytics' | 'network' | 'affiliate'>

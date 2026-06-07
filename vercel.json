@@ -3,10 +3,6 @@
     {
       "path": "/api/cron/persona-refresh",
       "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/intent-refresh",
-      "schedule": "0 3 * * *"
     }
   ]
 }
