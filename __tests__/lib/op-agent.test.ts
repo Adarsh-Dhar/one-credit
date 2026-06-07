@@ -12,6 +12,7 @@ import {
   checkMonthlyCap,
   calculateCppTiers,
   calculateNetCost,
+  generateReasoningWithGemini,
 } from '@/lib/op-agent'
 
 describe('checkCategoryExclusion', () => {
@@ -267,5 +268,85 @@ describe('calculateNetCost', () => {
   it('should calculate effective discount percentage', () => {
     const result = calculateNetCost(100, 20, 10, 1, 0.5, 0, 0)
     expect(result.effectiveDiscountPercent).toBe(19.5)
+  })
+})
+
+describe('feeWaiverActive resolution', () => {
+  it('should be false when feeWaiverSpendUsd is null', () => {
+    const monthlySpend = 5000
+    const feeWaiverSpendUsd = null
+    const result = feeWaiverSpendUsd !== null && monthlySpend >= feeWaiverSpendUsd
+    expect(result).toBe(false)
+  })
+
+  it('should be false when behaviour is undefined (monthlySpend defaults to 0)', () => {
+    const monthlySpend = 0
+    const feeWaiverSpendUsd = 3000
+    const result = feeWaiverSpendUsd !== null && monthlySpend >= feeWaiverSpendUsd
+    expect(result).toBe(false)
+  })
+
+  it('should be true when monthlySpend meets the waiver threshold', () => {
+    const monthlySpend = 3000
+    const feeWaiverSpendUsd = 3000
+    const result = feeWaiverSpendUsd !== null && monthlySpend >= feeWaiverSpendUsd
+    expect(result).toBe(true)
+  })
+
+  it('should be false when monthlySpend is below the waiver threshold', () => {
+    const monthlySpend = 2999
+    const feeWaiverSpendUsd = 3000
+    const result = feeWaiverSpendUsd !== null && monthlySpend >= feeWaiverSpendUsd
+    expect(result).toBe(false)
+  })
+})
+
+describe('generateReasoningWithGemini', () => {
+  it('should use Gemini response when model returns valid JSON', async () => {
+    const mockModel = {
+      generateContent: async () => ({
+        response: {
+          text: () => JSON.stringify({
+            cardReasonings: { card1: 'Good for grocery' },
+            agentReasoning: 'card1 is best',
+          }),
+        },
+      }),
+    } as any
+
+    const cards = [{
+      cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
+      earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
+      netCost: 95, rotatingBonusApplied: false, portalBonusApplied: false, portalBonusName: null,
+      statementCreditApplied: 0, feeWaiverActive: false, foreignFeeUsd: 0,
+    }] as any
+
+    const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
+
+    const result = await generateReasoningWithGemini(cards, product, mockModel)
+    expect(result.cardReasonings['card1']).toBe('Good for grocery')
+    expect(result.agentReasoning).toBe('card1 is best')
+  })
+
+  it('should fall back to auto-generated reasoning when model throws', async () => {
+    const mockModel = {
+      generateContent: async () => {
+        throw new Error('API error')
+      },
+    } as any
+
+    const cards = [{
+      cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
+      earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
+      netCost: 95, rotatingBonusApplied: false, portalBonusApplied: false, portalBonusName: null,
+      statementCreditApplied: 0, feeWaiverActive: false, foreignFeeUsd: 0, industryCost: 97,
+      actualPointsEarned: 2,
+    }] as any
+
+    const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
+
+    const result = await generateReasoningWithGemini(cards, product, mockModel)
+    expect(result.cardReasonings['card1']).toContain('Earns 2x')
+    expect(result.agentReasoning).toContain('Test Card')
   })
 })

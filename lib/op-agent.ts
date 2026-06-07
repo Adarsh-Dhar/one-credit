@@ -318,7 +318,8 @@ function calculateCardResult(
 
   // Fee burden (amortized over monthly transactions)
   const feeBurdenUsd = card.annualFeeUsd / 12 / userMonthlyTxns
-  const feeWaiverActive = card.feeWaiverSpendUsd ? userContext.behaviour?.monthlyAvgSpendUsd >= card.feeWaiverSpendUsd : false
+  const monthlySpend = userContext.behaviour?.monthlyAvgSpendUsd ?? 0
+  const feeWaiverActive = card.feeWaiverSpendUsd !== null && monthlySpend >= card.feeWaiverSpendUsd
   const feeWaiverNote = feeWaiverActive ? 'Waived based on spend' : null
 
   // Float value (30-day grace period at risk-free rate)
@@ -436,14 +437,12 @@ function generateAgentReasoning(winner: CardResult, allCards: CardResult[], prod
 
 // ─── Gemini reasoning pass (optional, falls back to auto-generated) ───────────
 
-async function generateReasoningWithGemini(
+export async function generateReasoningWithGemini(
   cards: CardResult[],
   product: OPAgentInput['product'],
-  apiKey: string
+  model: import('@google/generative-ai').GenerativeModel
 ): Promise<{ cardReasonings: Record<string, string>; agentReasoning: string }> {
   try {
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     const prompt = `
 You are a credit card optimization expert. Given a product and card analysis results, generate reasoning strings.
@@ -491,6 +490,8 @@ export async function runOPAgent(
   input: OPAgentInput,
   geminiApiKey: string
 ): Promise<AnalysisResult> {
+  const genAI = new GoogleGenerativeAI(geminiApiKey)
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
   const { product, cards, cardKnowledgeMap, userMonthlyTxns, riskFreeRatePercent, billingCycleDays, userContext } = input
 
   // Pass 1: Deterministic math for all cards
@@ -521,7 +522,7 @@ export async function runOPAgent(
   }
 
   // Pass 2: Generate reasoning with Gemini (or fall back to auto-generated)
-  const { cardReasonings, agentReasoning } = await generateReasoningWithGemini(cardResults, product, geminiApiKey)
+  const { cardReasonings, agentReasoning } = await generateReasoningWithGemini(cardResults, product, model)
 
   // Apply reasoning to cards
   for (const card of cardResults) {
