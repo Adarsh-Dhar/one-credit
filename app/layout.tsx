@@ -4,23 +4,12 @@ import { Providers } from '@/components/providers'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Omni-Wallet | AI Credit Card Optimizer',
+  title: 'Delphi | Oracle Credit Optimizer',
   description: 'Optimize your credit card rewards with AI-powered recommendations',
   generator: 'v0.app',
   icons: {
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: '/icon.svg', type: 'image/svg+xml' },
     ],
     apple: '/apple-icon.png',
   },
@@ -32,7 +21,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <html lang="en">
+      <head>
+        <link rel="stylesheet" href="https://use.typekit.net/qef5xay.css" />
+      </head>
       <body className="font-sans antialiased bg-transparent text-slate-100">
         <Providers>
           {children}

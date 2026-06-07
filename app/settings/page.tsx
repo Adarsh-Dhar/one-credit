@@ -27,7 +27,9 @@ export default function Settings() {
   const [categoryLoading, setCategoryLoading] = useState(false)
 
   const handleDetectAirport = () => {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+return
+}
     setAirportLoading(true)
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {

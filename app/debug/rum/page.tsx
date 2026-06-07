@@ -79,7 +79,9 @@ function Count({ value, label, warn = false }: { value: number; label: string; w
 }
 
 function Tags({ items, empty }: { items: string[]; empty: string }) {
-  if (!items?.length) return <span className="text-xs text-slate-600 italic">{empty}</span>;
+  if (!items?.length) {
+return <span className="text-xs text-slate-600 italic">{empty}</span>;
+}
   return (
     <div className="flex flex-wrap gap-1.5">
       {items.map((item, i) => (
@@ -123,8 +125,12 @@ export default function RUMDebugPage() {
     setError(null);
     try {
       const res = await fetch('/api/debug/rum');
-      if (res.status === 404) { setDoc(null); return; }
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      if (res.status === 404) {
+ setDoc(null); return; 
+}
+      if (!res.ok) {
+throw new Error(`${res.status} ${res.statusText}`);
+}
       setDoc(await res.json());
       setRefreshedAt(new Date());
     } catch (e) {
@@ -134,7 +140,11 @@ export default function RUMDebugPage() {
     }
   };
 
-  useEffect(() => { if (session?.user?.email) load(); }, [session?.user?.email]);
+  useEffect(() => {
+ if (session?.user?.email) {
+load();
+} 
+}, [session?.user?.email]);
 
   const maxDwell = doc ? Math.max(
     doc.dwellOnTransferGuides, doc.dwellOnTravelCards, doc.dwellOnCashbackCards,

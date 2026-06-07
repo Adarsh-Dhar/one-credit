@@ -4,8 +4,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { connectDB } from '@/lib/mongodb'
 import { Transaction } from '@/lib/models/Transaction'
 
-const VALID_CATEGORIES = ['dining', 'groceries', 'travel', 'gas', 'streaming', 'other'] as const
-type ValidCategory = typeof VALID_CATEGORIES[number]
+const _VALID_CATEGORIES = ['dining', 'groceries', 'travel', 'gas', 'streaming', 'other'] as const
+type ValidCategory = typeof _VALID_CATEGORIES[number]
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -45,7 +45,9 @@ export async function GET() {
     if (!topCategories.includes(mapped)) {
       topCategories.push(mapped)
     }
-    if (topCategories.length === 2) break
+    if (topCategories.length === 2) {
+break
+}
   }
 
   return NextResponse.json({ topCategories })

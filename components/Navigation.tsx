@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Menu, X, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,12 +18,13 @@ export function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-yellow-400 rounded-lg flex items-center justify-center">
-              <span className="font-bold text-white text-sm">OW</span>
-            </div>
-            <span className="font-bold text-xl hidden sm:inline bg-gradient-to-r from-purple-400 to-yellow-300 bg-clip-text text-transparent">
-              Omni-Wallet
-            </span>
+            <Image
+              src="/Firefly.png"
+              alt="Delphi"
+              width={120}
+              height={36}
+              priority
+            />
           </Link>
 
           <div className="hidden md:flex items-center gap-1">
