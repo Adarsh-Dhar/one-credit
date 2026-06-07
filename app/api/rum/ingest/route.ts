@@ -7,63 +7,71 @@ import { toErrorResponse } from '@/lib/errors';
 
 // ─── Event Handler Map ─────────────────────────────────────────────────────
 
-type EventHandler = (event: RUMEvent, incOps: Record<string, number>, maxOps: Record<string, number>, setOps: Record<string, boolean>, stringSetOps: Record<string, string>, addToSetOps: Record<string, string[]>) => void;
+interface EventAccumulators {
+  incOps: Record<string, number> & { transferPartnerTabClicks?: number; cardDetailExpansions?: number; extensionFireCount?: number; extensionAnalyzeApiCallCount?: number; [key: string]: number | undefined }
+  maxOps: Record<string, number> & { scrollDepthMax?: number; [key: string]: number | undefined }
+  setOps: Record<string, boolean> & { scrolledPastAnnualFee?: boolean; backNavAfterRecommendation?: boolean; abandonedRotatingActivation?: boolean; [key: string]: boolean | undefined }
+  stringSetOps: Record<string, string> & { cardAddedToWallet?: string; [key: string]: string | undefined }
+  addToSetOps: Record<string, string[]> & { transferPartnersClicked?: string[]; [key: string]: string[] | undefined }
+}
+
+type EventHandler = (event: RUMEvent, acc: EventAccumulators) => void;
 
 const eventHandlers: Record<string, EventHandler> = {
-  tab_click: (event, incOps) => {
+  tab_click: (event, acc) => {
     if (event.data?.tab === 'transfer_partners') {
-      incOps.transferPartnerTabClicks = (incOps.transferPartnerTabClicks || 0) + 1;
+      acc.incOps.transferPartnerTabClicks = (acc.incOps.transferPartnerTabClicks || 0) + 1;
     }
   },
-  card_detail_expansion: (event, incOps) => {
-    incOps.cardDetailExpansions = (incOps.cardDetailExpansions || 0) + 1;
+  card_detail_expansion: (_event, acc) => {
+    acc.incOps.cardDetailExpansions = (acc.incOps.cardDetailExpansions || 0) + 1;
   },
-  dwell_time: (event, _incOps, maxOps) => {
+  dwell_time: (event, acc) => {
     if (event.section) {
       const field = `dwellOn${event.section.charAt(0).toUpperCase() + event.section.slice(1)}`;
-      maxOps[field] = (event.data?.duration as number) || 0;
+      acc.maxOps[field] = (event.data?.duration as number) || 0;
     }
   },
-  scroll_depth: (event, _incOps, maxOps, setOps) => {
+  scroll_depth: (event, acc) => {
     if (event.data?.depth) {
       const depth = event.data.depth as number;
       if (depth >= 50) {
-        setOps.scrolledPastAnnualFee = true;
+        acc.setOps.scrolledPastAnnualFee = true;
       }
-      maxOps.scrollDepthMax = depth;
+      acc.maxOps.scrollDepthMax = depth;
     }
   },
-  back_navigation: (_event, _incOps, _maxOps, setOps) => {
-    setOps.backNavAfterRecommendation = true;
+  back_navigation: (_event, acc) => {
+    acc.setOps.backNavAfterRecommendation = true;
   },
-  card_view: (event, incOps) => {
+  card_view: (event, acc) => {
     if (event.data?.cardId) {
-      incOps[`cardViewCounts.${event.data.cardId}`] = (incOps[`cardViewCounts.${event.data.cardId}`] as number || 0) + 1;
+      acc.incOps[`cardViewCounts.${event.data.cardId}`] = (acc.incOps[`cardViewCounts.${event.data.cardId}`] as number || 0) + 1;
     }
   },
-  wallet_add: (event, _incOps, _maxOps, _setOps, stringSetOps) => {
+  wallet_add: (event, acc) => {
     if (event.data?.cardId) {
-      stringSetOps.cardAddedToWallet = event.data.cardId as string;
+      acc.stringSetOps.cardAddedToWallet = event.data.cardId as string;
     }
   },
-  transfer_partner_click: (event, _incOps, _maxOps, _setOps, _stringSetOps, addToSetOps) => {
+  transfer_partner_click: (event, acc) => {
     if (event.data?.partner) {
-      addToSetOps.transferPartnersClicked = addToSetOps.transferPartnersClicked || [];
-      addToSetOps.transferPartnersClicked.push(event.data.partner);
+      acc.addToSetOps.transferPartnersClicked = acc.addToSetOps.transferPartnersClicked || [];
+      acc.addToSetOps.transferPartnersClicked.push(event.data.partner);
     }
   },
-  extension_fire: (event, incOps) => {
-    incOps.extensionFireCount = (incOps.extensionFireCount || 0) + 1;
+  extension_fire: (_event, acc) => {
+    acc.incOps.extensionFireCount = (acc.incOps.extensionFireCount || 0) + 1;
   },
   card_recommendation_view: () => {
     // Track when user views card recommendations - can be used for funnel analysis
     // No specific field to update, just log the event for now
   },
-  abandoned_rotating_activation: (_event, _incOps, _maxOps, setOps) => {
-    setOps.abandonedRotatingActivation = true;
+  abandoned_rotating_activation: (_event, acc) => {
+    acc.setOps.abandonedRotatingActivation = true;
   },
-  extension_analyze_api_call: (event, incOps) => {
-    incOps.extensionAnalyzeApiCallCount = (incOps.extensionAnalyzeApiCallCount || 0) + 1;
+  extension_analyze_api_call: (_event, acc) => {
+    acc.incOps.extensionAnalyzeApiCallCount = (acc.incOps.extensionAnalyzeApiCallCount || 0) + 1;
   },
   spend_category_entered: (event) => {
     // Track spend category amounts - could be stored as an array or separate fields
@@ -97,7 +105,7 @@ export async function POST(request: Request) {
     const updateOps: Record<string, unknown> = { $set: { userId } };
     const incOps: Record<string, number> = {};
     const maxOps: Record<string, number> = {};
-    const addToSetOps: Record<string, unknown[]> = {};
+    const addToSetOps: Record<string, string[]> = {};
     const setOps: Record<string, boolean> = {};
     const stringSetOps: Record<string, string> = {};
 
@@ -107,7 +115,7 @@ export async function POST(request: Request) {
     for (const event of events) {
       const handler = eventHandlers[event.eventType];
       if (handler) {
-        handler(event, incOps, maxOps, setOps, stringSetOps, addToSetOps);
+        handler(event, { incOps, maxOps, setOps, stringSetOps, addToSetOps });
       } else {
         logger.warn({ eventType: event.eventType }, '[rum/ingest] Unknown event type');
       }

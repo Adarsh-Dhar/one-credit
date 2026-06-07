@@ -67,29 +67,40 @@ function mapProgramName(programName: string | null | undefined): string | undefi
   return undefined;
 }
 
+function inferCardType(cardType: string, displayName: string, currencyType: string): CardDefinition['type'] {
+  if (cardType === 'business') {
+    return 'business';
+  }
+  if (displayName.toLowerCase().includes('student')) {
+    return 'student';
+  }
+  if (currencyType === 'MILES' || displayName.toLowerCase().includes('travel') || displayName.toLowerCase().includes('sapphire')) {
+    return 'travel';
+  }
+  if (displayName.toLowerCase().includes('dining') || displayName.toLowerCase().includes('restaurant')) {
+    return 'dining';
+  }
+  if (currencyType === 'USD' || displayName.toLowerCase().includes('cash')) {
+    return 'cashback';
+  }
+  if (displayName.toLowerCase().includes('fuel') || displayName.toLowerCase().includes('gas')) {
+    return 'fuel';
+  }
+  if (displayName.toLowerCase().includes('shop') || displayName.toLowerCase().includes('online')) {
+    return 'shopping';
+  }
+  if (displayName.toLowerCase().includes('crypto')) {
+    return 'crypto';
+  }
+  return 'general';
+}
+
 // Transform FiatCard to CardDefinition
 function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
   const { card_id, display_name, network, card_type, currency_type, financials, rewards_structure, benefits_and_credits } = fiatCard;
-  
+
   // Determine card type for UI
-  let type: CardDefinition['type'] = 'general';
-  if (card_type === 'business') {
-    type = 'business';
-  } else if (display_name.toLowerCase().includes('student')) {
-    type = 'student';
-  } else if (currency_type === 'MILES' || display_name.toLowerCase().includes('travel') || display_name.toLowerCase().includes('sapphire')) {
-    type = 'travel';
-  } else if (display_name.toLowerCase().includes('dining') || display_name.toLowerCase().includes('restaurant')) {
-    type = 'dining';
-  } else if (currency_type === 'USD' || display_name.toLowerCase().includes('cash')) {
-    type = 'cashback';
-  } else if (display_name.toLowerCase().includes('fuel') || display_name.toLowerCase().includes('gas')) {
-    type = 'fuel';
-  } else if (display_name.toLowerCase().includes('shop') || display_name.toLowerCase().includes('online')) {
-    type = 'shopping';
-  } else if (display_name.toLowerCase().includes('crypto')) {
-    type = 'crypto';
-  }
+  const type = inferCardType(card_type, display_name, currency_type)
 
   // Extract earn rates from rewards structure using shared function
   const earnRates = buildEarnRates(

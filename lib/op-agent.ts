@@ -10,6 +10,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import logger from '@/lib/logger'
+import type { UserContext } from '@/lib/userContext'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -18,6 +19,14 @@ const FLOAT_PERIOD_DAYS = 30
 const DAYS_PER_YEAR = 365
 
 // ─── Types matching SidePanel.tsx ─────────────────────────────────────────────
+
+interface CalculationContext {
+  product: OPAgentInput['product']
+  userMonthlyTxns: number
+  riskFreeRatePercent: number
+  billingCycleDays: number
+  userContext: UserContext
+}
 
 export interface CardKnowledge {
   name: string
@@ -141,7 +150,7 @@ interface OPAgentInput {
   userMonthlyTxns: number
   riskFreeRatePercent: number
   billingCycleDays: number
-  userContext: any
+  userContext: UserContext
 }
 
 // ─── Deterministic math pass (no AI) ─────────────────────────────────────────
@@ -149,12 +158,9 @@ interface OPAgentInput {
 function calculateCardResult(
   cardKey: string,
   card: CardKnowledge,
-  product: OPAgentInput['product'],
-  userMonthlyTxns: number,
-  riskFreeRatePercent: number,
-  _billingCycleDays: number,
-  userContext: any
+  ctx: CalculationContext
 ): CardResult {
+  const { product, userMonthlyTxns, riskFreeRatePercent, userContext } = ctx
   const price = product.price
   const isEmi = product.isEmi
   const category = product.category.toLowerCase()
@@ -408,11 +414,13 @@ export async function runOPAgent(
     const result = calculateCardResult(
       cardKey,
       cardKnowledge,
-      product,
-      userMonthlyTxns,
-      riskFreeRatePercent,
-      billingCycleDays,
-      userContext
+      {
+        product,
+        userMonthlyTxns,
+        riskFreeRatePercent,
+        billingCycleDays,
+        userContext,
+      }
     )
     cardResults.push(result)
   }

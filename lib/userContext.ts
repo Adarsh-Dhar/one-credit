@@ -8,7 +8,7 @@
 // REAL user, not a hypothetical optimal user.
 
 import { connectDB } from '@/lib/mongodb'
-import { FiatCard } from '@/lib/models/FiatCard'
+import { FiatCard, IFiatCard } from '@/lib/models/FiatCard'
 import { Transaction } from '@/lib/models/Transaction'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -129,7 +129,6 @@ export interface UserContext {
 
 function buildCardLiveStates(
   cards: IFiatCard[],
-  annualTxns: any[],
   annualSpendByCard: Record<string, number>
 ): CardLiveState[] {
   return cards.map(card => {
@@ -139,8 +138,8 @@ function buildCardLiveStates(
     const utilization = limit ? (owed / limit) * 100 : null
 
     const categoryCapProgress = (card.rewards_structure.fixed_categories ?? [])
-      .filter((fc: { cap_amount_usd: number | null | undefined }) => fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined)
-      .map((fc: { cap_amount_usd: number | null | undefined; category: string; current_spend_towards_cap?: number }) => ({
+      .filter((fc) => fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined)
+      .map((fc) => ({
         category: fc.category,
         spentTowardsCap: fc.current_spend_towards_cap ?? 0,
         capLimit: fc.cap_amount_usd ?? null,
@@ -204,13 +203,181 @@ function computeOpTotals(cardStates: CardLiveState[]): { totalOpTokens: number; 
   return { totalOpTokens, totalOpBalanceUsd }
 }
 
+function computeRedemptionStats(redemptionTxns: any[]): {
+  actualAvgCppAchieved: number | null
+  totalPointsRedeemed90d: number
+  redemptionCount90d: number
+} {
+  const totalPointsRedeemed90d = redemptionTxns.reduce((s, t) => s + (t.pointsRedeemed ?? 0), 0)
+  const totalValueReceived90d = redemptionTxns.reduce((s, t) => s + (t.valueReceivedUsd ?? 0), 0)
+
+  const actualAvgCppAchieved = totalPointsRedeemed90d > 0
+    ? Math.round((totalValueReceived90d / totalPointsRedeemed90d) * 10000) / 100
+    : null
+
+  const redemptionCount90d = redemptionTxns.length
+
+  return { actualAvgCppAchieved, totalPointsRedeemed90d, redemptionCount90d }
+}
+
+function computeMonthlyTrend(monthBuckets: Record<string, Record<string, number>>): {
+  monthlyTrend: SpendingBehaviour['monthlyTrend']
+  momSpendChangePct: number | null
+  fastestGrowingCategory: string | null
+} {
+  const monthlyTrend = Object.entries(monthBuckets)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, catMap]) => {
+      const monthTotal = Object.values(catMap).reduce((s, v) => s + v, 0)
+      return {
+        month,
+        totalSpentUsd: parseFloat(monthTotal.toFixed(2)),
+        categoryBreakdown: Object.entries(catMap)
+          .map(([category, total]) => ({
+            category,
+            totalSpentUsd: parseFloat(total.toFixed(2)),
+            sharePct: monthTotal > 0 ? Math.round((total / monthTotal) * 1000) / 10 : 0,
+          }))
+          .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd),
+      }
+    })
+
+  // MoM change
+  let momSpendChangePct: number | null = null
+  let fastestGrowingCategory: string | null = null
+
+  if (monthlyTrend.length >= 2) {
+    const last = monthlyTrend[monthlyTrend.length - 1]
+    const prev = monthlyTrend[monthlyTrend.length - 2]
+    momSpendChangePct = prev.totalSpentUsd > 0
+      ? Math.round(((last.totalSpentUsd - prev.totalSpentUsd) / prev.totalSpentUsd) * 1000) / 10
+      : null
+
+    const lastCatMap = Object.fromEntries(last.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
+    const prevCatMap = Object.fromEntries(prev.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
+    const growthByCategory = Object.entries(lastCatMap)
+      .map(([cat, lastAmt]) => ({ cat, growth: lastAmt - (prevCatMap[cat] ?? 0) }))
+      .sort((a, b) => b.growth - a.growth)
+    fastestGrowingCategory = growthByCategory[0]?.growth > 0 ? growthByCategory[0].cat : null
+  }
+
+  return { monthlyTrend, momSpendChangePct, fastestGrowingCategory }
+}
+
+function aggregateSpendingBehaviour(txns: any[], totalSpend: number): {
+  categoryBreakdown: SpendingBehaviour['categoryBreakdown']
+  cardCategoryBreakdown: SpendingBehaviour['cardCategoryBreakdown']
+  topMerchants: SpendingBehaviour['topMerchants']
+  cardTopMerchants: SpendingBehaviour['cardTopMerchants']
+  monthBuckets: Record<string, Record<string, number>>
+  emiTransactionPct: number
+} {
+  // Group by category (cross-card aggregate)
+  const categoryMap: Record<string, { total: number; count: number }> = {}
+  const cardCategoryMap: Record<string, Record<string, { total: number; count: number }>> = {}
+  const merchantMap: Record<string, { total: number; count: number; categories: Record<string, number>; cardCounts: Record<string, number> }> = {}
+  const cardMerchantMap: Record<string, Record<string, { total: number; count: number }>> = {}
+  const monthBuckets: Record<string, Record<string, number>> = {}
+  let emiCount = 0
+
+  for (const tx of txns) {
+    const cat = tx.category ?? 'other'
+    const cid = tx.cardId
+    const m = (tx.merchant ?? 'unknown').toLowerCase().trim()
+    const month = (tx.createdAt as Date).toISOString().slice(0, 7)
+    const amt = tx.amountUsd ?? 0
+
+    // cross-card category aggregate
+    categoryMap[cat] ??= { total: 0, count: 0 }
+    categoryMap[cat].total += amt
+    categoryMap[cat].count += 1
+    if (tx.isEmi) {
+      emiCount++
+    }
+
+    // per-card category
+    cardCategoryMap[cid] ??= {}
+    cardCategoryMap[cid][cat] ??= { total: 0, count: 0 }
+    cardCategoryMap[cid][cat].total += amt
+    cardCategoryMap[cid][cat].count += 1
+
+    // global merchant
+    merchantMap[m] ??= { total: 0, count: 0, categories: {}, cardCounts: {} }
+    merchantMap[m].total += amt
+    merchantMap[m].count += 1
+    merchantMap[m].categories[cat] = (merchantMap[m].categories[cat] ?? 0) + 1
+    merchantMap[m].cardCounts[cid] = (merchantMap[m].cardCounts[cid] ?? 0) + 1
+
+    // per-card merchant
+    cardMerchantMap[cid] ??= {}
+    cardMerchantMap[cid][m] ??= { total: 0, count: 0 }
+    cardMerchantMap[cid][m].total += amt
+    cardMerchantMap[cid][m].count += 1
+
+    // monthly trend
+    monthBuckets[month] ??= {}
+    monthBuckets[month][cat] = (monthBuckets[month][cat] ?? 0) + amt
+  }
+
+  const categoryBreakdown = Object.entries(categoryMap)
+    .map(([category, data]) => ({
+      category,
+      totalSpentUsd: parseFloat(data.total.toFixed(2)),
+      txCount: data.count,
+      sharePct: totalSpend > 0 ? Math.round((data.total / totalSpend) * 1000) / 10 : 0,
+      avgTxSizeUsd: parseFloat((data.total / data.count).toFixed(2)),
+    }))
+    .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
+
+  const cardCategoryBreakdown: SpendingBehaviour['cardCategoryBreakdown'] = {}
+
+  for (const [cid, catMap] of Object.entries(cardCategoryMap)) {
+    const cardTotal = Object.values(catMap).reduce((s, v) => s + v.total, 0)
+    cardCategoryBreakdown[cid] = Object.entries(catMap)
+      .map(([category, data]) => ({
+        category,
+        totalSpentUsd: parseFloat(data.total.toFixed(2)),
+        txCount: data.count,
+        sharePct: cardTotal > 0 ? Math.round((data.total / cardTotal) * 1000) / 10 : 0,
+      }))
+      .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
+  }
+
+  const topMerchants = Object.entries(merchantMap)
+    .map(([merchant, data]) => ({
+      merchant,
+      totalSpentUsd: parseFloat(data.total.toFixed(2)),
+      txCount: data.count,
+      category: Object.entries(data.categories).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'other',
+      primaryCardId: Object.entries(data.cardCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '',
+    }))
+    .sort((a, b) => b.txCount - a.txCount)
+    .slice(0, 10)
+
+  const cardTopMerchants: SpendingBehaviour['cardTopMerchants'] = {}
+  for (const [cid, mMap] of Object.entries(cardMerchantMap)) {
+    cardTopMerchants[cid] = Object.entries(mMap)
+      .map(([merchant, data]) => ({
+        merchant,
+        totalSpentUsd: parseFloat(data.total.toFixed(2)),
+        txCount: data.count,
+      }))
+      .sort((a, b) => b.txCount - a.txCount)
+      .slice(0, 5)
+  }
+
+  const emiTransactionPct = txns.length > 0 ? Math.round((emiCount / txns.length) * 100) : 0
+
+  return { categoryBreakdown, cardCategoryBreakdown, topMerchants, cardTopMerchants, monthBuckets, emiTransactionPct }
+}
+
 // ─── Main builder ─────────────────────────────────────────────────────────────
 
-export async function buildUserContext(userId: string, preFetchedCards?: IFiatCard[]): Promise<UserContext> {
+export async function buildUserContext(userId: string): Promise<UserContext> {
   await connectDB()
 
-  // 1. Fetch all cards (or use pre-fetched)
-  const cards = preFetchedCards || await FiatCard.find({ user_id: userId })
+  // 1. Fetch all cards
+  const cards = await FiatCard.find({ user_id: userId })
     .select({
       card_id: 1,
       display_name: 1,
@@ -285,155 +452,22 @@ export async function buildUserContext(userId: string, preFetchedCards?: IFiatCa
     annualSpendByCard[tx.cardId] = (annualSpendByCard[tx.cardId] ?? 0) + (tx.amountUsd ?? 0)
   }
 
-  const cardStates = buildCardLiveStates(cards, annualTxns, annualSpendByCard)
+  const cardStates = buildCardLiveStates(cards, annualSpendByCard)
 
   // ── Spending behaviour ────────────────────────────────────────────────────
 
   const totalSpend = txns.reduce((sum, t) => sum + (t.amountUsd ?? 0), 0)
 
-  // Group by category (cross-card aggregate)
-  const categoryMap:    Record<string, { total: number; count: number }> = {}
-  const cardCategoryMap: Record<string, Record<string, { total: number; count: number }>> = {}
-  const merchantMap:    Record<string, { total: number; count: number; categories: Record<string, number>; cardCounts: Record<string, number> }> = {}
-  const cardMerchantMap: Record<string, Record<string, { total: number; count: number }>> = {}
-  const monthBuckets:   Record<string, Record<string, number>> = {}
-  let emiCount = 0
+  const {
+    categoryBreakdown,
+    cardCategoryBreakdown,
+    topMerchants,
+    cardTopMerchants,
+    monthBuckets,
+    emiTransactionPct,
+  } = aggregateSpendingBehaviour(txns, totalSpend)
 
-  for (const tx of txns) {
-    const cat   = tx.category ?? 'other'
-    const cid   = tx.cardId
-    const m     = (tx.merchant ?? 'unknown').toLowerCase().trim()
-    const month = (tx.createdAt as Date).toISOString().slice(0, 7)
-    const amt   = tx.amountUsd ?? 0
-
-    // cross-card category aggregate
-    if (!categoryMap[cat]) {
-      categoryMap[cat] = { total: 0, count: 0 }
-    }
-    categoryMap[cat].total += amt
-    categoryMap[cat].count += 1
-    if (tx.isEmi) {
-      emiCount++
-    }
-
-    // per-card category
-    if (!cardCategoryMap[cid]) {
-      cardCategoryMap[cid] = {}
-    }
-    if (!cardCategoryMap[cid][cat]) {
-      cardCategoryMap[cid][cat] = { total: 0, count: 0 }
-    }
-    cardCategoryMap[cid][cat].total += amt
-    cardCategoryMap[cid][cat].count += 1
-
-    // global merchant
-    if (!merchantMap[m]) {
-      merchantMap[m] = { total: 0, count: 0, categories: {}, cardCounts: {} }
-    }
-    merchantMap[m].total += amt
-    merchantMap[m].count += 1
-    merchantMap[m].categories[cat] = (merchantMap[m].categories[cat] ?? 0) + 1
-    merchantMap[m].cardCounts[cid] = (merchantMap[m].cardCounts[cid] ?? 0) + 1
-
-    // per-card merchant
-    if (!cardMerchantMap[cid]) {
-      cardMerchantMap[cid] = {}
-    }
-    if (!cardMerchantMap[cid][m]) {
-      cardMerchantMap[cid][m] = { total: 0, count: 0 }
-    }
-    cardMerchantMap[cid][m].total += amt
-    cardMerchantMap[cid][m].count += 1
-
-    // monthly trend
-    if (!monthBuckets[month]) {
-      monthBuckets[month] = {}
-    }
-    monthBuckets[month][cat] = (monthBuckets[month][cat] ?? 0) + amt
-  }
-
-  const categoryBreakdown = Object.entries(categoryMap)
-    .map(([category, data]) => ({
-      category,
-      totalSpentUsd: parseFloat(data.total.toFixed(2)),
-      txCount: data.count,
-      sharePct: totalSpend > 0 ? Math.round((data.total / totalSpend) * 1000) / 10 : 0,
-      avgTxSizeUsd: parseFloat((data.total / data.count).toFixed(2)),
-    }))
-    .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
-
-  const cardCategoryBreakdown: SpendingBehaviour['cardCategoryBreakdown'] = {}
-
-  for (const [cid, catMap] of Object.entries(cardCategoryMap)) {
-    const cardTotal = Object.values(catMap).reduce((s, v) => s + v.total, 0)
-    cardCategoryBreakdown[cid] = Object.entries(catMap)
-      .map(([category, data]) => ({
-        category,
-        totalSpentUsd: parseFloat(data.total.toFixed(2)),
-        txCount: data.count,
-        sharePct: cardTotal > 0 ? Math.round((data.total / cardTotal) * 1000) / 10 : 0,
-      }))
-      .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
-  }
-
-  const topMerchants = Object.entries(merchantMap)
-    .map(([merchant, data]) => ({
-      merchant,
-      totalSpentUsd: parseFloat(data.total.toFixed(2)),
-      txCount: data.count,
-      category: Object.entries(data.categories).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'other',
-      primaryCardId: Object.entries(data.cardCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '',
-    }))
-    .sort((a, b) => b.txCount - a.txCount)
-    .slice(0, 10)
-
-  const cardTopMerchants: SpendingBehaviour['cardTopMerchants'] = {}
-  for (const [cid, mMap] of Object.entries(cardMerchantMap)) {
-    cardTopMerchants[cid] = Object.entries(mMap)
-      .map(([merchant, data]) => ({
-        merchant,
-        totalSpentUsd: parseFloat(data.total.toFixed(2)),
-        txCount: data.count,
-      }))
-      .sort((a, b) => b.txCount - a.txCount)
-      .slice(0, 5)
-  }
-
-  const monthlyTrend = Object.entries(monthBuckets)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, catMap]) => {
-      const monthTotal = Object.values(catMap).reduce((s, v) => s + v, 0)
-      return {
-        month,
-        totalSpentUsd: parseFloat(monthTotal.toFixed(2)),
-        categoryBreakdown: Object.entries(catMap)
-          .map(([category, total]) => ({
-            category,
-            totalSpentUsd: parseFloat(total.toFixed(2)),
-            sharePct: monthTotal > 0 ? Math.round((total / monthTotal) * 1000) / 10 : 0,
-          }))
-          .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd),
-      }
-    })
-
-  // MoM change
-  let momSpendChangePct: number | null = null
-  let fastestGrowingCategory: string | null = null
-
-  if (monthlyTrend.length >= 2) {
-    const last = monthlyTrend[monthlyTrend.length - 1]
-    const prev = monthlyTrend[monthlyTrend.length - 2]
-    momSpendChangePct = prev.totalSpentUsd > 0
-      ? Math.round(((last.totalSpentUsd - prev.totalSpentUsd) / prev.totalSpentUsd) * 1000) / 10
-      : null
-
-    const lastCatMap = Object.fromEntries(last.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
-    const prevCatMap = Object.fromEntries(prev.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
-    const growthByCategory = Object.entries(lastCatMap)
-      .map(([cat, lastAmt]) => ({ cat, growth: lastAmt - (prevCatMap[cat] ?? 0) }))
-      .sort((a, b) => b.growth - a.growth)
-    fastestGrowingCategory = growthByCategory[0]?.growth > 0 ? growthByCategory[0].cat : null
-  }
+  const { monthlyTrend, momSpendChangePct, fastestGrowingCategory } = computeMonthlyTrend(monthBuckets)
 
   // Dynamic month count
   const earliestTx = txns.length > 0
@@ -443,14 +477,7 @@ export async function buildUserContext(userId: string, preFetchedCards?: IFiatCa
   const monthlyAvgSpendUsd = parseFloat((totalSpend / actualMonths).toFixed(2))
 
   // CPP from actual redemption transactions
-  const totalPointsRedeemed90d = redemptionTxns.reduce((s, t) => s + (t.pointsRedeemed ?? 0), 0)
-  const totalValueReceived90d = redemptionTxns.reduce((s, t) => s + (t.valueReceivedUsd ?? 0), 0)
-
-  const actualAvgCppAchieved = totalPointsRedeemed90d > 0
-    ? Math.round((totalValueReceived90d / totalPointsRedeemed90d) * 10000) / 100
-    : null
-
-  const redemptionCount90d = redemptionTxns.length
+  const { actualAvgCppAchieved, totalPointsRedeemed90d, redemptionCount90d } = computeRedemptionStats(redemptionTxns)
 
   const topCategory = categoryBreakdown[0]?.category ?? 'shopping'
 
@@ -474,7 +501,95 @@ export async function buildUserContext(userId: string, preFetchedCards?: IFiatCa
     actualAvgCppAchieved,
     totalPointsRedeemed90d,
     redemptionCount90d,
-    emiTransactionPct: txns.length > 0 ? Math.round((emiCount / txns.length) * 100) : 0,
+    emiTransactionPct,
+  }
+
+  // ── Cross-card OP token totals ─────────────────────────────────────────────
+  const { totalOpTokens, totalOpBalanceUsd } = computeOpTotals(cardStates)
+
+  return { userId, cards: cardStates, behaviour, totalOpTokens, totalOpBalanceUsd }
+}
+
+export async function buildUserContextFromCards(userId: string, cards: IFiatCard[]): Promise<UserContext> {
+  await connectDB()
+
+  // Use pre-fetched cards directly
+  const cardsData = cards
+
+  // 2. Fetch transactions (90-day window)
+  const since = new Date(Date.now() - BEHAVIOUR_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+  const txns = await Transaction.find({ user_id: userId, createdAt: { $gte: since } })
+    .select({ amountUsd: 1, category: 1, cardId: 1, merchant: 1, isEmi: 1, createdAt: 1 })
+    .lean()
+
+  // 3. Fetch redemption transactions (90-day window)
+  const redemptionTxns = await Transaction.find({ user_id: userId, isRedemption: true, createdAt: { $gte: since } })
+    .select({ pointsRedeemed: 1, valueReceivedUsd: 1 })
+    .lean()
+
+  // 4. Fetch annual transactions for card spend tracking
+  const annualSince = new Date(Date.now() - ANNUAL_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+  const annualTxns = await Transaction.find({ user_id: userId, createdAt: { $gte: annualSince } })
+    .select({ cardId: 1, amountUsd: 1 })
+    .lean()
+
+  // ── Card live states ──────────────────────────────────────────────────────
+
+  const annualSpendByCard: Record<string, number> = {}
+  for (const tx of annualTxns) {
+    annualSpendByCard[tx.cardId] = (annualSpendByCard[tx.cardId] ?? 0) + (tx.amountUsd ?? 0)
+  }
+
+  const cardStates = buildCardLiveStates(cardsData, annualSpendByCard)
+
+  // ── Spending behaviour ────────────────────────────────────────────────────
+
+  const totalSpend = txns.reduce((sum, t) => sum + (t.amountUsd ?? 0), 0)
+
+  const {
+    categoryBreakdown,
+    cardCategoryBreakdown,
+    topMerchants,
+    cardTopMerchants,
+    monthBuckets,
+    emiTransactionPct,
+  } = aggregateSpendingBehaviour(txns, totalSpend)
+
+  const { monthlyTrend, momSpendChangePct, fastestGrowingCategory } = computeMonthlyTrend(monthBuckets)
+
+  // Dynamic month count
+  const earliestTx = txns.length > 0
+    ? new Date(Math.min(...txns.map(t => new Date(t.createdAt as Date).getTime())))
+    : since
+  const actualMonths = Math.max(1, (Date.now() - earliestTx.getTime()) / (1000 * 60 * 60 * 24 * AVG_DAYS_PER_MONTH))
+  const monthlyAvgSpendUsd = parseFloat((totalSpend / actualMonths).toFixed(2))
+
+  // CPP from actual redemption transactions
+  const { actualAvgCppAchieved, totalPointsRedeemed90d, redemptionCount90d } = computeRedemptionStats(redemptionTxns)
+
+  const topCategory = categoryBreakdown[0]?.category ?? 'shopping'
+
+  const getShare = (cat: string) =>
+    categoryBreakdown.find(c => c.category === cat)?.sharePct ?? 0
+
+  const behaviour: SpendingBehaviour = {
+    categoryBreakdown,
+    cardCategoryBreakdown,
+    topMerchants,
+    cardTopMerchants,
+    topCategory,
+    isFrequentTraveller: getShare('travel') > FREQUENT_TRAVEL_THRESHOLD_PCT,
+    isFrequentDiner: getShare('dining') > FREQUENT_DINER_THRESHOLD_PCT,
+    isOnlineShopper: (getShare('shopping') + getShare('electronics')) > ONLINE_SHOPPER_THRESHOLD_PCT,
+    isGroceryDominant: getShare('grocery') > GROCERY_DOMINANT_THRESHOLD_PCT,
+    monthlyAvgSpendUsd,
+    monthlyTrend,
+    momSpendChangePct,
+    fastestGrowingCategory,
+    actualAvgCppAchieved,
+    totalPointsRedeemed90d,
+    redemptionCount90d,
+    emiTransactionPct,
   }
 
   // ── Cross-card OP token totals ─────────────────────────────────────────────

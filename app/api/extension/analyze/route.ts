@@ -199,13 +199,13 @@ function detectProductAttributes(product: z.infer<typeof AnalyzeSchema>['product
 } {
   const isEmi = product.url?.includes('emi') || product.name?.toLowerCase().includes('emi') || false
 
-  const merchantMap: Record<string, string> = {
+  const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
     amazon: 'amazon.in',
     walmart: 'walmart.com',
     bestbuy: 'bestbuy.com',
     target: 'target.com',
   }
-  const merchant = sanitizeForPrompt((product.source && merchantMap[product.source]) || product.source || 'amazon.in')
+  const merchant = sanitizeForPrompt((product.source && SOURCE_TO_MERCHANT_DOMAIN[product.source]) || product.source || 'amazon.in')
 
   const isForeignMerchant = !merchant.endsWith('.in') && merchant !== 'amazon.in'
   const category = sanitizeForPrompt(inferCategory(product.name || '', merchant))

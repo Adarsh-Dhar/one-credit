@@ -50,11 +50,12 @@ const DT_API_TOKEN = env.DT_API_TOKEN ?? ''
 
 // Platform URLs require Bearer auth, classic SaaS uses Api-Token
 const IS_PLATFORM_URL = DT_ENV_URL.includes('.apps.dynatrace.com')
-const IS_API_TOKEN = DT_API_TOKEN.startsWith('dt0c01.')
+const IS_CLASSIC_API_TOKEN = DT_API_TOKEN.startsWith('dt0c01.')
 
 // Platform URLs don't support API tokens - they require OAuth2/JWT
-// If using Platform URL with API token, fall back to MongoDB
-const SHOULD_USE_DT = !IS_PLATFORM_URL || !IS_API_TOKEN
+// Use DT only when NOT (platform URL AND classic API token)
+const isPlatformWithClassicToken = IS_PLATFORM_URL && IS_CLASSIC_API_TOKEN
+const dtIsAvailable = Boolean(DT_ENV_URL && DT_API_TOKEN && !isPlatformWithClassicToken)
 
 const AUTH_SCHEME = IS_PLATFORM_URL ? 'Bearer' : 'Api-Token'
 
@@ -92,6 +93,11 @@ export interface RUMAgentResult {
   persona: UserPersona
   dynatraceLogId: string | null   // log ingestion response ID (if DT is reachable)
   rawGeminiReasoning: string
+}
+
+interface PersonaLogContext {
+  source: 'rum_inferred' | 'chat_override'
+  intentOverrideActive: boolean
 }
 
 // ─── Dynatrace MCP Tool Declarations (sent to Gemini as tools) ───────────────
@@ -169,8 +175,8 @@ async function executeDTTool(
   args: Record<string, unknown>,
 ): Promise<unknown> {
 
-  if (!DT_ENV_URL || !DT_API_TOKEN || !SHOULD_USE_DT) {
-    if (IS_PLATFORM_URL && IS_API_TOKEN) {
+  if (!dtIsAvailable) {
+    if (IS_PLATFORM_URL && IS_CLASSIC_API_TOKEN) {
       logger.warn('[rum-agent] Platform URLs require OAuth2/JWT tokens, not API tokens — reading RUM signals from MongoDB')
     } else if (!DT_ENV_URL || !DT_API_TOKEN) {
       logger.warn('[rum-agent] DT_ENV_URL or DT_API_TOKEN not set — reading RUM signals from MongoDB')
@@ -306,8 +312,7 @@ async function logPersonaToDynatrace(
   userId: string,
   persona: UserPersona,
   reasoning: string,
-  source: 'rum_inferred' | 'chat_override' = 'rum_inferred',
-  intentOverrideActive: boolean = false,
+  context: PersonaLogContext = { source: 'rum_inferred', intentOverrideActive: false }
 ): Promise<string | null> {
   if (!DT_ENV_URL || !DT_API_TOKEN) {
     logger.info({ userId, persona: persona.label }, '[rum-agent] DT not configured — skipping log ingest')
@@ -336,8 +341,8 @@ async function logPersonaToDynatrace(
     'severity':     'INFO',
     'user.id':      userId,
     'persona.label': persona.label,
-    source,
-    intentOverrideActive,
+    source: context.source,
+    intentOverrideActive: context.intentOverrideActive,
   }
 
   try {
@@ -609,8 +614,10 @@ ${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
     userEmail,
     parsed.persona,
     parsed.agentReasoning,
-    extractedPrefs ? 'chat_override' : 'rum_inferred',
-    !!extractedPrefs,
+    {
+      source: extractedPrefs ? 'chat_override' : 'rum_inferred',
+      intentOverrideActive: !!extractedPrefs,
+    },
   )
 
   logger.info(
