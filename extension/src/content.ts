@@ -268,7 +268,9 @@ function positionOverlay(el: HTMLDivElement, target: Element) {
 
 function createToast(msg: string) {
   const old = document.getElementById('oc-picker-toast')
-  if (old) old.remove()
+  if (old) {
+    old.remove()
+  }
   const t = document.createElement('div')
   t.id = 'oc-picker-toast'
   t.style.cssText = `
@@ -302,12 +304,16 @@ function stopPicker() {
 }
 
 function onMouseOver(e: MouseEvent) {
-  if (!pickerActive || !highlightOverlay) return
+  if (!pickerActive || !highlightOverlay) {
+    return
+  }
   positionOverlay(highlightOverlay, e.target as Element)
 }
 
 function onPickerClick(e: MouseEvent) {
-  if (!pickerActive) return
+  if (!pickerActive) {
+    return
+  }
   e.preventDefault()
   e.stopPropagation()
 
@@ -349,8 +355,12 @@ function onPickerClick(e: MouseEvent) {
 
 // Listen for START_PICKER from the popup
 chrome.runtime.onMessage.addListener((request) => {
-  if (request.type !== 'START_PICKER') return
-  if (pickerActive) return   // already running
+  if (request.type !== 'START_PICKER') {
+    return
+  }
+  if (pickerActive) {
+    return   // already running
+  }
 
   pickerActive = true
   pickerStep   = 'name'

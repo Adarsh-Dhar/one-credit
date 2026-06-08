@@ -2,12 +2,22 @@ import { useState } from 'react';
 import { buildPaymentPrompt } from '@/lib/prompts';
 import { WalletCard } from '@/lib/types';
 
+// DEPRECATED: This hook is currently broken as it calls /api/rum/analyze
+// which is for RUM persona inference, not payment analysis.
+// The correct endpoint for payment analysis is /api/extension/analyze.
+// This hook needs to be refactored to use the correct API format.
+
 type Step = 'category' | 'merchant' | 'amount' | 'analyzing' | 'approval' | 'success' | 'failed';
 
 interface Merchant {
   name: string;
   logo: string;
   category: string;
+}
+
+interface Category {
+  id: string;
+  label: string;
 }
 
 interface GeminiRecommendation {
@@ -40,14 +50,14 @@ export function usePayFlow({
   CATEGORY_TO_EARN_KEY,
 }: UsePayFlowProps) {
   const [step, setStep] = useState<Step>('category');
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
   const [amount, setAmount] = useState('');
   const [recommendation, setRecommendation] = useState<GeminiRecommendation | null>(null);
   const [txHash, setTxHash] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleCategorySelect = (cat: any) => {
+  const handleCategorySelect = (cat: Category) => {
     setSelectedCategory(cat);
     setStep('merchant');
     trackEvent('transaction_categorized', { category: cat.id, label: cat.label });
@@ -81,7 +91,7 @@ export function usePayFlow({
         userId || ''
       );
 
-      const res = await fetch('/api/ai/analyze', {
+      const res = await fetch('/api/rum/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),

@@ -40,7 +40,7 @@ export default function InsightsPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch('/api/ai/analyze', {
+        const res = await fetch('/api/rum/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId }),

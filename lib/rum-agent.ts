@@ -263,7 +263,7 @@ const DT_TOOL_EXECUTORS: Record<string, DTToolExecutor> = {
   dt_get_apm_metrics: async (args, headers) => {
     const endpoints = (args.endpoints as string[]) ?? [
       '/api/extension/analyze',
-      '/api/ai/analyze',
+      '/api/rum/analyze',
     ]
     const res = await fetch(
       `${DT_ENV_URL}/api/v2/metrics/query?` +
@@ -388,8 +388,8 @@ async function generateContentWithRetry(
 ): Promise<{ response: { candidates: Array<{ content: { parts: GeminiPart[] } }> } }> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const result = await model.generateContent({ contents });
-      return result;
+      const result = await model.generateContent(contents as any);
+      return result as any;
     } catch (error: unknown) {
       const isRetryable =
         (error as { status?: number })?.status === 503 ||

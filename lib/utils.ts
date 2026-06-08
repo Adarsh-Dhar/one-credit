@@ -33,3 +33,54 @@ export function inferCategory(productName: string): string {
   // Falls back to 'shopping' for unmatched products (Amazon-specific logic removed)
   return CATEGORY_PATTERNS.find(({ pattern }) => pattern.test(name))?.category ?? 'shopping'
 }
+
+// Currency type utilities
+export type CurrencyType = 'USD' | 'POINTS' | 'MILES' | string
+
+export function isCashbackCard(currencyType: CurrencyType): boolean {
+  return currencyType === 'USD'
+}
+
+export function isPointsCard(currencyType: CurrencyType): boolean {
+  return currencyType === 'POINTS'
+}
+
+export function isMilesCard(currencyType: CurrencyType): boolean {
+  return currencyType === 'MILES'
+}
+
+export function getRewardType(currencyType: CurrencyType | undefined): 'cashback' | 'points' | 'miles' {
+  if (!currencyType || currencyType === 'USD') {
+    return 'cashback'
+  }
+  if (currencyType === 'MILES') {
+    return 'miles'
+  }
+  return 'points'
+}
+
+export function calculateCardValue(
+  currencyType: CurrencyType,
+  creditTokenBalance: number,
+  pointsBalance: number,
+  pointsValueCents: number
+): number {
+  if (currencyType === 'POINTS') {
+    return pointsBalance * (pointsValueCents / 100)
+  }
+  return creditTokenBalance
+}
+
+export function calculateDefaultBalance(
+  currencyType: CurrencyType,
+  creditTokenBalance: number,
+  pointsBalance: number
+): number {
+  if (isPointsCard(currencyType)) {
+    return pointsBalance || 30000
+  }
+  if (isMilesCard(currencyType)) {
+    return 50000
+  }
+  return creditTokenBalance || 150
+}

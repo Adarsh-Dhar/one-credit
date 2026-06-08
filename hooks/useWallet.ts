@@ -22,10 +22,8 @@ export function useWallet() {
       return;
     }
     const email = session?.user?.email;
-    if (!email) {
-      return;
-    } // Don't fetch if not authenticated
-    setError(null);
+    if (email) {
+      setError(null);
     fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
       .then((r) => r.json())
       .then((data) => {
@@ -37,6 +35,7 @@ export function useWallet() {
         setError('Failed to load wallet. Please refresh.');
       })
       .finally(() => setLoading(false));
+    }
   }, [session, status]);
 
   return { wallet, cards, loading, error, session };

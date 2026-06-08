@@ -59,7 +59,7 @@ const eventHandlers: Record<string, EventHandler> = {
   transfer_partner_click: (event, acc) => {
     if (event.data?.partner) {
       acc.addToSetOps.transferPartnersClicked = acc.addToSetOps.transferPartnersClicked || [];
-      acc.addToSetOps.transferPartnersClicked.push(event.data.partner);
+      acc.addToSetOps.transferPartnersClicked.push(event.data.partner as string);
     }
   },
   extension_fire: (_event, acc) => {

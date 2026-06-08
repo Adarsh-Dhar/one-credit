@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { validateEnv } from './env';
+import { MONGODB_CONFIG } from './constants';
 
 validateEnv();
 
@@ -22,9 +23,9 @@ export async function connectDB() {
 
   if (!cached.promise) {
     cached.promise = mongoose.connect(MONGODB_URI, {
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
+      maxPoolSize: MONGODB_CONFIG.MAX_POOL_SIZE,
+      serverSelectionTimeoutMS: MONGODB_CONFIG.SERVER_SELECTION_TIMEOUT_MS,
+      socketTimeoutMS: MONGODB_CONFIG.SOCKET_TIMEOUT_MS,
     });
   }
 

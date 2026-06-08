@@ -7,6 +7,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
 import { transformFiatCardToWalletDetail } from '@/lib/cardTransformers';
+import { calculateCardValue } from '@/lib/utils';
 
 
 
@@ -19,7 +20,6 @@ export async function GET() {
 
     await connectDB();
 
-    // Use session.user.id directly (already in JWT via jwt callback)
     const userId = session.user.id;
     const fiatCards = await FiatCard.find({ user_id: userId })
       .select({
@@ -45,20 +45,13 @@ export async function GET() {
       })
       .lean() as IFiatCard[];
 
-    // Calculate total value from credit_token_balance (rewards) not current_balance_owed (debt)
     let totalValue = 0;
     const cardDetails = fiatCards.map((card) => {
       const creditTokenBalance = card.credit_token_balance || 0;
       const pointsBalance = card.points_balance || 0;
       const pointsValueCents = card.points_value_cents || 1.0;
 
-      // Value comes from rewards (credit_token_balance or points_balance), not debt
-      let value = 0;
-      if (card.currency_type === 'POINTS') {
-        value = pointsBalance * (pointsValueCents / 100); // Convert cents to USD
-      } else {
-        value = creditTokenBalance; // Already in USD
-      }
+      const value = calculateCardValue(card.currency_type, creditTokenBalance, pointsBalance, pointsValueCents);
 
       totalValue += value;
 

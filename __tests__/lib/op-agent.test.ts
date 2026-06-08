@@ -23,20 +23,16 @@ import {
 describe('checkCategoryExclusion', () => {
   it('should allow category not in excluded list', () => {
     const result = checkCategoryExclusion('grocery', ['dining', 'travel'])
-    expect(result).toEqual({
-      confirmedEarn: true,
-      exclusionReason: null,
-      earnRate: 0,
-    })
+    expect(result.confirmedEarn).toBe(true)
+    expect(result.exclusionReason).toBeNull()
+    expect(result.earnRate).toBe(0)
   })
 
   it('should exclude category in excluded list', () => {
     const result = checkCategoryExclusion('grocery', ['grocery', 'travel'])
-    expect(result).toEqual({
-      confirmedEarn: false,
-      exclusionReason: 'Category "grocery" is excluded for this card',
-      earnRate: 0,
-    })
+    expect(result.confirmedEarn).toBe(false)
+    expect(result.exclusionReason).toBe('Category "grocery" is excluded for this card')
+    expect(result.earnRate).toBe(0)
   })
 
   it('should be case-insensitive when checking substring containment', () => {
@@ -54,11 +50,9 @@ describe('applyRotatingBonus', () => {
       1,
       100
     )
-    expect(result).toEqual({
-      earnRate: 1,
-      bonusPoints: 0,
-      rotatingBonusApplied: false,
-    })
+    expect(result.earnRate).toBe(1)
+    expect(result.bonusPoints).toBe(0)
+    expect(result.rotatingBonusApplied).toBe(false)
   })
 
   it('should not apply bonus when category not in active list', () => {
@@ -68,11 +62,9 @@ describe('applyRotatingBonus', () => {
       1,
       100
     )
-    expect(result).toEqual({
-      earnRate: 1,
-      bonusPoints: 0,
-      rotatingBonusApplied: false,
-    })
+    expect(result.earnRate).toBe(1)
+    expect(result.bonusPoints).toBe(0)
+    expect(result.rotatingBonusApplied).toBe(false)
   })
 
   it('should apply bonus when category matches', () => {
@@ -82,11 +74,9 @@ describe('applyRotatingBonus', () => {
       1,
       100
     )
-    expect(result).toEqual({
-      earnRate: 5,
-      bonusPoints: 4,
-      rotatingBonusApplied: true,
-    })
+    expect(result.earnRate).toBe(5)
+    expect(result.bonusPoints).toBe(4)
+    expect(result.rotatingBonusApplied).toBe(true)
   })
 
   it('should handle null rotating category', () => {
@@ -96,24 +86,20 @@ describe('applyRotatingBonus', () => {
       1,
       100
     )
-    expect(result).toEqual({
-      earnRate: 1,
-      bonusPoints: 0,
-      rotatingBonusApplied: false,
-    })
+    expect(result.earnRate).toBe(1)
+    expect(result.bonusPoints).toBe(0)
+    expect(result.rotatingBonusApplied).toBe(false)
   })
 })
 
 describe('applyPortalBonus', () => {
   it('should return base rate when no portal bonuses', () => {
     const result = applyPortalBonus('grocery', [], 1, 100)
-    expect(result).toEqual({
-      earnRate: 1,
-      bonusPoints: 0,
-      portalBonusApplied: false,
-      portalBonusName: null,
-      portalBonusUrl: null,
-    })
+    expect(result.earnRate).toBe(1)
+    expect(result.bonusPoints).toBe(0)
+    expect(result.portalBonusApplied).toBe(false)
+    expect(result.portalBonusName).toBeNull()
+    expect(result.portalBonusUrl).toBeNull()
   })
 
   it('should return base rate when category not in portal bonuses', () => {
@@ -123,13 +109,11 @@ describe('applyPortalBonus', () => {
       1,
       100
     )
-    expect(result).toEqual({
-      earnRate: 1,
-      bonusPoints: 0,
-      portalBonusApplied: false,
-      portalBonusName: null,
-      portalBonusUrl: null,
-    })
+    expect(result.earnRate).toBe(1)
+    expect(result.bonusPoints).toBe(0)
+    expect(result.portalBonusApplied).toBe(false)
+    expect(result.portalBonusName).toBeNull()
+    expect(result.portalBonusUrl).toBeNull()
   })
 
   it('should apply portal bonus when category matches', () => {
@@ -139,13 +123,11 @@ describe('applyPortalBonus', () => {
       1,
       100
     )
-    expect(result).toEqual({
-      earnRate: 3,
-      bonusPoints: 2,
-      portalBonusApplied: true,
-      portalBonusName: 'Rakuten',
-      portalBonusUrl: 'https://rakuten.com',
-    })
+    expect(result.earnRate).toBe(3)
+    expect(result.bonusPoints).toBe(2)
+    expect(result.portalBonusApplied).toBe(true)
+    expect(result.portalBonusName).toBe('Rakuten')
+    expect(result.portalBonusUrl).toBe('https://rakuten.com')
   })
 
   it('should use first matching portal bonus', () => {
@@ -182,26 +164,20 @@ describe('applyEmiOverride', () => {
 describe('checkMonthlyCap', () => {
   it('should not apply cap when monthlyCapPoints is null', () => {
     const result = checkMonthlyCap(100, 5, null)
-    expect(result).toEqual({
-      earnRate: 5,
-      capBreached: false,
-    })
+    expect(result.earnRate).toBe(5)
+    expect(result.capBreached).toBe(false)
   })
 
   it('should not apply cap when cap not breached', () => {
     const result = checkMonthlyCap(100, 1, 10)
-    expect(result).toEqual({
-      earnRate: 1,
-      capBreached: false,
-    })
+    expect(result.earnRate).toBe(1)
+    expect(result.capBreached).toBe(false)
   })
 
   it('should apply cap when cap is breached', () => {
     const result = checkMonthlyCap(100, 5, 2)
-    expect(result).toEqual({
-      earnRate: 2,
-      capBreached: true,
-    })
+    expect(result.earnRate).toBe(2)
+    expect(result.capBreached).toBe(true)
   })
 })
 
@@ -212,11 +188,9 @@ describe('calculateCppTiers', () => {
       1.2,
       1.0
     )
-    expect(result).toEqual({
-      conservativeCpp: 1.5,
-      realisticCpp: 1.2,
-      industryAssumedCpp: 1.0,
-    })
+    expect(result.conservativeCpp).toBe(1.5)
+    expect(result.realisticCpp).toBe(1.2)
+    expect(result.industryAssumedCpp).toBe(1.0)
   })
 
   it('should fallback to bestRedemptionRatePerPoint when actualAvgCppAchieved is null', () => {
@@ -225,11 +199,9 @@ describe('calculateCppTiers', () => {
       null,
       1.0
     )
-    expect(result).toEqual({
-      conservativeCpp: 1.5,
-      realisticCpp: 1.0,
-      industryAssumedCpp: 1.0,
-    })
+    expect(result.conservativeCpp).toBe(1.5)
+    expect(result.realisticCpp).toBe(1.0)
+    expect(result.industryAssumedCpp).toBe(1.0)
   })
 
   it('should fallback to 1.0 when redemption paths is empty', () => {
@@ -238,11 +210,9 @@ describe('calculateCppTiers', () => {
       1.2,
       1.0
     )
-    expect(result).toEqual({
-      conservativeCpp: 1.0,
-      realisticCpp: 1.2,
-      industryAssumedCpp: 1.0,
-    })
+    expect(result.conservativeCpp).toBe(1.0)
+    expect(result.realisticCpp).toBe(1.2)
+    expect(result.industryAssumedCpp).toBe(1.0)
   })
 })
 
@@ -307,8 +277,20 @@ describe('calculateNetCost', () => {
   it('should calculate basic cost', () => {
     const result = calculateNetCost(100, 5, 3, 1, 0.5, 0, 0)
     expect(result.netCost).toBe(95.5)
+  })
+
+  it('should calculate industry cost', () => {
+    const result = calculateNetCost(100, 5, 3, 1, 0.5, 0, 0)
     expect(result.industryCost).toBe(97.5)
+  })
+
+  it('should calculate savings', () => {
+    const result = calculateNetCost(100, 5, 3, 1, 0.5, 0, 0)
     expect(result.savings).toBe(2)
+  })
+
+  it('should calculate effective discount percentage', () => {
+    const result = calculateNetCost(100, 5, 3, 1, 0.5, 0, 0)
     expect(result.effectiveDiscountPercent).toBe(4.5)
   })
 
@@ -421,15 +403,357 @@ describe('calculateCardResult', () => {
     const result = calculateCardResult('test-card', card, ctx)
 
     expect(result.cardKey).toBe('test-card')
+  })
+
+  it('should return correct card name', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [],
+      rotatingCategory: null,
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.name).toBe('Test Card')
+  })
+
+  it('should have positive net cost', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [],
+      rotatingCategory: null,
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.cost.netCost).toBeGreaterThan(0)
+  })
+
+  it('should not have fee waiver active', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [],
+      rotatingCategory: null,
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.cost.feeWaiverActive).toBe(false)
+  })
+
+  it('should confirm earn for happy path', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [],
+      rotatingCategory: null,
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.earnAudit.confirmedEarn).toBe(true)
+  })
+
+  it('should have no exclusion reason for happy path', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [],
+      rotatingCategory: null,
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.earnAudit.exclusionReason).toBeNull()
+  })
+
+  it('should not breach cap for happy path', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [],
+      rotatingCategory: null,
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.earnAudit.capBreached).toBe(false)
   })
 
-  it('should handle excluded category', () => {
+  it('should not confirm earn for excluded category', () => {
     const card: CardKnowledge = {
       name: 'Test Card',
       issuer: 'Test Bank',
@@ -484,13 +808,126 @@ describe('calculateCardResult', () => {
     }
 
     const result = calculateCardResult('test-card', card, ctx)
-
     expect(result.earn.earnAudit.confirmedEarn).toBe(false)
+  })
+
+  it('should have exclusion reason for excluded category', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: ['grocery'],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [],
+      rotatingCategory: null,
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.earnAudit.exclusionReason).toBe('Category "grocery" is excluded for this card')
+  })
+
+  it('should have zero rate for excluded category', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: ['grocery'],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [],
+      rotatingCategory: null,
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.earnAudit.rate).toBe(0)
   })
 
-  it('should take higher rate when both rotating and portal bonuses apply to same category', () => {
+  it('should apply portal bonus when both bonuses apply', () => {
     const card: CardKnowledge = {
       name: 'Test Card',
       issuer: 'Test Bank',
@@ -550,8 +987,185 @@ describe('calculateCardResult', () => {
 
     // Portal bonus (4x) should win over rotating bonus (3x)
     expect(result.earn.earnAudit.rate).toBe(4)
+  })
+
+  it('should apply rotating bonus when both bonuses apply', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [
+        { portalName: 'Rakuten', portalUrl: 'https://rakuten.com', categories: ['grocery'], bonusMultiplier: 4, bonusType: 'cashback' },
+      ],
+      rotatingCategory: { isActive: true, activeCategories: ['grocery'], multiplier: 3 },
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.rotatingBonusApplied).toBe(true)
+  })
+
+  it('should apply portal bonus when both bonuses apply', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [
+        { portalName: 'Rakuten', portalUrl: 'https://rakuten.com', categories: ['grocery'], bonusMultiplier: 4, bonusType: 'cashback' },
+      ],
+      rotatingCategory: { isActive: true, activeCategories: ['grocery'], multiplier: 3 },
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.portalBonusApplied).toBe(true)
+  })
+
+  it('should have correct portal bonus name when both bonuses apply', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [
+        { portalName: 'Rakuten', portalUrl: 'https://rakuten.com', categories: ['grocery'], bonusMultiplier: 4, bonusType: 'cashback' },
+      ],
+      rotatingCategory: { isActive: true, activeCategories: ['grocery'], multiplier: 3 },
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.portalBonusName).toBe('Rakuten')
   })
 
@@ -615,7 +1229,125 @@ describe('calculateCardResult', () => {
 
     // Rotating bonus (3x) should apply since portal doesn't match grocery
     expect(result.earn.earnAudit.rate).toBe(3)
+  })
+
+  it('should apply rotating bonus when portal does not apply', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [
+        { portalName: 'Rakuten', portalUrl: 'https://rakuten.com', categories: ['dining'], bonusMultiplier: 4, bonusType: 'cashback' },
+      ],
+      rotatingCategory: { isActive: true, activeCategories: ['grocery'], multiplier: 3 },
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.rotatingBonusApplied).toBe(true)
+  })
+
+  it('should not apply portal bonus when portal does not apply', () => {
+    const card: CardKnowledge = {
+      name: 'Test Card',
+      issuer: 'Test Bank',
+      annualFeeUsd: 95,
+      gstOnFee: 18,
+      earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
+      emiEarnRate: 0,
+      monthlyCapPoints: null,
+      excludedCategories: [],
+      redemptionPaths: [{ name: 'Statement credit', ratePerPoint: 1.0 }],
+      bestRedemptionRatePerPoint: 1.0,
+      bestRedemptionName: 'Statement credit',
+      statementCredits: [],
+      portalBonuses: [
+        { portalName: 'Rakuten', portalUrl: 'https://rakuten.com', categories: ['dining'], bonusMultiplier: 4, bonusType: 'cashback' },
+      ],
+      rotatingCategory: { isActive: true, activeCategories: ['grocery'], multiplier: 3 },
+      milestoneBonuses: [],
+      feeWaiverSpendUsd: null,
+      foreignTxnFeePct: 0,
+      rewardType: 'cashback',
+    }
+
+    const ctx: CalculationContext = {
+      product: { name: 'Test Product', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false },
+      userMonthlyTxns: 10,
+      riskFreeRatePercent: 5,
+      billingCycleDays: 30,
+      userContext: {
+        userId: 'test-user',
+        cards: [],
+        behaviour: {
+          categoryBreakdown: [],
+          cardCategoryBreakdown: {},
+          topMerchants: [],
+          cardTopMerchants: {},
+          topCategory: 'grocery',
+          isFrequentTraveller: false,
+          isFrequentDiner: false,
+          isOnlineShopper: false,
+          isGroceryDominant: false,
+          monthlyAvgSpendUsd: 1000,
+          monthlyTrend: [],
+          momSpendChangePct: null,
+          fastestGrowingCategory: null,
+          actualAvgCppAchieved: 1.0,
+          totalPointsRedeemed90d: 0,
+          redemptionCount90d: 0,
+          emiTransactionPct: 0,
+        },
+        totalOpTokens: 0,
+        totalOpBalanceUsd: 0,
+      },
+    }
+
+    const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.portalBonusApplied).toBe(false)
   })
 })
@@ -673,8 +1405,60 @@ describe('generateReasoningWithGemini', () => {
 
     const result = await generateReasoningWithGemini(cards, product, mockModel)
     expect(result.cardReasonings['card1']).toBe('Good for grocery')
-    expect(result.agentReasoning).toBe('card1 is best')
   })
+
+  it('should return agent reasoning when model returns valid JSON', async () => {
+    const mockModel = {
+      generateContent: async () => ({
+        response: {
+          text: () => JSON.stringify({
+            cardReasonings: { card1: 'Good for grocery' },
+            agentReasoning: 'card1 is best',
+          }),
+        },
+      }),
+    } as any
+
+    const cards = [{
+      cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
+      rewardType: 'cashback',
+      earn: {
+        actualPointsEarned: 2,
+        basePointsEarned: 1,
+        bonusPointsEarned: 1,
+        earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
+        rotatingBonusApplied: false,
+        portalBonusApplied: false,
+        portalBonusName: null,
+        portalBonusUrl: null,
+      },
+      cost: {
+        netCost: 95,
+        industryCost: 97,
+        savings: 2,
+        effectiveDiscountPercent: 5,
+        feeBurdenUsd: 1,
+        floatValueUsd: 0.5,
+        foreignFeeUsd: 0,
+        statementCreditApplied: 0,
+        feeWaiverActive: false,
+        feeWaiverNote: null,
+      },
+      valuation: {
+        trueRewardValueUsd: 2,
+        industryRewardValue: 2,
+        realisticCpp: 1.0,
+        conservativeCpp: 1.0,
+        industryAssumedCpp: 1.0,
+        bestRedemptionName: 'Statement credit',
+        bestRedemptionRatePerPoint: 1.0,
+      },
+    }] as any
+
+    const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
+
+    const result = await generateReasoningWithGemini(cards, product, mockModel)
+    expect(result.agentReasoning).toBe('card1 is best')
 
   it('should fall back to auto-generated reasoning when model throws', async () => {
     const mockModel = {
@@ -723,6 +1507,55 @@ describe('generateReasoningWithGemini', () => {
 
     const result = await generateReasoningWithGemini(cards, product, mockModel)
     expect(result.cardReasonings['card1']).toContain('Earns 2x')
+  })
+
+  it('should include card name in fallback agent reasoning', async () => {
+    const mockModel = {
+      generateContent: async () => {
+        throw new Error('API error')
+      },
+    } as any
+
+    const cards = [{
+      cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
+      rewardType: 'cashback',
+      earn: {
+        actualPointsEarned: 2,
+        basePointsEarned: 1,
+        bonusPointsEarned: 1,
+        earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
+        rotatingBonusApplied: false,
+        portalBonusApplied: false,
+        portalBonusName: null,
+        portalBonusUrl: null,
+      },
+      cost: {
+        netCost: 95,
+        industryCost: 97,
+        savings: 2,
+        effectiveDiscountPercent: 5,
+        feeBurdenUsd: 1,
+        floatValueUsd: 0.5,
+        foreignFeeUsd: 0,
+        statementCreditApplied: 0,
+        feeWaiverActive: false,
+        feeWaiverNote: null,
+      },
+      valuation: {
+        trueRewardValueUsd: 2,
+        industryRewardValue: 2,
+        realisticCpp: 1.0,
+        conservativeCpp: 1.0,
+        industryAssumedCpp: 1.0,
+        bestRedemptionName: 'Statement credit',
+        bestRedemptionRatePerPoint: 1.0,
+      },
+    }] as any
+
+    const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
+
+    const result = await generateReasoningWithGemini(cards, product, mockModel)
     expect(result.agentReasoning).toContain('Test Card')
   })
+})
 })

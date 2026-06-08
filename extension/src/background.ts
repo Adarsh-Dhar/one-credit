@@ -8,7 +8,9 @@ let rumFlushTimer: ReturnType<typeof setInterval> | null = null
 
 // Flush RUM events to API
 function flushRUMEvents() {
-  if (rumEventBuffer.length === 0) return
+  if (rumEventBuffer.length === 0) {
+    return
+  }
 
   const eventsToSend = [...rumEventBuffer]
   rumEventBuffer = []
@@ -50,12 +52,14 @@ function flushRUMEvents() {
 
 // Start RUM flush timer
 function startRUMFlushTimer() {
-  if (rumFlushTimer) return
+  if (rumFlushTimer) {
+    return
+  }
   rumFlushTimer = setInterval(flushRUMEvents, RUM_FLUSH_INTERVAL)
 }
 
 // Stop RUM flush timer
-function stopRUMFlushTimer() {
+function _stopRUMFlushTimer() {
   if (rumFlushTimer) {
     clearInterval(rumFlushTimer)
     rumFlushTimer = null

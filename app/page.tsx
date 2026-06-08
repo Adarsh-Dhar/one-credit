@@ -23,7 +23,7 @@ export default function Dashboard() {
     setSelectedCard(card);
     const email = session?.user?.email;
     if (!email) {
-      return; // Don't fetch if not authenticated
+      return;
     }
     try {
       const response = await fetch(`/api/fiat-cards?userId=${encodeURIComponent(email)}`);

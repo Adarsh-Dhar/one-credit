@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runOPAgent, CardKnowledge } from '@/lib/op-agent'
-import { FiatCard } from '@/lib/models/FiatCard'
+import { FiatCard, type IFiatCard } from '@/lib/models/FiatCard'
 import type { IMilestoneBonus } from '@/lib/models/FiatCard'
 import { buildUserContext } from '@/lib/userContext'
-import { inferCategory, sanitizeForPrompt } from '@/lib/utils'
+import { inferCategory, sanitizeForPrompt, getRewardType } from '@/lib/utils'
 import { z } from 'zod'
 import { ratelimit } from '@/lib/rateLimit'
 import logger from '@/lib/logger'
@@ -69,33 +69,33 @@ async function checkRateLimit(userId: string): Promise<NextResponse | null> {
 }
 
 function transformCardToKnowledge(
-  dbCard: any,
+  dbCard: Partial<Pick<IFiatCard, 'display_name' | 'network' | 'currency_type' | 'rewards_structure' | 'benefits_and_credits' | 'financials' | 'points_value_cents'>>,
   env: ReturnType<typeof getEnv>
 ): CardKnowledge {
   const earnRules: CardKnowledge['earnRules'] = [
     {
       merchant: 'all',
-      rate: dbCard.rewards_structure.base_multiplier,
+      rate: dbCard.rewards_structure?.base_multiplier ?? 1,
       per: 100,
-      currency: dbCard.currency_type.toLowerCase(),
+      currency: dbCard.currency_type?.toLowerCase() ?? 'usd',
       notes: 'Base earn rate',
     },
   ]
 
-  if (dbCard.rewards_structure.fixed_categories) {
+  if (dbCard.rewards_structure?.fixed_categories) {
     for (const cat of dbCard.rewards_structure.fixed_categories) {
       earnRules.push({
         merchant: cat.category,
         rate: cat.multiplier,
         per: 100,
-        currency: dbCard.currency_type.toLowerCase(),
+        currency: dbCard.currency_type?.toLowerCase() ?? 'usd',
         ...(cat.cap_amount_usd ? { notes: `Cap: $${cat.cap_amount_usd}` } : {}),
       })
     }
   }
 
   const redemptionPaths: CardKnowledge['redemptionPaths'] = []
-  if (dbCard.benefits_and_credits.transfer_partners && dbCard.benefits_and_credits.transfer_partners.length > 0) {
+  if (dbCard.benefits_and_credits?.transfer_partners && dbCard.benefits_and_credits.transfer_partners.length > 0) {
     for (const partner of dbCard.benefits_and_credits.transfer_partners) {
       redemptionPaths.push({
         name: `${partner.program} transfer (${partner.ratio})`,
@@ -119,48 +119,46 @@ function transformCardToKnowledge(
     current.ratePerPoint > best.ratePerPoint ? current : best
   , redemptionPaths[0])
 
-  const rewardType: 'points' | 'miles' | 'cashback' =
-    dbCard.currency_type === 'USD' ? 'cashback' :
-    dbCard.currency_type === 'MILES' ? 'miles' : 'points'
+  const rewardType = getRewardType(dbCard.currency_type)
 
   return {
-    name: dbCard.display_name,
-    issuer: dbCard.network,
-    annualFeeUsd: dbCard.financials.annual_fee,
+    name: dbCard.display_name ?? 'Unknown Card',
+    issuer: dbCard.network ?? 'Unknown',
+    annualFeeUsd: dbCard.financials?.annual_fee ?? 0,
     gstOnFee: env.GST_RATE,
     earnRules,
-    emiEarnRate: dbCard.rewards_structure.emi_multiplier ?? 0,
-    monthlyCapPoints: dbCard.rewards_structure.monthly_cap_points ?? null,
-    excludedCategories: dbCard.rewards_structure.excluded_categories ?? [],
+    emiEarnRate: dbCard.rewards_structure?.emi_multiplier ?? 0,
+    monthlyCapPoints: dbCard.rewards_structure?.monthly_cap_points ?? null,
+    excludedCategories: dbCard.rewards_structure?.excluded_categories ?? [],
     redemptionPaths,
     bestRedemptionRatePerPoint: bestRedemption.ratePerPoint,
     bestRedemptionName: bestRedemption.name,
-    statementCredits: (dbCard.benefits_and_credits.statement_credits ?? []).map((sc: any) => ({
+    statementCredits: (dbCard.benefits_and_credits?.statement_credits ?? []).map((sc: any) => ({
       name: sc.name,
       annualValueUsd: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
       merchantCategories: sc.merchant_categories ?? [],
     })),
-    portalBonuses: (dbCard.benefits_and_credits.portal_bonuses ?? []).map((pb: any) => ({
+    portalBonuses: (dbCard.benefits_and_credits?.portal_bonuses ?? []).map((pb: any) => ({
       portalName: pb.portal_name,
       portalUrl: pb.portal_url,
       categories: pb.categories,
       bonusMultiplier: pb.bonus_multiplier,
       bonusType: pb.bonus_type,
     })),
-    rotatingCategory: dbCard.rewards_structure.rotating_categories
+    rotatingCategory: dbCard.rewards_structure?.rotating_categories
       ? {
           isActive: dbCard.rewards_structure.rotating_categories.is_active,
           activeCategories: dbCard.rewards_structure.rotating_categories.active_categories ?? [],
           multiplier: dbCard.rewards_structure.rotating_categories.multiplier ?? 1,
         }
       : null,
-    milestoneBonuses: (dbCard.rewards_structure.milestone_bonuses ?? []).map((mb: IMilestoneBonus) => ({
+    milestoneBonuses: (dbCard.rewards_structure?.milestone_bonuses ?? []).map((mb: IMilestoneBonus) => ({
       spendThresholdUsd: mb.spend_threshold_usd,
       bonusPoints: mb.bonus_points,
       period: mb.period,
     })),
-    feeWaiverSpendUsd: dbCard.financials.fee_waiver_spend_usd ?? null,
-    foreignTxnFeePct: dbCard.financials.foreign_transaction_fee_pct ?? 0,
+    feeWaiverSpendUsd: dbCard.financials?.fee_waiver_spend_usd ?? null,
+    foreignTxnFeePct: dbCard.financials?.foreign_transaction_fee_pct ?? 0,
     rewardType,
   }
 }

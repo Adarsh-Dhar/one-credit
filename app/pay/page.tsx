@@ -115,7 +115,7 @@ export default function PayPage() {
   }
 
   const filteredMerchants = payFlow.selectedCategory
-    ? MERCHANTS.filter(m => m.category === payFlow.selectedCategory.id)
+    ? MERCHANTS.filter(m => payFlow.selectedCategory && m.category === payFlow.selectedCategory.id)
     : [];
 
   // ── Render ─────────────────────────────────────────────────────────────

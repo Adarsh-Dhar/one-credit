@@ -3,6 +3,7 @@
 // Environment variable validation using Zod
 
 import { z } from 'zod';
+import { DEFAULT_FINANCIALS } from './constants';
 
 const envSchema = z.object({
   // MongoDB
@@ -45,9 +46,9 @@ const envSchema = z.object({
   ALLOWED_DEV_ORIGINS: z.string().optional().default(''),
 
   // Additional app config
-  GST_RATE: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : 0.18).pipe(z.number().min(0).max(1).default(0.18)),
-  RISK_FREE_RATE_PERCENT: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : 7).pipe(z.number().min(0).max(100).default(7)),
-  BILLING_CYCLE_DAYS: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : 30).pipe(z.number().int().positive().default(30)),
+  GST_RATE: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : DEFAULT_FINANCIALS.GST_RATE).pipe(z.number().min(0).max(1).default(DEFAULT_FINANCIALS.GST_RATE)),
+  RISK_FREE_RATE_PERCENT: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : DEFAULT_FINANCIALS.RISK_FREE_RATE_PERCENT).pipe(z.number().min(0).max(100).default(DEFAULT_FINANCIALS.RISK_FREE_RATE_PERCENT)),
+  BILLING_CYCLE_DAYS: z.union([z.string(), z.undefined()]).optional().transform(val => val ? Number(val) : DEFAULT_FINANCIALS.BILLING_CYCLE_DAYS).pipe(z.number().int().positive().default(DEFAULT_FINANCIALS.BILLING_CYCLE_DAYS)),
 });
 
 export type Env = z.infer<typeof envSchema>;

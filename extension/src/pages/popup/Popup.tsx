@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { CreditCard, Settings, ExternalLink, Sparkles, Calculator, User, Crosshair } from 'lucide-react'
+import { ExternalLink, Sparkles, Calculator, User, Crosshair } from 'lucide-react'
 
 interface DetectedProduct {
   name: string
@@ -190,7 +190,9 @@ return
 
     // Inject content script if not already there (handles sites not in manifest)
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    if (!tab.id) return
+    if (!tab.id) {
+      return
+    }
 
     try {
       await chrome.scripting.executeScript({

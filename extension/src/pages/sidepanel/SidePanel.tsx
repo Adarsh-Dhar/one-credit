@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { ChevronDown, Sparkles, Trophy, TrendingDown, AlertCircle, Loader2 } from 'lucide-react'
+import { ChevronDown, Sparkles, Trophy, AlertCircle, Loader2 } from 'lucide-react'
 import { trackEvent } from '../../rum-tracker'
 
 interface EarnAudit {
@@ -32,8 +32,6 @@ interface CostBreakdown {
   statementCreditApplied: number
   feeWaiverActive: boolean
   feeWaiverNote: string | null
-  opConservationPenalty: number
-  opVelocityBonus: number
 }
 
 interface Valuation {
@@ -75,7 +73,9 @@ interface AnalysisResult {
 }
 
 function buildPortalDeepLink(portalUrl: string, productUrl?: string): string {
-  if (!productUrl) return portalUrl
+  if (!productUrl) {
+    return portalUrl
+  }
   const encoded = encodeURIComponent(productUrl)
   // Chase, Amex, Capital One all accept a ref/destination param
   return `${portalUrl}?destination=${encoded}`
@@ -85,7 +85,7 @@ function isGuaranteedRate(card: CardResult): boolean {
   return card.valuation.conservativeCpp === card.valuation.bestRedemptionRatePerPoint
 }
 
-function effectiveCostRange(card: CardResult, price: number) {
+function _effectiveCostRange(card: CardResult, price: number) {
   const low = price - (card.earn.actualPointsEarned * card.valuation.bestRedemptionRatePerPoint / 100)
              + card.cost.feeBurdenUsd - card.cost.floatValueUsd
   const high = price - (card.earn.actualPointsEarned * card.valuation.conservativeCpp / 100)
@@ -219,12 +219,12 @@ export function SidePanel() {
     '$' + n.toFixed(2)
 
   // Primary formatter — shows pts count, secondary dollar context in muted span
-  const fmtPts = (pts: number, usd?: number) =>
+  const _fmtPts = (pts: number, usd?: number) =>
     usd !== undefined
       ? `${pts.toLocaleString()} pts` // caller appends dollar secondary
       : `${pts.toLocaleString()} pts`
 
-  const pct = (n: number) => n.toFixed(1) + '%'
+  const _pct = (n: number) => n.toFixed(1) + '%'
 
   // Keep fmtPrice as alias for product price (stays in $)
   const fmtPrice = fmtUsd
@@ -408,18 +408,6 @@ export function SidePanel() {
                   <div className="flex justify-between text-[#C4B8A8]">
                     <span>Milestone credit</span>
                     <span className="text-[#4ECDA4]">−{fmtPrice(winner.milestoneCreditUsd)}</span>
-                  </div>
-                )}
-                {winner.cost.opConservationPenalty > 0 && (
-                  <div className="flex justify-between text-[#C4B8A8]">
-                    <span>OP conservation penalty</span>
-                    <span className="text-red-400">+{fmtPrice(winner.cost.opConservationPenalty)}</span>
-                  </div>
-                )}
-                {winner.cost.opVelocityBonus > 0 && (
-                  <div className="flex justify-between text-[#C4B8A8]">
-                    <span>OP velocity bonus</span>
-                    <span className="text-[#4ECDA4]">−{fmtPrice(winner.cost.opVelocityBonus)}</span>
                   </div>
                 )}
                 {winner.cost.foreignFeeUsd > 0 && (

@@ -14,6 +14,51 @@ export const CARD_TYPE_COLORS: Record<string, string> = {
   cashback: 'from-teal-500 to-green-600',
 };
 
+interface CategoryMatcher {
+  patterns: string[];
+  targetField: keyof {
+    flights: number;
+    hotel: number;
+    dining: number;
+    electronics: number;
+    groceries: number;
+    fuel: number;
+    shopping: number;
+  };
+}
+
+const CATEGORY_MATCHERS: CategoryMatcher[] = [
+  { patterns: ['travel', 'flight'], targetField: 'flights' },
+  { patterns: ['hotel', 'lodging'], targetField: 'hotel' },
+  { patterns: ['dining', 'restaurant'], targetField: 'dining' },
+  { patterns: ['electronics', 'tech'], targetField: 'electronics' },
+  { patterns: ['grocer', 'supermarket'], targetField: 'groceries' },
+  { patterns: ['gas', 'fuel', 'station'], targetField: 'fuel' },
+  { patterns: ['shop', 'online', 'retail'], targetField: 'shopping' },
+];
+
+function applyCategoryMultiplier(
+  category: string,
+  multiplier: number,
+  earnRates: {
+    flights: number;
+    hotel: number;
+    dining: number;
+    electronics: number;
+    groceries: number;
+    fuel: number;
+    shopping: number;
+  }
+): void {
+  const lowerCategory = category.toLowerCase();
+  for (const matcher of CATEGORY_MATCHERS) {
+    if (matcher.patterns.some(pattern => lowerCategory.includes(pattern))) {
+      earnRates[matcher.targetField] = multiplier;
+      break;
+    }
+  }
+}
+
 export function buildEarnRates(
   fixedCategories: Array<{ category: string; multiplier: number }>,
   baseMultiplier: number
@@ -42,36 +87,20 @@ export function buildEarnRates(
     general: baseMultiplier,
   };
 
-  if (!fixedCategories) {
+  const categories = getFixedCategoriesOrDefault(fixedCategories);
+  if (categories.length === 0) {
     return earnRates;
   }
 
-  for (const cat of fixedCategories) {
-    const category = cat.category.toLowerCase();
-    const multiplier = cat.multiplier;
-
-    if (category.includes('travel') || category.includes('flight')) {
-      earnRates.flights = multiplier;
-    }
-    if (category.includes('hotel') || category.includes('lodging')) {
-      earnRates.hotel = multiplier;
-    }
-    if (category.includes('dining') || category.includes('restaurant')) {
-      earnRates.dining = multiplier;
-    }
-    if (category.includes('electronics') || category.includes('tech')) {
-      earnRates.electronics = multiplier;
-    }
-    if (category.includes('grocer') || category.includes('supermarket')) {
-      earnRates.groceries = multiplier;
-    }
-    if (category.includes('gas') || category.includes('fuel') || category.includes('station')) {
-      earnRates.fuel = multiplier;
-    }
-    if (category.includes('shop') || category.includes('online') || category.includes('retail')) {
-      earnRates.shopping = multiplier;
-    }
+  for (const cat of categories) {
+    applyCategoryMultiplier(cat.category, cat.multiplier, earnRates);
   }
 
   return earnRates;
+}
+
+function getFixedCategoriesOrDefault(
+  categories: Array<{ category: string; multiplier: number }> | undefined
+): Array<{ category: string; multiplier: number }> {
+  return categories || [];
 }

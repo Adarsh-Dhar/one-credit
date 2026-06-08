@@ -1,3 +1,8 @@
+// DEPRECATED: buildPaymentPrompt was used for the legacy MCP-tool agent flow.
+// The pay flow (usePayFlow) is currently broken as it calls /api/rum/analyze
+// which is for RUM persona inference, not payment analysis.
+// The correct endpoint for payment analysis is /api/extension/analyze.
+// TODO: Remove this function when the pay flow is refactored to use the correct API.
 export function buildPaymentPrompt(amount: string, merchantName: string, categoryLabel: string, userId: string): string {
   return `
     User wants to spend $${amount} at ${merchantName} (${categoryLabel} category).

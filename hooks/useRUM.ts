@@ -82,8 +82,6 @@ export function useRUM() {
       data,
     };
 
-    console.log('[RUM]', eventType, data);
-
     EVENT_BUFFER.push(event);
 
     if (EVENT_BUFFER.length >= BUFFER_MAX_SIZE) {

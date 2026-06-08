@@ -15,14 +15,16 @@ const BUFFER_MAX_SIZE = 50
 
 // Flush buffer to background worker
 function flushBuffer() {
-  if (eventBuffer.length === 0) return
+  if (eventBuffer.length === 0) {
+    return
+  }
 
   const eventsToSend = [...eventBuffer]
   eventBuffer = []
 
   chrome.runtime.sendMessage(
     { type: 'RUM_EVENTS', events: eventsToSend },
-    (response) => {
+    (_response) => {
       if (chrome.runtime.lastError) {
         console.error('[RUM Tracker] Failed to send events to background:', chrome.runtime.lastError)
         // Re-add failed events to buffer
@@ -45,7 +47,9 @@ export function trackEvent(event: RUMEvent) {
 let flushTimer: ReturnType<typeof setInterval> | null = null
 
 export function startRUMTracker() {
-  if (flushTimer) return // Already started
+  if (flushTimer) {
+    return // Already started
+  }
 
   flushTimer = setInterval(flushBuffer, BUFFER_FLUSH_INTERVAL)
 
@@ -133,7 +137,9 @@ function initDwellTimeTracker() {
     (entries) => {
       entries.forEach((entry) => {
         const section = entry.target.getAttribute('data-section')
-        if (!section) return
+        if (!section) {
+          return
+        }
 
         if (entry.isIntersecting) {
           // Section entered viewport

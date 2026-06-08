@@ -35,11 +35,9 @@ function SessionBridge() {
               name: session.user.name,
             },
           },
-          (response: any) => {
+          (_response: any) => {
             if (window.chrome?.runtime?.lastError) {
-              console.log('[SessionBridge] Extension not installed or not accessible:', window.chrome.runtime.lastError);
-            } else {
-              console.log('[SessionBridge] Session sent to extension:', response);
+              // Silently handle extension not installed or not accessible
             }
           }
         );

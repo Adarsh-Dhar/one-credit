@@ -4,6 +4,7 @@
 
 import { IFiatCard } from './models/FiatCard';
 import { CARD_TYPE_COLORS, buildEarnRates } from './card-constants';
+import { isCashbackCard, isPointsCard, isMilesCard } from './utils';
 
 export interface StatementCredit {
   name: string;
@@ -57,8 +58,15 @@ export interface WalletCardDetail {
   features: string[];
 }
 
+interface CommonCardFields {
+  earnRates: Record<string, number>;
+  pointsValueCents: number;
+  cardType: string;
+  currency: string;
+  perks: string[];
+}
 
-export function transformFiatCardToWalletDetail(card: IFiatCard, value: number): WalletCardDetail {
+function buildCommonCardFields(card: IFiatCard): CommonCardFields {
   const rewardsStructure = card.rewards_structure || {};
   const pointsValueCents = card.points_value_cents || 1.0;
 
@@ -67,40 +75,71 @@ export function transformFiatCardToWalletDetail(card: IFiatCard, value: number):
     rewardsStructure.base_multiplier
   );
 
-  // Build points program info for POINTS-type cards
-  let pointsProgram = null;
-  if (card.currency_type === 'POINTS' || card.currency_type === 'MILES') {
-    const transferPartners = card.benefits_and_credits?.transfer_partners || [];
-    const cppMin = transferPartners.length > 0 ? Math.min(...transferPartners.map((p: TransferPartner) => p.cpp_min)) : pointsValueCents;
-    const cppMax = transferPartners.length > 0 ? Math.max(...transferPartners.map((p: TransferPartner) => p.cpp_max)) : pointsValueCents;
-    pointsProgram = {
-      name: card.points_program_name || 'Unknown',
-      cppMin,
-      cppMax,
-    };
+  const perks = [
+    ...(card.benefits_and_credits?.airline_perks || []),
+    ...(card.benefits_and_credits?.general_perks || []),
+  ];
+
+  return {
+    earnRates,
+    pointsValueCents,
+    cardType: card.card_type,
+    currency: card.currency_type.toLowerCase(),
+    perks,
+  };
+}
+
+function getTransferPartners(card: IFiatCard): TransferPartner[] {
+  return card.benefits_and_credits?.transfer_partners || [];
+}
+
+function buildPointsProgram(
+  card: IFiatCard,
+  pointsValueCents: number
+): {
+  name: string;
+  cppMin: number;
+  cppMax: number;
+} | null {
+  if (!isPointsCard(card.currency_type) && !isMilesCard(card.currency_type)) {
+    return null;
   }
+  const transferPartners = getTransferPartners(card);
+  const cppMin = transferPartners.length > 0
+    ? Math.min(...transferPartners.map((p: TransferPartner) => p.cpp_min))
+    : pointsValueCents;
+  const cppMax = transferPartners.length > 0
+    ? Math.max(...transferPartners.map((p: TransferPartner) => p.cpp_max))
+    : pointsValueCents;
+  return {
+    name: card.points_program_name || 'Unknown',
+    cppMin,
+    cppMax,
+  };
+}
+
+export function transformFiatCardToWalletDetail(card: IFiatCard, value: number): WalletCardDetail {
+  const common = buildCommonCardFields(card);
+  const pointsProgram = buildPointsProgram(card, common.pointsValueCents);
 
   return {
     key: card.card_id,
     name: card.display_name,
     issuer: card.network,
-    type: card.card_type,
-    color: CARD_TYPE_COLORS[card.card_type] || CARD_TYPE_COLORS.general,
-    currency: card.currency_type.toLowerCase(),
+    type: common.cardType,
+    color: CARD_TYPE_COLORS[common.cardType] || CARD_TYPE_COLORS.general,
+    currency: common.currency,
     balance: card.current_balance_owed || 0,
     limit: card.credit_limit || 0,
     value,
-    earnRates,
-    redemptionRate: card.redemption_rate_display || (card.currency_type === 'USD' ? '$1.00' : `1 Point = $${(pointsValueCents / 100).toFixed(2)}`),
+    earnRates: common.earnRates,
+    redemptionRate: card.redemption_rate_display || (isCashbackCard(card.currency_type) ? '$1.00' : `1 Point = $${(common.pointsValueCents / 100).toFixed(2)}`),
     statementCredits: card.benefits_and_credits?.statement_credits || [],
     portalBonuses: card.benefits_and_credits?.portal_bonuses || [],
     protections: card.benefits_and_credits?.purchase_protections || null,
-    transferPartners: card.benefits_and_credits?.transfer_partners || [],
+    transferPartners: getTransferPartners(card),
     pointsProgram,
-    perks: [
-      ...(card.benefits_and_credits?.airline_perks || []),
-      ...(card.benefits_and_credits?.general_perks || []),
-    ],
+    perks: common.perks,
     annualFee: card.financials?.annual_fee || 0,
     cardImageUrl: card.card_image_url || '',
     cardDescription: card.card_description || '',
