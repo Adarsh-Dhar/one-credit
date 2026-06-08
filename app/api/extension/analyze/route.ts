@@ -259,9 +259,9 @@ async function runAgentAndBuildResponse(
       actualAvgCppAchieved: userContext.behaviour.actualAvgCppAchieved,
       redemptionCount90d: userContext.behaviour.redemptionCount90d,
     },
-    savingsVsIndustryUsd: result.winner.savings,
+    savingsVsIndustryUsd: result.winner.cost.savings,
     savingsVsBestAlternativeUsd: result.cards.length > 1
-      ? Math.max(...result.cards.map(c => c.netCost)) - result.winner.netCost
+      ? Math.max(...result.cards.map(c => c.cost.netCost)) - result.winner.cost.netCost
       : 0,
   })
 }

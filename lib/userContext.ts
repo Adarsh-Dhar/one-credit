@@ -170,10 +170,13 @@ function buildCardLiveStates(
 
     const pointsBalance = card.points_balance ?? 0
     let pointsValueUsd: number
-    if (card.currency_type === 'USD' && card.op_redemption && (card.credit_token_balance ?? 0) > 0) {
-      pointsValueUsd = parseFloat(
-        ((card.credit_token_balance ?? 0) * (card.op_redemption.op_cents_per_token / 100)).toFixed(2)
-      )
+    const hasOpTokenBalance = card.currency_type === 'USD'
+      && card.op_redemption
+      && (card.credit_token_balance ?? 0) > 0
+    if (hasOpTokenBalance) {
+      const tokenBalance = card.credit_token_balance ?? 0
+      const centsPerToken = card.op_redemption.op_cents_per_token / 100
+      pointsValueUsd = parseFloat((tokenBalance * centsPerToken).toFixed(2))
     } else {
       const centsPerPoint = card.points_value_cents ?? 100
       pointsValueUsd = parseFloat((pointsBalance * (centsPerPoint / 100)).toFixed(2))
@@ -210,7 +213,9 @@ function buildCardLiveStates(
   })
 }
 
-function computeOpTotals(cardStates: CardLiveState[]): { totalOpTokens: number; totalOpBalanceUsd: number } {
+function computeOpTotals(
+  cardStates: CardLiveState[]
+): { totalOpTokens: number; totalOpBalanceUsd: number } {
   let totalOpTokens = 0
   let totalOpBalanceUsd = 0
 
@@ -274,8 +279,10 @@ export function computeMonthlyTrend(monthBuckets: Record<string, Record<string, 
       ? Math.round(((last.totalSpentUsd - prev.totalSpentUsd) / prev.totalSpentUsd) * 1000) / 10
       : null
 
-    const lastCatMap = Object.fromEntries(last.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
-    const prevCatMap = Object.fromEntries(prev.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
+    const toCatMap = (b: SpendBucket) =>
+      Object.fromEntries(b.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
+    const lastCatMap = toCatMap(last)
+    const prevCatMap = toCatMap(prev)
     const growthByCategory = Object.entries(lastCatMap)
       .map(([category, lastAmt]) => ({ category, growth: lastAmt - (prevCatMap[category] ?? 0) }))
       .sort((a, b) => b.growth - a.growth)
@@ -405,7 +412,11 @@ function aggregateSpendingBehaviour(txns: TransactionLean[], totalSpend: number)
 
   const emiTransactionPct = txns.length > 0 ? Math.round((emiCount / txns.length) * 100) : 0
 
-  return { categoryBreakdown, cardCategoryBreakdown, topMerchants, cardTopMerchants, monthBuckets, emiTransactionPct }
+  return {
+    categoryBreakdown, cardCategoryBreakdown,
+    topMerchants, cardTopMerchants,
+    monthBuckets, emiTransactionPct,
+  }
 }
 
 // ─── Main builder ─────────────────────────────────────────────────────────────
@@ -472,7 +483,11 @@ function assembleContext(
   const actualMonths = Math.max(1, (Date.now() - earliestTx.getTime()) / (1000 * 60 * 60 * 24 * AVG_DAYS_PER_MONTH))
   const monthlyAvgSpendUsd = parseFloat((totalSpend / actualMonths).toFixed(2))
 
-  const { actualAvgCppAchieved, totalPointsRedeemed90d, redemptionCount90d } = computeRedemptionStats(redemptionTxns)
+  const {
+    actualAvgCppAchieved,
+    totalPointsRedeemed90d,
+    redemptionCount90d,
+  } = computeRedemptionStats(redemptionTxns)
   const topCategory = categoryBreakdown[0]?.category ?? 'shopping'
   const getShare = (cat: string) => categoryBreakdown.find(c => c.category === cat)?.sharePct ?? 0
 
