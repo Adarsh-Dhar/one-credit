@@ -1,6 +1,21 @@
 // lib/mcp-tools.ts
 import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models/User';
+import { IFiatCard } from '@/lib/models/FiatCard';
+import logger from '@/lib/logger';
+import { z } from 'zod';
+
+// ─── Zod Validation Schemas ─────────────────────────────────────────────────
+
+const RewardsOffersFilterSchema = z.object({
+  source: z.enum(['cardlytics', 'network', 'affiliate']).optional(),
+  category: z.string().optional(),
+  minRewardRate: z.number().optional(),
+  country: z.string().optional(),
+  network: z.string().optional(),
+  limit: z.number().optional(),
+  sortBy: z.enum(['rewardRate', 'lastSyncedAt']).optional(),
+});
 
 // ─── Tool schema definitions (sent to Gemini as tool declarations) ───────────
 
@@ -132,7 +147,7 @@ export const executeMCPTool = async (
     case 'sync_rewards':
       return await syncRewards(toolInput.sources as Array<'cardlytics' | 'network' | 'affiliate'> | undefined);
     case 'get_rewards_offers':
-      return await getRewardsOffers(toolInput as any); // TODO: Replace with proper Zod schema for rewards offers filters
+      return await getRewardsOffers(RewardsOffersFilterSchema.parse(toolInput));
     case 'search_rewards_by_merchant':
       return await searchRewardsByMerchant(toolInput.merchantName as string);
 
@@ -158,6 +173,15 @@ export const callGeminiWithTools = async (
   });
 
   const chat = model.startChat();
+  
+  // Add length guard and logging for prompt
+  const MAX_PROMPT_LENGTH = 100000
+  if (prompt.length > MAX_PROMPT_LENGTH) {
+    logger.warn({ promptLength: prompt.length, maxLength: MAX_PROMPT_LENGTH }, '[mcp-tools] Prompt exceeds maximum length, truncating')
+    prompt = prompt.slice(0, MAX_PROMPT_LENGTH)
+  }
+  logger.info({ promptLength: prompt.length }, '[mcp-tools] Sending prompt to Gemini')
+  
   let result = await chat.sendMessage(prompt);
   const toolCallsMade: string[] = [];
 
@@ -257,7 +281,7 @@ return { error: 'User not found' };
 
   // Fetch FiatCard data to get benefits (statement credits, portal bonuses, protections)
   const fiatCards = await FiatCard.find({ user_id: userId }).lean();
-  const fiatCardMap = new Map(fiatCards.map((fc: any) => [fc.card_id, fc]));
+  const fiatCardMap = new Map(fiatCards.map((fixedCategory: IFiatCard) => [fixedCategory.card_id, fixedCategory]));
 
   // Per-card breakdown for Gemini to reason over
   const cardBreakdown = CARDS.map((card) => {
@@ -299,7 +323,7 @@ return { error: 'User not found' };
       earnRates: card.earnRates,
       opTokenState,
       opRedemptionCatalog,
-      statementCredits: (benefits.statement_credits || []).filter((c: any) =>
+      statementCredits: (benefits.statement_credits || []).filter((c: { merchant_categories?: string[] }) =>
         c.merchant_categories?.includes('travel') ||
         c.merchant_categories?.includes('dining') ||
         c.merchant_categories?.includes('groceries') ||

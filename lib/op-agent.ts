@@ -129,6 +129,19 @@ export interface CardResult {
   valuation: Valuation
 }
 
+// Helper methods to reduce deep chaining
+export function getCardExclusionReason(card: CardResult): string | null {
+  return card.earn.earnAudit.exclusionReason
+}
+
+export function getCardEarnRate(card: CardResult): number {
+  return card.earn.earnAudit.rate
+}
+
+export function getCardIndustryCost(card: CardResult): number {
+  return card.cost.industryCost
+}
+
 export interface AnalysisResult {
   product: { name: string; price: number; url?: string }
   cards: CardResult[]
@@ -358,9 +371,9 @@ function resolveBonusRate(
 export function calculateCardResult(
   cardKey: string,
   card: CardKnowledge,
-  ctx: CalculationContext
+  context: CalculationContext
 ): CardResult {
-  const { product, userMonthlyTxns, riskFreeRatePercent, userContext } = ctx
+  const { product, userMonthlyTxns, riskFreeRatePercent, userContext } = context
   const price = product.price
   const isEmi = product.isEmi
   const category = product.category.toLowerCase()
@@ -392,12 +405,12 @@ export function calculateCardResult(
   const { basePoints, totalPoints, bonusPoints } = calculatePointsEarned(price, baseRate, earnRate)
 
   // Step 6: Calculate CPP tiers
-  const cppResult = calculateCppTiers(
+  const centsPerPointResult = calculateCppTiers(
     card.redemptionPaths,
     userContext.behaviour?.actualAvgCppAchieved,
     card.bestRedemptionRatePerPoint
   )
-  const { conservativeCpp, realisticCpp, industryAssumedCpp } = cppResult
+  const { conservativeCpp, realisticCpp, industryAssumedCpp } = centsPerPointResult
 
   // Calculate reward value
   const trueRewardValueUsd = (totalPoints * realisticCpp) / 100

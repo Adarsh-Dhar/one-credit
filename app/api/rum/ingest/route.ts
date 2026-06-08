@@ -6,6 +6,28 @@ import logger from '@/lib/logger';
 import { toErrorResponse } from '@/lib/errors';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { connectDB } from '@/lib/mongodb';
+import { z } from 'zod';
+
+// ─── Zod Validation Schemas ─────────────────────────────────────────────────
+
+const RUMEventSchema = z.object({
+  eventType: z.string(),
+  timestamp: z.number(),
+  section: z.string().optional(),
+  data: z.record(z.unknown()).optional(),
+});
+
+const RUMIngestSchema = z.object({
+  userId: z.string(),
+  events: z.array(RUMEventSchema),
+});
+
+// ─── Sanitization Helper ─────────────────────────────────────────────────────
+
+function sanitizeMongoKey(key: string): string {
+  return key.replace(/[.$]/g, '_');
+}
 
 // ─── Event Handler Map ─────────────────────────────────────────────────────
 
@@ -48,7 +70,8 @@ const eventHandlers: Record<string, EventHandler> = {
   },
   card_view: (event, acc) => {
     if (event.data?.cardId) {
-      acc.incOps[`cardViewCounts.${event.data.cardId}`] = (acc.incOps[`cardViewCounts.${event.data.cardId}`] as number || 0) + 1;
+      const sanitizedCardId = sanitizeMongoKey(event.data.cardId as string);
+      acc.incOps[`cardViewCounts.${sanitizedCardId}`] = (acc.incOps[`cardViewCounts.${sanitizedCardId}`] as number || 0) + 1;
     }
   },
   wallet_add: (event, acc) => {
@@ -76,7 +99,8 @@ const eventHandlers: Record<string, EventHandler> = {
     const category = event.data?.category as string;
     const amount = event.data?.amount as number;
     if (category && amount) {
-      const key = `spendCategory.${category}`;
+      const sanitizedCategory = sanitizeMongoKey(category);
+      const key = `spendCategory.${sanitizedCategory}`;
       acc.incOps[key] = (acc.incOps[key] || 0) + amount;
     }
   },
@@ -89,8 +113,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
+
     const body = await request.json();
-    const { userId, events } = body as { userId: string; events: RUMEvent[] };
+    const validationResult = RUMIngestSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+    const { userId, events } = validationResult.data;
 
     logger.info({ userId, events }, '[rum/ingest] received events');
 

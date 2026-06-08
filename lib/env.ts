@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { DEFAULT_FINANCIALS } from './constants';
+import logger from './logger';
 
 const envSchema = z.object({
   // MongoDB
@@ -68,14 +69,13 @@ export function validateEnv(): Env {
       const missingVars = error.errors
         .filter(e => e.code === 'invalid_type')
         .map(e => e.path.join('.'))
-        .join(', ');
-      
-      console.error('❌ Environment variable validation failed:');
-      console.error(`   Missing or invalid: ${missingVars}`);
-      console.error('\nPlease check your .env file and ensure all required variables are set.');
-      console.error('See .env.example for reference.');
-      
-      throw new Error(`Environment validation failed: ${missingVars}`);
+        .join(', ')
+
+      logger.error({ missingVars }, 'Environment variable validation failed')
+      logger.error('Please check your .env file and ensure all required variables are set')
+      logger.error('See .env.example for reference')
+
+      throw new Error(`Environment validation failed: ${missingVars}`)
     }
     throw error;
   }

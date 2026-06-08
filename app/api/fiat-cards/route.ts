@@ -94,10 +94,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ card }, { status: 201 });
   } catch (err: unknown) {
-    if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
-      throw new ValidationError('Card already exists for this user');
-    }
     logger.error({ error: err }, '[POST /api/fiat-cards]');
+    if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
+      const validationError = new ValidationError('Card already exists for this user');
+      const { error: errResponse, status } = toErrorResponse(validationError);
+      return NextResponse.json(errResponse, { status });
+    }
     const { error: errResponse, status } = toErrorResponse(err);
     return NextResponse.json(errResponse, { status });
   }

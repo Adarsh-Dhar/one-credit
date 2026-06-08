@@ -1,25 +1,29 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { CardDetailModal } from '@/components/CardDetailModal';
 import { Sparkles, DollarSign, TrendingUp, Calculator } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CardDefinition } from '@/lib/cards';
+import { IFiatCard } from '@/lib/models/FiatCard';
+import { WalletCard } from '@/lib/types';
 import { useWallet } from '@/hooks/useWallet';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Dashboard() {
+  const router = useRouter();
   const { wallet, cards, loading, session } = useWallet();
   const { toast } = useToast();
-  const [selectedCard, setSelectedCard] = useState<CardDefinition | null>(null);
-  const [cardDetails, setCardDetails] = useState<any>(null);
+  const [selectedCard, setSelectedCard] = useState<CardDefinition | null>(null)
+  const [cardDetails, setCardDetails] = useState<IFiatCard | null>(null)
 
-  const maxValue = useMemo(() => Math.max(...cards.map(c => c.value || 0)), [cards]);
+  const maxValue = Math.max(...cards.map(c => c.value || 0))
 
-  const handleCardClick = async (card: any) => {
+  const handleCardClick = async (card: WalletCard) => {
     setSelectedCard(card);
     const email = session?.user?.email;
     if (!email) {
@@ -28,7 +32,7 @@ export default function Dashboard() {
     try {
       const response = await fetch(`/api/fiat-cards?userId=${encodeURIComponent(email)}`);
       const data = await response.json();
-      const fullCard = data.cards.find((c: any) => c.card_id === card.key);
+      const fullCard = data.cards.find((c: IFiatCard) => c.card_id === card.key);
       setCardDetails(fullCard);
     } catch {
       toast({
@@ -45,18 +49,18 @@ export default function Dashboard() {
   };
 
   const handleCalculateBestCard = () => {
-    window.location.href = '/pay';
+    router.push('/pay');
   };
 
   // Scroll lock for modal
   useEffect(() => {
     if (selectedCard && cardDetails) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden'
       return () => {
-        document.body.style.overflow = '';
-      };
+        document.body.style.overflow = ''
+      }
     }
-  }, [selectedCard, cardDetails]);
+  }, [selectedCard, cardDetails])
 
   return (
     <div className="min-h-screen bg-[#0D0A06]">
@@ -235,7 +239,7 @@ export default function Dashboard() {
 }
 
 function TiltCard({ card, isTopCard, onClick }: {
-  card: any;
+  card: WalletCard;
   isTopCard: boolean;
   onClick: () => void;
 }) {
@@ -310,7 +314,7 @@ function TiltCard({ card, isTopCard, onClick }: {
             background: 'radial-gradient(circle at var(--shine-x) var(--shine-y), rgba(255,255,255,0.15) 0%, transparent 50%)',
             '--shine-x': shineX,
             '--shine-y': shineY,
-          } as any}
+          } as React.CSSProperties}
         />
 
         {/* TOP VALUE badge */}

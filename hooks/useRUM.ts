@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { RUMEvent } from '@/lib/types';
+import logger from '@/lib/logger';
 
 const BUFFER_FLUSH_INTERVAL = 5000; // 5 seconds
 const BUFFER_MAX_SIZE = 20;
@@ -29,9 +30,9 @@ export function useRUM() {
         body: JSON.stringify({ userId, events: eventsToSend }),
       });
     } catch (error) {
-      console.error('[useRUM] Failed to flush events:', error);
+      logger.error({ error }, '[useRUM] Failed to flush events')
       // Re-add failed events to buffer
-      eventBufferRef.current.unshift(...eventsToSend);
+      eventBufferRef.current.unshift(...eventsToSend)
     }
   }, [userId]);
 

@@ -12,38 +12,61 @@ import { useWallet } from '@/hooks/useWallet';
 import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
 import { usePersona } from '@/contexts/PersonaContext';
 import { useToast } from '@/hooks/use-toast';
+import { WalletCard } from '@/lib/types';
 
 // ── Spending-cap config per card (issuer/category) ─────────────────────────
 // These caps mirror the reward structure limits (e.g., Amex $6k grocery cap).
 // In production this would come from the DB via rewards_structure.
+const DANGER_ZONE_PCT = 0.983; // $5,900 of $6,000
+
 interface SpendingCap {
   label: string;
   cap: number;
   spent: number; // placeholder — ideally from transaction history
 }
 
-function deriveSpendingCaps(card: any): SpendingCap[] {
+interface FixedCategory {
+  category: string;
+  annual_cap_usd?: number;
+  quarterly_cap_usd?: number;
+  current_spend_towards_cap?: number;
+}
+
+interface RewardsStructure {
+  fixed_categories?: FixedCategory[];
+}
+
+interface StatementCredit {
+  name: string;
+  amount_usd: number;
+  amount_redeemed?: number;
+  reset_period: string;
+}
+
+interface PortalBonus {
+  portal_name: string;
+  portal_url: string;
+  bonus_multiplier: number;
+}
+
+function deriveSpendingCaps(card: WalletCard): SpendingCap[] {
   const caps: SpendingCap[] = [];
-  const rs = card.rawCard?.rewards_structure ?? {};
+  const rs = (card.rawCard?.rewards_structure as RewardsStructure | undefined) ?? {};
 
   // Fixed-category caps
-  (rs.fixed_categories ?? []).forEach((fc: any) => {
+  (rs.fixed_categories ?? []).forEach((fc: FixedCategory) => {
     if (fc.annual_cap_usd || fc.quarterly_cap_usd) {
-      const capAmount = fc.annual_cap_usd ?? (fc.quarterly_cap_usd * 4);
-      // Use deterministic hash based on card key for consistent demo values
-      const hash = card.key.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-      const randomFactor = (hash % 100) / 100; // 0-1 based on card key
+      const capAmount = fc.annual_cap_usd ?? (fc.quarterly_cap_usd ? fc.quarterly_cap_usd * 4 : 0);
       caps.push({
         label: fc.category,
         cap: capAmount,
-        // Simulate spend at ~65–90% of cap for demo purposes (deterministic)
-        spent: capAmount * (0.55 + randomFactor * 0.35),
+        spent: fc.current_spend_towards_cap ?? 0,
       });
     }
   });
 
   // If no structured caps found, create a sensible default from credit limit
-  if (caps.length === 0 && card.limit > 0) {
+  if (caps.length === 0 && card.limit && card.limit > 0) {
     caps.push({
       label: 'Credit Limit',
       cap: card.limit,
@@ -66,7 +89,7 @@ function SpendingRing({ cap }: RingProps) {
   const offset = circumference * (1 - pct);
 
   // Color zones
-  const isRed = pct >= 0.983; // $5,900+ of $6,000 → red/pulsing
+  const isRed = pct >= DANGER_ZONE_PCT; // $5,900+ of $6,000 → red/pulsing
   const isYellow = pct >= 0.667 && !isRed; // $4,000–$5,900 → yellow
   const strokeColor = isRed ? '#ef4444' : isYellow ? '#eab308' : '#22c55e';
   const glowColor = isRed ? 'rgba(239,68,68,0.45)' : isYellow ? 'rgba(234,179,8,0.35)' : 'rgba(34,197,94,0.3)';
@@ -165,7 +188,7 @@ export default function CardsPage() {
   const { persona, setPersona, isLoading: isPersonaLoading } = usePersona();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [selectedCard, setSelectedCard] = useState<WalletCard | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'cashback' | 'travel'>('all');
 
   const userId = session?.user?.id;
@@ -236,7 +259,7 @@ export default function CardsPage() {
     return 0;
   });
 
-  const handleCardDetailClick = (card: any) => {
+  const handleCardDetailClick = (card: WalletCard) => {
     trackCardView(card.key);
     setSelectedCard(card);
     setDetailModalOpen(true);
@@ -271,7 +294,7 @@ export default function CardsPage() {
     }
   };
 
-  const handleCardClick = (card: any) => {
+  const handleCardClick = (card: WalletCard) => {
     trackCardView(card.key);
   };
 
@@ -426,7 +449,7 @@ export default function CardsPage() {
                           {(card.statementCredits?.length ?? 0) > 0 && (
                             <div className="mb-3" data-section="statement-credits">
                               <p className="text-xs text-[#8B8070] mb-2">Statement Credits</p>
-                              {card.statementCredits!.map((credit: any, idx: number) => {
+                              {card.statementCredits!.map((credit: StatementCredit, idx: number) => {
                                 const used = credit.amount_redeemed || 0;
                                 const remaining = credit.amount_usd - used;
                                 const pct = Math.min(used / credit.amount_usd, 1);
@@ -456,7 +479,7 @@ export default function CardsPage() {
                             <div className="mb-3">
                               <p className="text-xs text-[#8B8070] mb-2">Portal Bonuses</p>
                               <div className="flex flex-wrap gap-2">
-                                {card.portalBonuses!.map((bonus: any, idx: number) => (
+                                {card.portalBonuses!.map((bonus: PortalBonus, idx: number) => (
                                   <a
                                     key={idx}
                                     href={bonus.portal_url}

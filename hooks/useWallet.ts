@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { WalletCard } from '@/lib/types';
+import logger from '@/lib/logger';
 
 export function useWallet() {
   const { data: session, status } = useSession();
@@ -31,8 +32,8 @@ export function useWallet() {
           setCards(data.cards ?? []);
         })
         .catch((err) => {
-          console.error('[useWallet] fetch failed:', err);
-          setError('Failed to load wallet. Please refresh.');
+          logger.error({ err }, '[useWallet] fetch failed')
+          setError('Failed to load wallet. Please refresh.')
         })
         .finally(() => setLoading(false));
     }

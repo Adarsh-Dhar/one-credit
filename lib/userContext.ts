@@ -140,6 +140,11 @@ export interface UserContext {
   totalOpBalanceUsd: number    // sum of each card's tokenBalance * op_cents_per_token / 100
 }
 
+// Helper method to reduce deep chaining
+export function getUserActualAvgCpp(context: UserContext): number | null {
+  return context.behaviour?.actualAvgCppAchieved ?? null
+}
+
 // ─── Helper Functions ───────────────────────────────────────────────────────
 
 type MerchantEntry = {
@@ -164,13 +169,13 @@ function calculateCreditMetrics(card: IFiatCard): {
 
 function buildCategoryCapProgress(card: IFiatCard): CardLiveState['categoryCapProgress'] {
   return (card.rewards_structure.fixed_categories ?? [])
-    .filter((fc) => fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined)
-    .map((fc) => ({
-      category: fc.category,
-      spentTowardsCap: fc.current_spend_towards_cap ?? 0,
-      capLimit: fc.cap_amount_usd ?? null,
-      remainingCapRoom: fc.cap_amount_usd !== null && fc.cap_amount_usd !== undefined
-        ? fc.cap_amount_usd - (fc.current_spend_towards_cap ?? 0)
+    .filter((fixedCategory) => fixedCategory.cap_amount_usd !== null && fixedCategory.cap_amount_usd !== undefined)
+    .map((fixedCategory) => ({
+      category: fixedCategory.category,
+      spentTowardsCap: fixedCategory.current_spend_towards_cap ?? 0,
+      capLimit: fixedCategory.cap_amount_usd ?? null,
+      remainingCapRoom: fixedCategory.cap_amount_usd !== null && fixedCategory.cap_amount_usd !== undefined
+        ? fixedCategory.cap_amount_usd - (fixedCategory.current_spend_towards_cap ?? 0)
         : null,
     }))
 }
@@ -369,18 +374,18 @@ function initializeAggregationMaps(): AggregationMaps {
   }
 }
 
-function processTransaction(tx: TransactionLean, maps: AggregationMaps): void {
-  const category = tx.category ?? 'other'
-  const cardId = tx.cardId
-  const merchant = (tx.merchant ?? 'unknown').toLowerCase().trim()
-  const month = (tx.createdAt as Date).toISOString().slice(0, 7)
-  const amt = tx.amountUsd ?? 0
+function processTransaction(transaction: TransactionLean, maps: AggregationMaps): void {
+  const category = transaction.category ?? 'other'
+  const cardId = transaction.cardId
+  const merchant = (transaction.merchant ?? 'unknown').toLowerCase().trim()
+  const month = (transaction.createdAt as Date).toISOString().slice(0, 7)
+  const amt = transaction.amountUsd ?? 0
 
   // cross-card category aggregate
   maps.categoryMap[category] ??= { total: 0, count: 0 }
   maps.categoryMap[category].total += amt
   maps.categoryMap[category].count += 1
-  if (tx.isEmi) {
+  if (transaction.isEmi) {
     maps.emiCount++
   }
 
@@ -471,8 +476,8 @@ function aggregateSpendingBehaviour(txns: TransactionLean[], totalSpend: number)
 } {
   const maps = initializeAggregationMaps()
 
-  for (const tx of txns) {
-    processTransaction(tx, maps)
+  for (const transaction of txns) {
+    processTransaction(transaction, maps)
   }
 
   const categoryBreakdown = buildCategoryBreakdown(maps.categoryMap, totalSpend)
@@ -555,8 +560,8 @@ interface AggregatedContextData {
 function aggregateContextData(params: AssembleContextParams): AggregatedContextData {
   const { cards, txns, redemptionTxns, annualTxns, since } = params;
   const annualSpendByCard: Record<string, number> = {}
-  for (const tx of annualTxns) {
-    annualSpendByCard[tx.cardId] = (annualSpendByCard[tx.cardId] ?? 0) + (tx.amountUsd ?? 0)
+  for (const transaction of annualTxns) {
+    annualSpendByCard[transaction.cardId] = (annualSpendByCard[transaction.cardId] ?? 0) + (transaction.amountUsd ?? 0)
   }
 
   const cardStates = buildCardLiveStates(cards, annualSpendByCard)
