@@ -5,6 +5,29 @@ import { WalletCard } from '@/lib/types';
 
 type Step = 'category' | 'merchant' | 'amount' | 'analyzing' | 'approval' | 'success' | 'failed';
 
+// Typed event payloads for type-safe event tracking
+interface TransactionCategorizedEvent {
+  category: string;
+  label: string;
+}
+
+interface SpendCategoryEnteredEvent {
+  category: string;
+  amount: number;
+}
+
+interface PaymentApprovedEvent {
+  card: string;
+  amount: number;
+  merchant: string;
+}
+
+type EventPayloads =
+  | { event: 'transaction_categorized'; payload: TransactionCategorizedEvent }
+  | { event: 'spend_category_entered'; payload: SpendCategoryEnteredEvent }
+  | { event: 'payment.approved'; payload: PaymentApprovedEvent }
+  | { event: string; payload?: never };
+
 interface Merchant {
   name: string;
   logo: string;
@@ -33,7 +56,7 @@ interface GeminiRecommendation {
 interface UsePayFlowProps {
   userId: string | undefined;
   cards: WalletCard[];
-  trackEvent: (event: string, data?: any) => void;
+  trackEvent: <E extends EventPayloads['event']>(event: E, payload: Extract<EventPayloads, { event: E }>['payload']) => void;
   trackCardView: (cardId: string) => void;
   CATEGORY_TO_EARN_KEY: Record<string, string>;
 }
@@ -72,10 +95,12 @@ export function usePayFlow({
       return;
     }
 
-    trackEvent('spend_category_entered', {
-      category: selectedCategory?.id,
-      amount: parsedAmount,
-    });
+    if (selectedCategory) {
+      trackEvent('spend_category_entered', {
+        category: selectedCategory.id,
+        amount: parsedAmount,
+      });
+    }
 
     setStep('analyzing');
 
@@ -154,7 +179,7 @@ export function usePayFlow({
     trackEvent('payment.approved', {
       card: recommendation.bestCardKey,
       amount: parseFloat(amount),
-      merchant: selectedMerchant?.name,
+      merchant: selectedMerchant?.name || 'Unknown',
     });
 
     setIsProcessing(true);

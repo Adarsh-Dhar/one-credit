@@ -8,7 +8,7 @@
 // REAL user, not a hypothetical optimal user.
 
 import { connectDB } from '@/lib/mongodb'
-import { FiatCard, IFiatCard } from '@/lib/models/FiatCard'
+import { FiatCard, IFiatCard, FIAT_CARD_PROJECTION } from '@/lib/models/FiatCard'
 import { Transaction } from '@/lib/models/Transaction'
 import { isCashbackCard } from '@/lib/utils'
 
@@ -345,7 +345,7 @@ export function buildCardCategoryBreakdown(
   return result
 }
 
-function topKey(counts: Record<string, number>): string | undefined {
+function keyWithHighestCount(counts: Record<string, number>): string | undefined {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]
 }
 
@@ -437,8 +437,8 @@ function buildTopMerchants(
       merchant,
       totalSpentUsd: parseFloat(data.total.toFixed(2)),
       txCount: data.count,
-      category: topKey(data.categories) ?? 'other',
-      primaryCardId: topKey(data.cardCounts) ?? '',
+      category: keyWithHighestCount(data.categories) ?? 'other',
+      primaryCardId: keyWithHighestCount(data.cardCounts) ?? '',
     }))
     .sort((a, b) => b.txCount - a.txCount)
     .slice(0, 10)
@@ -493,10 +493,7 @@ function aggregateSpendingBehaviour(txns: TransactionLean[], totalSpend: number)
 async function fetchUserContextData(userId: string) {
   await connectDB()
   const cards = await FiatCard.find({ user_id: userId })
-    .select({ card_id:1, display_name:1, network:1, card_type:1, currency_type:1,
-      credit_token_balance:1, points_balance:1, points_value_cents:1,
-      current_balance_owed:1, credit_limit:1, rewards_structure:1,
-      benefits_and_credits:1, financials:1, op_redemption:1 })
+    .select({ ...FIAT_CARD_PROJECTION, op_redemption: 1 })
     .lean()
 
   const { txns, redemptionTxns, annualTxns, since } = await fetchTransactions(userId)
@@ -536,8 +533,27 @@ interface AssembleContextParams {
   since: Date;
 }
 
-function assembleContext(params: AssembleContextParams): UserContext {
-  const { userId, cards, txns, redemptionTxns, annualTxns, since } = params;
+interface AggregatedContextData {
+  cardStates: CardLiveState[]
+  totalSpend: number
+  categoryBreakdown: SpendingBehaviour['categoryBreakdown']
+  cardCategoryBreakdown: SpendingBehaviour['cardCategoryBreakdown']
+  topMerchants: SpendingBehaviour['topMerchants']
+  cardTopMerchants: SpendingBehaviour['cardTopMerchants']
+  monthBuckets: Record<string, Record<string, number>>
+  emiTransactionPct: number
+  monthlyTrend: SpendingBehaviour['monthlyTrend']
+  momSpendChangePct: SpendingBehaviour['momSpendChangePct']
+  fastestGrowingCategory: SpendingBehaviour['fastestGrowingCategory']
+  earliestTx: Date
+  since: Date
+  actualAvgCppAchieved: SpendingBehaviour['actualAvgCppAchieved']
+  totalPointsRedeemed90d: SpendingBehaviour['totalPointsRedeemed90d']
+  redemptionCount90d: SpendingBehaviour['redemptionCount90d']
+}
+
+function aggregateContextData(params: AssembleContextParams): AggregatedContextData {
+  const { cards, txns, redemptionTxns, annualTxns, since } = params;
   const annualSpendByCard: Record<string, number> = {}
   for (const tx of annualTxns) {
     annualSpendByCard[tx.cardId] = (annualSpendByCard[tx.cardId] ?? 0) + (tx.amountUsd ?? 0)
@@ -561,29 +577,82 @@ function assembleContext(params: AssembleContextParams): UserContext {
   const earliestTx = txns.length > 0
     ? new Date(Math.min(...txns.map(t => new Date(t.createdAt as Date).getTime())))
     : since
-  const actualMonths = Math.max(1, (Date.now() - earliestTx.getTime()) / MS_PER_MONTH)
-  const monthlyAvgSpendUsd = parseFloat((totalSpend / actualMonths).toFixed(2))
 
   const {
     actualAvgCppAchieved,
     totalPointsRedeemed90d,
     redemptionCount90d,
   } = computeRedemptionStats(redemptionTxns)
+
+  return {
+    cardStates,
+    totalSpend,
+    categoryBreakdown,
+    cardCategoryBreakdown,
+    topMerchants,
+    cardTopMerchants,
+    monthBuckets,
+    emiTransactionPct,
+    monthlyTrend,
+    momSpendChangePct,
+    fastestGrowingCategory,
+    earliestTx,
+    since,
+    actualAvgCppAchieved,
+    totalPointsRedeemed90d,
+    redemptionCount90d,
+  }
+}
+
+function deriveLifestyleSignals(data: AggregatedContextData): SpendingBehaviour {
+  const {
+    categoryBreakdown,
+    cardCategoryBreakdown,
+    topMerchants,
+    cardTopMerchants,
+    emiTransactionPct,
+    monthlyTrend,
+    momSpendChangePct,
+    fastestGrowingCategory,
+    earliestTx,
+    totalSpend,
+    actualAvgCppAchieved,
+    totalPointsRedeemed90d,
+    redemptionCount90d,
+  } = data
+
+  const actualMonths = Math.max(1, (Date.now() - earliestTx.getTime()) / MS_PER_MONTH)
+  const monthlyAvgSpendUsd = parseFloat((totalSpend / actualMonths).toFixed(2))
   const topCategory = categoryBreakdown[0]?.category ?? 'shopping'
   const getShare = (cat: string) => categoryBreakdown.find(c => c.category === cat)?.sharePct ?? 0
 
-  const behaviour: SpendingBehaviour = {
-    categoryBreakdown, cardCategoryBreakdown, topMerchants, cardTopMerchants, topCategory,
+  return {
+    categoryBreakdown,
+    cardCategoryBreakdown,
+    topMerchants,
+    cardTopMerchants,
+    topCategory,
     isFrequentTraveller: getShare('travel') > FREQUENT_TRAVEL_THRESHOLD_PCT,
     isFrequentDiner: getShare('dining') > FREQUENT_DINER_THRESHOLD_PCT,
     isOnlineShopper: (getShare('shopping') + getShare('electronics')) > ONLINE_SHOPPER_THRESHOLD_PCT,
     isGroceryDominant: getShare('grocery') > GROCERY_DOMINANT_THRESHOLD_PCT,
-    monthlyAvgSpendUsd, monthlyTrend, momSpendChangePct, fastestGrowingCategory,
-    actualAvgCppAchieved, totalPointsRedeemed90d, redemptionCount90d, emiTransactionPct,
+    monthlyAvgSpendUsd,
+    monthlyTrend,
+    momSpendChangePct,
+    fastestGrowingCategory,
+    actualAvgCppAchieved,
+    totalPointsRedeemed90d,
+    redemptionCount90d,
+    emiTransactionPct,
   }
+}
 
-  const { totalOpTokens, totalOpBalanceUsd } = computeOpTotals(cardStates)
-  return { userId, cards: cardStates, behaviour, totalOpTokens, totalOpBalanceUsd }
+function assembleContext(params: AssembleContextParams): UserContext {
+  const { userId } = params;
+  const aggregatedData = aggregateContextData(params)
+  const behaviour = deriveLifestyleSignals(aggregatedData)
+  const { totalOpTokens, totalOpBalanceUsd } = computeOpTotals(aggregatedData.cardStates)
+  return { userId, cards: aggregatedData.cardStates, behaviour, totalOpTokens, totalOpBalanceUsd }
 }
 
 export async function buildUserContextFromCards(userId: string, cards: IFiatCard[]): Promise<UserContext> {

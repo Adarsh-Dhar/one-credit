@@ -32,6 +32,7 @@ export interface CardKnowledge {
   issuer: string
   annualFeeUsd: number
   gstOnFee: number
+  baseEarnRate: number
   earnRules: Array<{
     merchant: string
     rate: number
@@ -78,7 +79,6 @@ export interface CardKnowledge {
 
 export interface EarnAudit {
   rate: number
-  per: number
   confirmedEarn: boolean
   exclusionReason: string | null
   capBreached: boolean
@@ -299,38 +299,31 @@ export function buildEarnAudit(
 ): EarnAudit {
   return {
     rate: earnRate,
-    per: 100,
     confirmedEarn,
     exclusionReason,
     capBreached,
   }
 }
 
-export function calculateCardResult(
-  cardKey: string,
+function resolveBonusRate(
+  category: string,
   card: CardKnowledge,
-  ctx: CalculationContext
-): CardResult {
-  const { product, userMonthlyTxns, riskFreeRatePercent, userContext } = ctx
-  const price = product.price
-  const isEmi = product.isEmi
-  const category = product.category.toLowerCase()
-  const baseRate = card.earnRules[0]?.rate ?? 1
-
-  // Step 1: Check exclusions
-  const exclusionResult = checkCategoryExclusion(category, card.excludedCategories, baseRate)
-  const confirmedEarn = exclusionResult.confirmedEarn
-  const exclusionReason = exclusionResult.exclusionReason
-  let earnRate = exclusionResult.earnRate
-
-  // Step 2: Apply rotating bonus (only if category is not excluded)
+  baseRate: number,
+  price: number,
+  confirmedEarn: boolean
+): {
+  earnRate: number
+  rotatingBonusApplied: boolean
+  portalBonusApplied: boolean
+  portalBonusName: string | null
+  portalBonusUrl: string | null
+} {
+  // Apply rotating bonus (only if category is not excluded)
   const rotatingResult = applyRotatingBonus(category, card.rotatingCategory, baseRate, price)
   const rotatingBonusApplied = confirmedEarn ? rotatingResult.rotatingBonusApplied : false
-  if (confirmedEarn) {
-    earnRate = rotatingResult.earnRate
-  }
+  let earnRate = confirmedEarn ? rotatingResult.earnRate : baseRate
 
-  // Step 3: Apply portal bonus (only if rotating was not applied, or take the higher rate)
+  // Apply portal bonus (only if rotating was not applied, or take the higher rate)
   const portalResult = applyPortalBonus(category, card.portalBonuses, baseRate, price)
   let portalBonusApplied = false
   let portalBonusName: string | null = null
@@ -352,6 +345,40 @@ export function calculateCardResult(
       }
     }
   }
+
+  return {
+    earnRate,
+    rotatingBonusApplied,
+    portalBonusApplied,
+    portalBonusName,
+    portalBonusUrl,
+  }
+}
+
+export function calculateCardResult(
+  cardKey: string,
+  card: CardKnowledge,
+  ctx: CalculationContext
+): CardResult {
+  const { product, userMonthlyTxns, riskFreeRatePercent, userContext } = ctx
+  const price = product.price
+  const isEmi = product.isEmi
+  const category = product.category.toLowerCase()
+  const baseRate = card.baseEarnRate
+
+  // Step 1: Check exclusions
+  const exclusionResult = checkCategoryExclusion(category, card.excludedCategories, baseRate)
+  const confirmedEarn = exclusionResult.confirmedEarn
+  const exclusionReason = exclusionResult.exclusionReason
+  let earnRate = exclusionResult.earnRate
+
+  // Step 2-3: Resolve bonus rate (rotating and portal bonuses)
+  const bonusResult = resolveBonusRate(category, card, baseRate, price, confirmedEarn)
+  earnRate = bonusResult.earnRate
+  const rotatingBonusApplied = bonusResult.rotatingBonusApplied
+  const portalBonusApplied = bonusResult.portalBonusApplied
+  const portalBonusName = bonusResult.portalBonusName
+  const portalBonusUrl = bonusResult.portalBonusUrl
 
   // Step 4: Apply EMI override
   earnRate = applyEmiOverride(isEmi, card.emiEarnRate, earnRate)
@@ -539,7 +566,7 @@ Respond ONLY with JSON (no markdown):
     for (const card of cards) {
       cardReasonings[card.cardKey] = generateAutoReasoning(card, product)
     }
-    const winner = cards.sort((a, b) => a.cost.netCost - b.cost.netCost)[0]
+    const winner = [...cards].sort((a, b) => a.cost.netCost - b.cost.netCost)[0]
     const agentReasoning = generateAgentReasoning(winner, cards, product)
     return { cardReasonings, agentReasoning }
   }

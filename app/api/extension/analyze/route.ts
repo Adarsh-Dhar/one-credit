@@ -3,13 +3,14 @@ import { runOPAgent, CardKnowledge } from '@/lib/op-agent'
 import { FiatCard, type IFiatCard } from '@/lib/models/FiatCard'
 import type { IMilestoneBonus } from '@/lib/models/FiatCard'
 import { buildUserContext } from '@/lib/userContext'
-import { inferCategory, sanitizeForPrompt, getRewardType } from '@/lib/utils'
+import { inferCategory, sanitizeForPrompt, getRewardType, isForeignMerchant } from '@/lib/utils'
 import { z } from 'zod'
 import { ratelimit } from '@/lib/rateLimit'
 import logger from '@/lib/logger'
 import { getEnv } from '@/lib/env'
 import { toErrorResponse } from '@/lib/errors'
 import { createGeminiModel } from '@/lib/gemini'
+import { OP_AGENT_CONFIG } from '@/lib/constants'
 
 const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
   amazon: 'amazon.com',
@@ -19,12 +20,6 @@ const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
   target: 'target.com',
   ebay: 'ebay.com',
 }
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const MIN_MONTHLY_TXNS = 5
-const TXN_COUNT_DIVISOR = 3 // Divide total txns by 3 to estimate monthly txns (assumes 3-month avg)
-const DEFAULT_MONTHLY_TXNS = 10
 
 // Zod schema for request validation
 const AnalyzeSchema = z.object({
@@ -74,10 +69,11 @@ function transformCardToKnowledge(
   dbCard: Partial<Pick<IFiatCard, 'display_name' | 'network' | 'currency_type' | 'rewards_structure' | 'benefits_and_credits' | 'financials' | 'points_value_cents'>>,
   env: ReturnType<typeof getEnv>
 ): CardKnowledge {
+  const baseEarnRate = dbCard.rewards_structure?.base_multiplier ?? 1
   const earnRules: CardKnowledge['earnRules'] = [
     {
       merchant: 'all',
-      rate: dbCard.rewards_structure?.base_multiplier ?? 1,
+      rate: baseEarnRate,
       per: 100,
       currency: dbCard.currency_type?.toLowerCase() ?? 'usd',
       notes: 'Base earn rate',
@@ -128,6 +124,7 @@ function transformCardToKnowledge(
     issuer: dbCard.network ?? 'Unknown',
     annualFeeUsd: dbCard.financials?.annual_fee ?? 0,
     gstOnFee: env.GST_RATE,
+    baseEarnRate,
     earnRules,
     emiEarnRate: dbCard.rewards_structure?.emi_multiplier ?? 0,
     monthlyCapPoints: dbCard.rewards_structure?.monthly_cap_points ?? null,
@@ -213,16 +210,16 @@ function detectProductAttributes(product: z.infer<typeof AnalyzeSchema>['product
 
   const merchant = sanitizeForPrompt((product.source && SOURCE_TO_MERCHANT_DOMAIN[product.source]) || product.source || 'amazon.in')
 
-  const isForeignMerchant = !merchant.endsWith('.in') && merchant !== 'amazon.in'
+  const isForeignMerchantValue = isForeignMerchant(merchant)
   const category = sanitizeForPrompt(inferCategory(product.name || ''))
 
-  return { isEmi, merchant, isForeignMerchant, category }
+  return { isEmi, merchant, isForeignMerchant: isForeignMerchantValue, category }
 }
 
 function calculateMonthlyTxns(userContext: Awaited<ReturnType<typeof buildUserContext>>): number {
   return userContext.behaviour.monthlyAvgSpendUsd > 0
-    ? Math.max(MIN_MONTHLY_TXNS, Math.round(userContext.behaviour.categoryBreakdown.reduce((s, c) => s + c.txCount, 0) / TXN_COUNT_DIVISOR))
-    : DEFAULT_MONTHLY_TXNS
+    ? Math.max(OP_AGENT_CONFIG.MIN_MONTHLY_TXNS, Math.round(userContext.behaviour.categoryBreakdown.reduce((s, c) => s + c.txCount, 0) / OP_AGENT_CONFIG.TXN_COUNT_DIVISOR))
+    : OP_AGENT_CONFIG.DEFAULT_MONTHLY_TXNS
 }
 
 async function runAgentAndBuildResponse(
@@ -259,7 +256,7 @@ async function runAgentAndBuildResponse(
       actualAvgCppAchieved: userContext.behaviour.actualAvgCppAchieved,
       redemptionCount90d: userContext.behaviour.redemptionCount90d,
     },
-    savingsVsIndustryUsd: result.winner.cost.savings,
+    savingsVsIndustryUsd: result.winner.cost.industryCost - result.winner.cost.netCost,
     savingsVsBestAlternativeUsd: result.cards.length > 1
       ? Math.max(...result.cards.map(c => c.cost.netCost)) - result.winner.cost.netCost
       : 0,
@@ -275,7 +272,6 @@ export async function POST(request: NextRequest) {
     }
     const { product, userId } = validation.data
     const env = validation.env
-    const apiKey = env.GOOGLE_API_KEY
 
     // Check rate limit
     const rateLimitResponse = await checkRateLimit(userId)
@@ -291,7 +287,7 @@ export async function POST(request: NextRequest) {
     const cardKnowledgeMap = await buildCardKnowledge(userContext, env, cardKeys)
 
     // Instantiate Gemini model
-    const model = createGeminiModel(apiKey)
+    const model = createGeminiModel(env.GOOGLE_API_KEY)
 
     // Run agent and build response
     return await runAgentAndBuildResponse(product, cardKeys, cardKnowledgeMap, userContext, env, model)

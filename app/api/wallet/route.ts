@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
-import { FiatCard, IFiatCard } from '@/lib/models/FiatCard';
+import { FiatCard, IFiatCard, FIAT_CARD_PROJECTION } from '@/lib/models/FiatCard';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
@@ -20,27 +20,7 @@ export async function GET() {
 
     const userId = session.user.id;
     const fiatCards = await FiatCard.find({ user_id: userId })
-      .select({
-        card_id: 1,
-        display_name: 1,
-        network: 1,
-        card_type: 1,
-        currency_type: 1,
-        credit_token_balance: 1,
-        points_balance: 1,
-        points_value_cents: 1,
-        current_balance_owed: 1,
-        credit_limit: 1,
-        rewards_structure: 1,
-        benefits_and_credits: 1,
-        financials: 1,
-        card_image_url: 1,
-        card_description: 1,
-        pros: 1,
-        cons: 1,
-        features: 1,
-        op_redemption: 1,
-      })
+      .select({ ...FIAT_CARD_PROJECTION, op_redemption: 1 })
       .lean() as IFiatCard[];
 
     let totalValue = 0;

@@ -327,6 +327,31 @@ FiatCardSchema.index({ user_id: 1, card_id: 1 }, { unique: true });
 // Index for user queries - improves performance for user-specific card fetches
 FiatCardSchema.index({ user_id: 1 });
 
+// ─── Shared projection constant ───────────────────────────────────────────────────
+
+// Canonical Mongoose projection for FiatCard queries
+// Single source of truth for field selection across the codebase
+export const FIAT_CARD_PROJECTION = {
+  card_id: 1,
+  display_name: 1,
+  network: 1,
+  card_type: 1,
+  currency_type: 1,
+  credit_token_balance: 1,
+  points_balance: 1,
+  points_value_cents: 1,
+  current_balance_owed: 1,
+  credit_limit: 1,
+  rewards_structure: 1,
+  benefits_and_credits: 1,
+  financials: 1,
+  card_image_url: 1,
+  card_description: 1,
+  pros: 1,
+  cons: 1,
+  features: 1,
+} as const;
+
 // ─── Model export ─────────────────────────────────────────────────────────────
 
 export const FiatCard: Model<IFiatCard> =

@@ -132,7 +132,7 @@ export const executeMCPTool = async (
     case 'sync_rewards':
       return await syncRewards(toolInput.sources as Array<'cardlytics' | 'network' | 'affiliate'> | undefined);
     case 'get_rewards_offers':
-      return await getRewardsOffers(toolInput as any);
+      return await getRewardsOffers(toolInput as any); // TODO: Replace with proper Zod schema for rewards offers filters
     case 'search_rewards_by_merchant':
       return await searchRewardsByMerchant(toolInput.merchantName as string);
 

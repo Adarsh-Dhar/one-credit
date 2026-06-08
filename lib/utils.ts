@@ -84,3 +84,9 @@ export function calculateDefaultBalance(
   }
   return creditTokenBalance || 0
 }
+
+export function isForeignMerchant(merchant: string, countryCode = 'IN'): boolean {
+  const tld = `.${countryCode.toLowerCase()}`
+  const knownDomain = `amazon.${countryCode.toLowerCase()}`
+  return !merchant.endsWith(tld) && merchant !== knownDomain
+}

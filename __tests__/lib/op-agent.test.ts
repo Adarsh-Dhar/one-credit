@@ -14,7 +14,6 @@ import {
   calculateNetCost,
   calculateFeeBurden,
   resolveStatementCredit,
-  generateReasoningWithGemini,
   calculateCardResult,
   type CardKnowledge,
   type CalculationContext,
@@ -352,6 +351,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -411,6 +411,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -469,6 +470,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -527,6 +529,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -585,6 +588,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -643,6 +647,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -701,6 +706,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -759,6 +765,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -817,6 +824,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -875,6 +883,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -933,6 +942,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -995,6 +1005,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -1055,6 +1066,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -1115,6 +1127,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -1175,6 +1188,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -1237,6 +1251,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -1297,6 +1312,7 @@ describe('calculateCardResult', () => {
       issuer: 'Test Bank',
       annualFeeUsd: 95,
       gstOnFee: 18,
+      baseEarnRate: 1,
       earnRules: [{ merchant: 'all', rate: 1, per: 100, currency: 'usd', notes: 'Base earn rate' }],
       emiEarnRate: 0,
       monthlyCapPoints: null,
@@ -1350,212 +1366,4 @@ describe('calculateCardResult', () => {
     const result = calculateCardResult('test-card', card, ctx)
     expect(result.earn.portalBonusApplied).toBe(false)
   })
-})
-
-describe('generateReasoningWithGemini', () => {
-  it('should use Gemini response when model returns valid JSON', async () => {
-    const mockModel = {
-      generateContent: async () => ({
-        response: {
-          text: () => JSON.stringify({
-            cardReasonings: { card1: 'Good for grocery' },
-            agentReasoning: 'card1 is best',
-          }),
-        },
-      }),
-    } as any
-
-    const cards = [{
-      cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
-      rewardType: 'cashback',
-      earn: {
-        actualPointsEarned: 2,
-        basePointsEarned: 1,
-        bonusPointsEarned: 1,
-        earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
-        rotatingBonusApplied: false,
-        portalBonusApplied: false,
-        portalBonusName: null,
-        portalBonusUrl: null,
-      },
-      cost: {
-        netCost: 95,
-        industryCost: 97,
-        savings: 2,
-        effectiveDiscountPercent: 5,
-        feeBurdenUsd: 1,
-        floatValueUsd: 0.5,
-        foreignFeeUsd: 0,
-        statementCreditApplied: 0,
-        feeWaiverActive: false,
-        feeWaiverNote: null,
-      },
-      valuation: {
-        trueRewardValueUsd: 2,
-        industryRewardValue: 2,
-        realisticCpp: 1.0,
-        conservativeCpp: 1.0,
-        industryAssumedCpp: 1.0,
-        bestRedemptionName: 'Statement credit',
-        bestRedemptionRatePerPoint: 1.0,
-      },
-    }] as any
-
-    const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
-
-    const result = await generateReasoningWithGemini(cards, product, mockModel)
-    expect(result.cardReasonings['card1']).toBe('Good for grocery')
-  })
-
-  it('should return agent reasoning when model returns valid JSON', async () => {
-    const mockModel = {
-      generateContent: async () => ({
-        response: {
-          text: () => JSON.stringify({
-            cardReasonings: { card1: 'Good for grocery' },
-            agentReasoning: 'card1 is best',
-          }),
-        },
-      }),
-    } as any
-
-    const cards = [{
-      cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
-      rewardType: 'cashback',
-      earn: {
-        actualPointsEarned: 2,
-        basePointsEarned: 1,
-        bonusPointsEarned: 1,
-        earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
-        rotatingBonusApplied: false,
-        portalBonusApplied: false,
-        portalBonusName: null,
-        portalBonusUrl: null,
-      },
-      cost: {
-        netCost: 95,
-        industryCost: 97,
-        savings: 2,
-        effectiveDiscountPercent: 5,
-        feeBurdenUsd: 1,
-        floatValueUsd: 0.5,
-        foreignFeeUsd: 0,
-        statementCreditApplied: 0,
-        feeWaiverActive: false,
-        feeWaiverNote: null,
-      },
-      valuation: {
-        trueRewardValueUsd: 2,
-        industryRewardValue: 2,
-        realisticCpp: 1.0,
-        conservativeCpp: 1.0,
-        industryAssumedCpp: 1.0,
-        bestRedemptionName: 'Statement credit',
-        bestRedemptionRatePerPoint: 1.0,
-      },
-    }] as any
-
-    const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
-
-    const result = await generateReasoningWithGemini(cards, product, mockModel)
-    expect(result.agentReasoning).toBe('card1 is best')
-
-  it('should fall back to auto-generated reasoning when model throws', async () => {
-    const mockModel = {
-      generateContent: async () => {
-        throw new Error('API error')
-      },
-    } as any
-
-    const cards = [{
-      cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
-      rewardType: 'cashback',
-      earn: {
-        actualPointsEarned: 2,
-        basePointsEarned: 1,
-        bonusPointsEarned: 1,
-        earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
-        rotatingBonusApplied: false,
-        portalBonusApplied: false,
-        portalBonusName: null,
-        portalBonusUrl: null,
-      },
-      cost: {
-        netCost: 95,
-        industryCost: 97,
-        savings: 2,
-        effectiveDiscountPercent: 5,
-        feeBurdenUsd: 1,
-        floatValueUsd: 0.5,
-        foreignFeeUsd: 0,
-        statementCreditApplied: 0,
-        feeWaiverActive: false,
-        feeWaiverNote: null,
-      },
-      valuation: {
-        trueRewardValueUsd: 2,
-        industryRewardValue: 2,
-        realisticCpp: 1.0,
-        conservativeCpp: 1.0,
-        industryAssumedCpp: 1.0,
-        bestRedemptionName: 'Statement credit',
-        bestRedemptionRatePerPoint: 1.0,
-      },
-    }] as any
-
-    const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
-
-    const result = await generateReasoningWithGemini(cards, product, mockModel)
-    expect(result.cardReasonings['card1']).toContain('Earns 2x')
-  })
-
-  it('should include card name in fallback agent reasoning', async () => {
-    const mockModel = {
-      generateContent: async () => {
-        throw new Error('API error')
-      },
-    } as any
-
-    const cards = [{
-      cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
-      rewardType: 'cashback',
-      earn: {
-        actualPointsEarned: 2,
-        basePointsEarned: 1,
-        bonusPointsEarned: 1,
-        earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
-        rotatingBonusApplied: false,
-        portalBonusApplied: false,
-        portalBonusName: null,
-        portalBonusUrl: null,
-      },
-      cost: {
-        netCost: 95,
-        industryCost: 97,
-        savings: 2,
-        effectiveDiscountPercent: 5,
-        feeBurdenUsd: 1,
-        floatValueUsd: 0.5,
-        foreignFeeUsd: 0,
-        statementCreditApplied: 0,
-        feeWaiverActive: false,
-        feeWaiverNote: null,
-      },
-      valuation: {
-        trueRewardValueUsd: 2,
-        industryRewardValue: 2,
-        realisticCpp: 1.0,
-        conservativeCpp: 1.0,
-        industryAssumedCpp: 1.0,
-        bestRedemptionName: 'Statement credit',
-        bestRedemptionRatePerPoint: 1.0,
-      },
-    }] as any
-
-    const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
-
-    const result = await generateReasoningWithGemini(cards, product, mockModel)
-    expect(result.agentReasoning).toContain('Test Card')
-  })
-})
 })

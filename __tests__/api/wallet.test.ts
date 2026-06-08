@@ -13,6 +13,8 @@ describe('GET /api/wallet', () => {
   it('should be tested via integration testing with actual database', () => {
     // Route handler tests require full integration setup with mocked database
     // and auth providers. This is deferred in favor of pure function tests.
+    // The business logic functions (calculateCardValue, transformFiatCardToWalletDetail)
+    // are tested in the pure function test suite.
     expect(true).toBe(true)
   })
 })

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
-import { FiatCard } from '@/lib/models/FiatCard';
+import { FiatCard, FIAT_CARD_PROJECTION } from '@/lib/models/FiatCard';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { ValidationError, toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
@@ -31,26 +31,7 @@ export async function GET(req: NextRequest) {
     }
 
     const cards = await FiatCard.find({ user_id: userId })
-      .select({
-        card_id: 1,
-        display_name: 1,
-        network: 1,
-        card_type: 1,
-        currency_type: 1,
-        credit_token_balance: 1,
-        points_balance: 1,
-        points_value_cents: 1,
-        current_balance_owed: 1,
-        credit_limit: 1,
-        rewards_structure: 1,
-        benefits_and_credits: 1,
-        financials: 1,
-        card_image_url: 1,
-        card_description: 1,
-        pros: 1,
-        cons: 1,
-        features: 1,
-      })
+      .select(FIAT_CARD_PROJECTION)
       .lean();
     return NextResponse.json({ cards });
   } catch (err) {
@@ -81,10 +62,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Whitelist allowed fields to prevent injection attacks
+    const allowedFields = {
+      card_id: body.card_id,
+      display_name: body.display_name,
+      network: body.network,
+      card_type: body.card_type,
+      currency_type: body.currency_type,
+      credit_token_balance: body.credit_token_balance,
+      points_balance: body.points_balance,
+      points_value_cents: body.points_value_cents,
+      current_balance_owed: body.current_balance_owed,
+      credit_limit: body.credit_limit,
+      rewards_structure: body.rewards_structure,
+      benefits_and_credits: body.benefits_and_credits,
+      financials: body.financials,
+      card_image_url: body.card_image_url,
+      card_description: body.card_description,
+      pros: body.pros,
+      cons: body.cons,
+      features: body.features,
+      op_redemption: body.op_redemption,
+    };
+
     // Upsert: update if exists, create if not
     const card = await FiatCard.findOneAndUpdate(
       { user_id, card_id },
-      { $set: body },
+      { $set: allowedFields },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 

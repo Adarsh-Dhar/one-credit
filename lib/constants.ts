@@ -18,3 +18,9 @@ export const DEFAULT_FINANCIALS = {
   RISK_FREE_RATE_PERCENT: 7,
   BILLING_CYCLE_DAYS: 30,
 } as const;
+
+export const OP_AGENT_CONFIG = {
+  MIN_MONTHLY_TXNS: 5,
+  TXN_COUNT_DIVISOR: 3, // Divide total txns by 3 to estimate monthly txns (assumes 3-month avg)
+  DEFAULT_MONTHLY_TXNS: 10,
+} as const;

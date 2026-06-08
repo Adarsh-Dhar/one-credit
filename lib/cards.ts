@@ -1,7 +1,7 @@
 // lib/cards.ts
 
 import { connectDB } from './mongodb';
-import { FiatCard, IFiatCard } from './models/FiatCard';
+import { FiatCard, IFiatCard, FIAT_CARD_PROJECTION } from './models/FiatCard';
 import logger from '@/lib/logger';
 import { CARD_TYPE_COLORS, buildEarnRates } from './card-constants';
 import { calculateDefaultBalance } from './utils';
@@ -142,27 +142,7 @@ export async function getCards(userId: string): Promise<CardDefinition[]> {
 }
 
 function buildCardQuery() {
-  return {
-    card_id: 1,
-    display_name: 1,
-    network: 1,
-    card_type: 1,
-    currency_type: 1,
-    credit_token_balance: 1,
-    points_balance: 1,
-    points_value_cents: 1,
-    current_balance_owed: 1,
-    credit_limit: 1,
-    rewards_structure: 1,
-    benefits_and_credits: 1,
-    financials: 1,
-    card_image_url: 1,
-    card_description: 1,
-    pros: 1,
-    cons: 1,
-    features: 1,
-    op_redemption: 1,
-  };
+  return { ...FIAT_CARD_PROJECTION, op_redemption: 1 };
 }
 
 // Helper: get a card by key
