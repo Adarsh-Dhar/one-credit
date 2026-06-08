@@ -168,7 +168,7 @@ export default function CardsPage() {
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'cashback' | 'travel'>('all');
 
-  const userId = session?.user?.email;
+  const userId = session?.user?.id;
 
   // Initialize RUM tracking on mount
   useEffect(() => {

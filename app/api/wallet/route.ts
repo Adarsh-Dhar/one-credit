@@ -9,8 +9,6 @@ import logger from '@/lib/logger';
 import { transformFiatCardToWalletDetail } from '@/lib/cardTransformers';
 import { calculateCardValue } from '@/lib/utils';
 
-
-
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);

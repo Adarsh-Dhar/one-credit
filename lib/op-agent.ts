@@ -165,7 +165,8 @@ interface OPAgentInput {
 
 export function checkCategoryExclusion(
   category: string,
-  excludedCategories: string[]
+  excludedCategories: string[],
+  baseRate?: number
 ): { confirmedEarn: boolean; exclusionReason: string | null; earnRate: number } {
   if (excludedCategories.some(exc => category.includes(exc.toLowerCase()))) {
     return {
@@ -174,7 +175,7 @@ export function checkCategoryExclusion(
       earnRate: 0,
     }
   }
-  return { confirmedEarn: true, exclusionReason: null, earnRate: 0 }
+  return { confirmedEarn: true, exclusionReason: null, earnRate: baseRate ?? 0 }
 }
 
 export function applyRotatingBonus(
@@ -316,30 +317,24 @@ export function calculateCardResult(
   const category = product.category.toLowerCase()
   const baseRate = card.earnRules[0]?.rate ?? 1
 
-  // Initialize state
-  let confirmedEarn = true
-  let exclusionReason: string | null = null
-  let capBreached = false
-  let rotatingBonusApplied = false
-  let portalBonusApplied = false
-  let portalBonusName: string | null = null
-  let portalBonusUrl: string | null = null
-
   // Step 1: Check exclusions
-  const exclusionResult = checkCategoryExclusion(category, card.excludedCategories)
-  confirmedEarn = exclusionResult.confirmedEarn
-  exclusionReason = exclusionResult.exclusionReason
-  let earnRate = confirmedEarn ? (exclusionResult.earnRate || baseRate) : 0
+  const exclusionResult = checkCategoryExclusion(category, card.excludedCategories, baseRate)
+  const confirmedEarn = exclusionResult.confirmedEarn
+  const exclusionReason = exclusionResult.exclusionReason
+  let earnRate = exclusionResult.earnRate
 
   // Step 2: Apply rotating bonus (only if category is not excluded)
   const rotatingResult = applyRotatingBonus(category, card.rotatingCategory, baseRate, price)
+  const rotatingBonusApplied = confirmedEarn ? rotatingResult.rotatingBonusApplied : false
   if (confirmedEarn) {
     earnRate = rotatingResult.earnRate
-    rotatingBonusApplied = rotatingResult.rotatingBonusApplied
   }
 
   // Step 3: Apply portal bonus (only if rotating was not applied, or take the higher rate)
   const portalResult = applyPortalBonus(category, card.portalBonuses, baseRate, price)
+  let portalBonusApplied = false
+  let portalBonusName: string | null = null
+  let portalBonusUrl: string | null = null
   if (confirmedEarn) {
     if (!rotatingBonusApplied && portalResult.portalBonusApplied) {
       // Portal bonus applies when rotating was not active
@@ -364,7 +359,7 @@ export function calculateCardResult(
   // Step 5: Check monthly cap
   const capResult = checkMonthlyCap(price, earnRate, card.monthlyCapPoints)
   earnRate = capResult.earnRate
-  capBreached = capResult.capBreached
+  const capBreached = capResult.capBreached
 
   // Calculate points
   const { basePoints, totalPoints, bonusPoints } = calculatePointsEarned(price, baseRate, earnRate)

@@ -2,72 +2,59 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { RUMEvent } from '@/lib/types';
 
-// Event buffer to batch events before sending
-const EVENT_BUFFER: RUMEvent[] = [];
 const BUFFER_FLUSH_INTERVAL = 5000; // 5 seconds
 const BUFFER_MAX_SIZE = 20;
-
-let flushTimer: ReturnType<typeof setInterval> | null = null;
-
-async function flushEvents(userId: string) {
-  if (EVENT_BUFFER.length === 0) {
-    return;
-  }
-
-  const eventsToSend = [...EVENT_BUFFER];
-  EVENT_BUFFER.length = 0; // Clear buffer
-
-  try {
-    await fetch('/api/rum/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, events: eventsToSend }),
-    });
-  } catch (error) {
-    console.error('[useRUM] Failed to flush events:', error);
-    // Re-add failed events to buffer
-    EVENT_BUFFER.unshift(...eventsToSend);
-  }
-}
-
-function startFlushTimer(userId: string) {
-  if (flushTimer) {
-    return;
-  }
-  flushTimer = setInterval(() => flushEvents(userId), BUFFER_FLUSH_INTERVAL);
-}
-
-function stopFlushTimer() {
-  if (flushTimer) {
-    clearInterval(flushTimer);
-    flushTimer = null;
-  }
-}
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useRUM() {
   const { data: session } = useSession();
-  const userId = session?.user?.email;
+  const userId = session?.user?.id;
+  const eventBufferRef = useRef<RUMEvent[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isInitialized = useRef(false);
+
+  const flushEvents = useCallback(async () => {
+    if (eventBufferRef.current.length === 0) {
+      return;
+    }
+
+    const eventsToSend = [...eventBufferRef.current];
+    eventBufferRef.current = []; // Clear buffer
+
+    try {
+      await fetch('/api/rum/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, events: eventsToSend }),
+      });
+    } catch (error) {
+      console.error('[useRUM] Failed to flush events:', error);
+      // Re-add failed events to buffer
+      eventBufferRef.current.unshift(...eventsToSend);
+    }
+  }, [userId]);
 
   // Initialize flush timer on mount - always call useEffect
   useEffect(() => {
     if (userId && !isInitialized.current) {
-      startFlushTimer(userId);
+      flushTimerRef.current = setInterval(flushEvents, BUFFER_FLUSH_INTERVAL);
       isInitialized.current = true;
 
       // Flush on page unload
       const handleUnload = () => {
-        flushEvents(userId);
+        flushEvents();
       };
       window.addEventListener('beforeunload', handleUnload);
       return () => {
         window.removeEventListener('beforeunload', handleUnload);
-        stopFlushTimer();
+        if (flushTimerRef.current) {
+          clearInterval(flushTimerRef.current);
+          flushTimerRef.current = null;
+        }
       };
     }
-  }, [userId]);
+  }, [userId, flushEvents]);
 
   // Track a single event
   const trackEvent = useCallback((eventType: string, data?: Record<string, unknown>, section?: string) => {
@@ -82,12 +69,12 @@ export function useRUM() {
       data,
     };
 
-    EVENT_BUFFER.push(event);
+    eventBufferRef.current.push(event);
 
-    if (EVENT_BUFFER.length >= BUFFER_MAX_SIZE) {
-      flushEvents(userId);
+    if (eventBufferRef.current.length >= BUFFER_MAX_SIZE) {
+      flushEvents();
     }
-  }, [userId]);
+  }, [userId, flushEvents]);
 
   // ─── Convenience methods for common events ─────────────────────────────────────
 

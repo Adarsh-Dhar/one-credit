@@ -21,20 +21,20 @@ export function useWallet() {
     if (status === 'loading') {
       return;
     }
-    const email = session?.user?.email;
-    if (email) {
+    const userId = session?.user?.id;
+    if (userId) {
       setError(null);
-    fetch(`/api/wallet?email=${encodeURIComponent(email)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setWallet(data.totalValue ?? 1500);
-        setCards(data.cards ?? []);
-      })
-      .catch((err) => {
-        console.error('[useWallet] fetch failed:', err);
-        setError('Failed to load wallet. Please refresh.');
-      })
-      .finally(() => setLoading(false));
+      fetch(`/api/wallet?userId=${encodeURIComponent(userId)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setWallet(data.totalValue ?? 1500);
+          setCards(data.cards ?? []);
+        })
+        .catch((err) => {
+          console.error('[useWallet] fetch failed:', err);
+          setError('Failed to load wallet. Please refresh.');
+        })
+        .finally(() => setLoading(false));
     }
   }, [session, status]);
 

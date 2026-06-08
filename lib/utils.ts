@@ -77,10 +77,10 @@ export function calculateDefaultBalance(
   pointsBalance: number
 ): number {
   if (isPointsCard(currencyType)) {
-    return pointsBalance || 30000
+    return pointsBalance || 0
   }
   if (isMilesCard(currencyType)) {
-    return 50000
+    return 0
   }
-  return creditTokenBalance || 150
+  return creditTokenBalance || 0
 }

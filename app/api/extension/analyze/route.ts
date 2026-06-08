@@ -12,16 +12,18 @@ import { toErrorResponse } from '@/lib/errors'
 import { createGeminiModel } from '@/lib/gemini'
 
 const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
-  amazon: 'amazon.in',
+  amazon: 'amazon.com',
+  'amazon.in': 'amazon.in',
   walmart: 'walmart.com',
   bestbuy: 'bestbuy.com',
   target: 'target.com',
+  ebay: 'ebay.com',
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MIN_MONTHLY_TXNS = 5
-const TXN_COUNT_DIVISOR = 3
+const TXN_COUNT_DIVISOR = 3 // Divide total txns by 3 to estimate monthly txns (assumes 3-month avg)
 const DEFAULT_MONTHLY_TXNS = 10
 
 // Zod schema for request validation
@@ -133,12 +135,12 @@ function transformCardToKnowledge(
     redemptionPaths,
     bestRedemptionRatePerPoint: bestRedemption.ratePerPoint,
     bestRedemptionName: bestRedemption.name,
-    statementCredits: (dbCard.benefits_and_credits?.statement_credits ?? []).map((sc: any) => ({
+    statementCredits: (dbCard.benefits_and_credits?.statement_credits ?? []).map((sc: { name: string; reset_period: string; amount_usd: number; merchant_categories?: string[] }) => ({
       name: sc.name,
       annualValueUsd: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
       merchantCategories: sc.merchant_categories ?? [],
     })),
-    portalBonuses: (dbCard.benefits_and_credits?.portal_bonuses ?? []).map((pb: any) => ({
+    portalBonuses: (dbCard.benefits_and_credits?.portal_bonuses ?? []).map((pb: { portal_name: string; portal_url: string; categories: string[]; bonus_multiplier: number; bonus_type: string }) => ({
       portalName: pb.portal_name,
       portalUrl: pb.portal_url,
       categories: pb.categories,

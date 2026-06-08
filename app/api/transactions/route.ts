@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       isEmi: isEmi ?? false,
       pointsEarned: pointsEarned ?? 0,
       rewardValueUsd: rewardValueUsd ?? 0,
-      pointsRedeemed:   pointsRedeemed   ?? 0,
+      pointsRedeemed: pointsRedeemed ?? 0,
       valueReceivedUsd: valueReceivedUsd ?? 0,
     });
 

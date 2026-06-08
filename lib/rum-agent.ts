@@ -2,9 +2,8 @@
 //
 // RUM Behavioral Persona Agent powered by Gemini + Dynatrace MCP.
 //
-// This agent REPLACES op-agent.ts entirely.
-// Its ONLY job: read Dynatrace RUM signals → infer a user persona → recommend
-// the right card stack, and log everything back to Dynatrace as structured logs.
+// This agent infers user personas from RUM signals and provides behavioral insights.
+// It complements op-agent.ts which handles card analysis calculations.
 //
 // Architecture:
 //   1. Pull RUM signals from Dynatrace MCP (session telemetry + custom events)

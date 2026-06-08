@@ -10,11 +10,11 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 // ─── Event Handler Map ─────────────────────────────────────────────────────
 
 interface EventAccumulators {
-  incOps: Record<string, number> & { transferPartnerTabClicks?: number; cardDetailExpansions?: number; extensionFireCount?: number; extensionAnalyzeApiCallCount?: number; [key: string]: number | undefined }
-  maxOps: Record<string, number> & { scrollDepthMax?: number; [key: string]: number | undefined }
-  setOps: Record<string, boolean> & { scrolledPastAnnualFee?: boolean; backNavAfterRecommendation?: boolean; abandonedRotatingActivation?: boolean; [key: string]: boolean | undefined }
-  stringSetOps: Record<string, string> & { cardAddedToWallet?: string; [key: string]: string | undefined }
-  addToSetOps: Record<string, string[]> & { transferPartnersClicked?: string[]; [key: string]: string[] | undefined }
+  incOps: Record<string, number>
+  maxOps: Record<string, number>
+  setOps: Record<string, boolean>
+  stringSetOps: Record<string, string>
+  addToSetOps: Record<string, string[]>
 }
 
 type EventHandler = (event: RUMEvent, acc: EventAccumulators) => void;
@@ -71,10 +71,14 @@ const eventHandlers: Record<string, EventHandler> = {
   extension_analyze_api_call: (_event, acc) => {
     acc.incOps.extensionAnalyzeApiCallCount = (acc.incOps.extensionAnalyzeApiCallCount || 0) + 1;
   },
-  spend_category_entered: (event) => {
-    // Track spend category amounts - could be stored as an array or separate fields
-    // For now, we'll just log it as a custom event for analysis
-    logger.info({ category: event.data?.category, amount: event.data?.amount }, '[rum/ingest] Spend category entered');
+  spend_category_entered: (event, acc) => {
+    // Track spend category amounts by storing in custom accumulator
+    const category = event.data?.category as string;
+    const amount = event.data?.amount as number;
+    if (category && amount) {
+      const key = `spendCategory.${category}`;
+      acc.incOps[key] = (acc.incOps[key] || 0) + amount;
+    }
   },
 };
 

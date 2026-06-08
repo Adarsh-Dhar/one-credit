@@ -1,11 +1,7 @@
 import { useState } from 'react';
-import { buildPaymentPrompt } from '@/lib/prompts';
 import { WalletCard } from '@/lib/types';
 
-// DEPRECATED: This hook is currently broken as it calls /api/rum/analyze
-// which is for RUM persona inference, not payment analysis.
-// The correct endpoint for payment analysis is /api/extension/analyze.
-// This hook needs to be refactored to use the correct API format.
+// This hook calls /api/extension/analyze for payment analysis.
 
 type Step = 'category' | 'merchant' | 'amount' | 'analyzing' | 'approval' | 'success' | 'failed';
 
@@ -84,25 +80,40 @@ export function usePayFlow({
     setStep('analyzing');
 
     try {
-      const prompt = buildPaymentPrompt(
-        amount,
-        selectedMerchant?.name || '',
-        selectedCategory?.label || '',
-        userId || ''
-      );
-
-      const res = await fetch('/api/rum/analyze', {
+      const res = await fetch('/api/extension/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          product: {
+            name: selectedMerchant?.name || '',
+            price: parseFloat(amount),
+            category: selectedCategory?.label || '',
+            merchant: selectedMerchant?.name || '',
+            url: '',
+            isEmi: false,
+            isForeignMerchant: false,
+          },
+          userId: userId || '',
+        }),
       });
       const data = await res.json();
 
       let rec: GeminiRecommendation;
-      try {
-        const clean = data.response.replace(/```json|```/g, '').trim();
-        rec = JSON.parse(clean);
-      } catch {
+      if (data.winner) {
+        rec = {
+          bestCard: data.winner.name,
+          bestCardKey: data.winner.cardKey,
+          nativeReward: data.winner.valuation.trueRewardValueUsd,
+          rewardRate: data.winner.earn.earnAudit.rate / 100,
+          reasoning: data.winner.reasoning || 'Best available rewards for this category.',
+          offerFound: data.winner.earn.portalBonusApplied || false,
+          offerSource: data.winner.earn.portalBonusName || 'none',
+          creditFired: undefined,
+          portalUsed: undefined,
+          protectionNotes: undefined,
+          totalValue: undefined,
+        };
+      } else {
         const categoryKey = CATEGORY_TO_EARN_KEY[selectedCategory?.id ?? ''] ?? 'general';
         const bestCard = cards.reduce((best, current) => {
           const bestRate = best?.earnRates?.[categoryKey as keyof typeof best.earnRates] ?? 1.0;
@@ -147,8 +158,6 @@ export function usePayFlow({
     });
 
     setIsProcessing(true);
-
-    await new Promise((r) => setTimeout(r, 2200));
 
     try {
       await fetch('/api/tools/execute', {
