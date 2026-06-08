@@ -68,6 +68,103 @@ async function checkRateLimit(userId: string): Promise<NextResponse | null> {
   return null
 }
 
+function transformCardToKnowledge(
+  dbCard: any,
+  env: ReturnType<typeof getEnv>
+): CardKnowledge {
+  const earnRules: CardKnowledge['earnRules'] = [
+    {
+      merchant: 'all',
+      rate: dbCard.rewards_structure.base_multiplier,
+      per: 100,
+      currency: dbCard.currency_type.toLowerCase(),
+      notes: 'Base earn rate',
+    },
+  ]
+
+  if (dbCard.rewards_structure.fixed_categories) {
+    for (const cat of dbCard.rewards_structure.fixed_categories) {
+      earnRules.push({
+        merchant: cat.category,
+        rate: cat.multiplier,
+        per: 100,
+        currency: dbCard.currency_type.toLowerCase(),
+        ...(cat.cap_amount_usd ? { notes: `Cap: $${cat.cap_amount_usd}` } : {}),
+      })
+    }
+  }
+
+  const redemptionPaths: CardKnowledge['redemptionPaths'] = []
+  if (dbCard.benefits_and_credits.transfer_partners && dbCard.benefits_and_credits.transfer_partners.length > 0) {
+    for (const partner of dbCard.benefits_and_credits.transfer_partners) {
+      redemptionPaths.push({
+        name: `${partner.program} transfer (${partner.ratio})`,
+        ratePerPoint: partner.cpp_max,
+        ratePerPointMin: partner.cpp_min,
+      })
+    }
+  } else if (dbCard.points_value_cents) {
+    redemptionPaths.push({
+      name: 'Statement credit',
+      ratePerPoint: dbCard.points_value_cents / 100,
+    })
+  } else {
+    redemptionPaths.push({
+      name: 'Direct cashback',
+      ratePerPoint: 1.0,
+    })
+  }
+
+  const bestRedemption = redemptionPaths.reduce((best, current) =>
+    current.ratePerPoint > best.ratePerPoint ? current : best
+  , redemptionPaths[0])
+
+  const rewardType: 'points' | 'miles' | 'cashback' =
+    dbCard.currency_type === 'USD' ? 'cashback' :
+    dbCard.currency_type === 'MILES' ? 'miles' : 'points'
+
+  return {
+    name: dbCard.display_name,
+    issuer: dbCard.network,
+    annualFeeUsd: dbCard.financials.annual_fee,
+    gstOnFee: env.GST_RATE,
+    earnRules,
+    emiEarnRate: dbCard.rewards_structure.emi_multiplier ?? 0,
+    monthlyCapPoints: dbCard.rewards_structure.monthly_cap_points ?? null,
+    excludedCategories: dbCard.rewards_structure.excluded_categories ?? [],
+    redemptionPaths,
+    bestRedemptionRatePerPoint: bestRedemption.ratePerPoint,
+    bestRedemptionName: bestRedemption.name,
+    statementCredits: (dbCard.benefits_and_credits.statement_credits ?? []).map((sc: any) => ({
+      name: sc.name,
+      annualValueUsd: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
+      merchantCategories: sc.merchant_categories ?? [],
+    })),
+    portalBonuses: (dbCard.benefits_and_credits.portal_bonuses ?? []).map((pb: any) => ({
+      portalName: pb.portal_name,
+      portalUrl: pb.portal_url,
+      categories: pb.categories,
+      bonusMultiplier: pb.bonus_multiplier,
+      bonusType: pb.bonus_type,
+    })),
+    rotatingCategory: dbCard.rewards_structure.rotating_categories
+      ? {
+          isActive: dbCard.rewards_structure.rotating_categories.is_active,
+          activeCategories: dbCard.rewards_structure.rotating_categories.active_categories ?? [],
+          multiplier: dbCard.rewards_structure.rotating_categories.multiplier ?? 1,
+        }
+      : null,
+    milestoneBonuses: (dbCard.rewards_structure.milestone_bonuses ?? []).map((mb: IMilestoneBonus) => ({
+      spendThresholdUsd: mb.spend_threshold_usd,
+      bonusPoints: mb.bonus_points,
+      period: mb.period,
+    })),
+    feeWaiverSpendUsd: dbCard.financials.fee_waiver_spend_usd ?? null,
+    foreignTxnFeePct: dbCard.financials.foreign_transaction_fee_pct ?? 0,
+    rewardType,
+  }
+}
+
 async function buildCardKnowledge(
   userContext: Awaited<ReturnType<typeof buildUserContext>>,
   userId: string,
@@ -100,97 +197,7 @@ async function buildCardKnowledge(
       continue
     }
 
-    const earnRules: CardKnowledge['earnRules'] = [
-      {
-        merchant: 'all',
-        rate: dbCard.rewards_structure.base_multiplier,
-        per: 100,
-        currency: dbCard.currency_type.toLowerCase(),
-        notes: 'Base earn rate',
-      },
-    ]
-
-    if (dbCard.rewards_structure.fixed_categories) {
-      for (const cat of dbCard.rewards_structure.fixed_categories) {
-        earnRules.push({
-          merchant: cat.category,
-          rate: cat.multiplier,
-          per: 100,
-          currency: dbCard.currency_type.toLowerCase(),
-          ...(cat.cap_amount_usd ? { notes: `Cap: $${cat.cap_amount_usd}` } : {}),
-        })
-      }
-    }
-
-    const redemptionPaths: CardKnowledge['redemptionPaths'] = []
-    if (dbCard.benefits_and_credits.transfer_partners && dbCard.benefits_and_credits.transfer_partners.length > 0) {
-      for (const partner of dbCard.benefits_and_credits.transfer_partners) {
-        redemptionPaths.push({
-          name: `${partner.program} transfer (${partner.ratio})`,
-          ratePerPoint: partner.cpp_max,
-          ratePerPointMin: partner.cpp_min,
-        })
-      }
-    } else if (dbCard.points_value_cents) {
-      redemptionPaths.push({
-        name: 'Statement credit',
-        ratePerPoint: dbCard.points_value_cents / 100,
-      })
-    } else {
-      redemptionPaths.push({
-        name: 'Direct cashback',
-        ratePerPoint: 1.0,
-      })
-    }
-
-    const bestRedemption = redemptionPaths.reduce((best, current) =>
-      current.ratePerPoint > best.ratePerPoint ? current : best
-    , redemptionPaths[0])
-
-    const rewardType: 'points' | 'miles' | 'cashback' =
-      dbCard.currency_type === 'USD' ? 'cashback' :
-      dbCard.currency_type === 'MILES' ? 'miles' : 'points'
-
-    cardKnowledgeMap[cardKey] = {
-      name: dbCard.display_name,
-      issuer: dbCard.network,
-      annualFeeUsd: dbCard.financials.annual_fee,
-      gstOnFee: env.GST_RATE,
-      earnRules,
-      emiEarnRate: dbCard.rewards_structure.emi_multiplier ?? 0,
-      monthlyCapPoints: dbCard.rewards_structure.monthly_cap_points ?? null,
-      excludedCategories: dbCard.rewards_structure.excluded_categories ?? [],
-      redemptionPaths,
-      bestRedemptionRatePerPoint: bestRedemption.ratePerPoint,
-      bestRedemptionName: bestRedemption.name,
-      statementCredits: (dbCard.benefits_and_credits.statement_credits ?? []).map(sc => ({
-        name: sc.name,
-        annualValueUsd: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
-        merchantCategories: sc.merchant_categories ?? [],
-      })),
-      portalBonuses: (dbCard.benefits_and_credits.portal_bonuses ?? []).map(pb => ({
-        portalName: pb.portal_name,
-        portalUrl: pb.portal_url,
-        categories: pb.categories,
-        bonusMultiplier: pb.bonus_multiplier,
-        bonusType: pb.bonus_type,
-      })),
-      rotatingCategory: dbCard.rewards_structure.rotating_categories
-        ? {
-            isActive: dbCard.rewards_structure.rotating_categories.is_active,
-            activeCategories: dbCard.rewards_structure.rotating_categories.active_categories ?? [],
-            multiplier: dbCard.rewards_structure.rotating_categories.multiplier ?? 1,
-          }
-        : null,
-      milestoneBonuses: (dbCard.rewards_structure.milestone_bonuses ?? []).map((mb: IMilestoneBonus) => ({
-        spendThresholdUsd: mb.spend_threshold_usd,
-        bonusPoints: mb.bonus_points,
-        period: mb.period,
-      })),
-      feeWaiverSpendUsd: dbCard.financials.fee_waiver_spend_usd ?? null,
-      foreignTxnFeePct: dbCard.financials.foreign_transaction_fee_pct ?? 0,
-      rewardType,
-    }
+    cardKnowledgeMap[cardKey] = transformCardToKnowledge(dbCard, env)
   }
 
   return cardKnowledgeMap

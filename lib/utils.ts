@@ -30,5 +30,8 @@ const CATEGORY_PATTERNS: Array<{ pattern: RegExp; category: string }> = [
 
 export function inferCategory(productName: string): string {
   const name = productName.toLowerCase()
+  // Amazon purchases fall through to 'shopping' default since the extension
+  // was generalized beyond Amazon-only support. If Amazon-specific categorization
+  // is needed in the future, add a pattern here.
   return CATEGORY_PATTERNS.find(({ pattern }) => pattern.test(name))?.category ?? 'shopping'
 }

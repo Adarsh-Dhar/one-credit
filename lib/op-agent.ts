@@ -19,7 +19,7 @@ const DAYS_PER_YEAR = 365
 
 // ─── Types matching SidePanel.tsx ─────────────────────────────────────────────
 
-interface CalculationContext {
+export interface CalculationContext {
   product: OPAgentInput['product']
   userMonthlyTxns: number
   riskFreeRatePercent: number
@@ -100,7 +100,7 @@ export interface CardResult {
   industryCost: number
   savings: number
   effectiveDiscountPercent: number
-  reasoning: string
+  reasoning?: string
   portalBonusApplied: boolean
   portalBonusName: string | null
   portalBonusUrl: string | null
@@ -267,7 +267,33 @@ export function calculateNetCost(
   return { netCost, industryCost, savings, effectiveDiscountPercent }
 }
 
-function calculateCardResult(
+export function calculatePointsEarned(
+  price: number,
+  baseRate: number,
+  earnRate: number
+): { basePoints: number; totalPoints: number; bonusPoints: number } {
+  const basePoints = (price * baseRate) / 100
+  const totalPoints = (price * earnRate) / 100
+  const bonusPoints = totalPoints - basePoints
+  return { basePoints, totalPoints, bonusPoints }
+}
+
+export function buildEarnAudit(
+  earnRate: number,
+  confirmedEarn: boolean,
+  exclusionReason: string | null,
+  capBreached: boolean
+): EarnAudit {
+  return {
+    rate: earnRate,
+    per: 100,
+    confirmedEarn,
+    exclusionReason,
+    capBreached,
+  }
+}
+
+export function calculateCardResult(
   cardKey: string,
   card: CardKnowledge,
   ctx: CalculationContext
@@ -291,21 +317,34 @@ function calculateCardResult(
   const exclusionResult = checkCategoryExclusion(category, card.excludedCategories)
   confirmedEarn = exclusionResult.confirmedEarn
   exclusionReason = exclusionResult.exclusionReason
-  let earnRate = exclusionResult.earnRate || baseRate
+  let earnRate = confirmedEarn ? (exclusionResult.earnRate || baseRate) : 0
 
-  // Step 2: Apply rotating bonus
+  // Step 2: Apply rotating bonus (only if category is not excluded)
   const rotatingResult = applyRotatingBonus(category, card.rotatingCategory, baseRate, price)
-  earnRate = rotatingResult.earnRate
-  let bonusPoints = rotatingResult.bonusPoints
-  rotatingBonusApplied = rotatingResult.rotatingBonusApplied
+  if (confirmedEarn) {
+    earnRate = rotatingResult.earnRate
+    rotatingBonusApplied = rotatingResult.rotatingBonusApplied
+  }
 
-  // Step 3: Apply portal bonus
+  // Step 3: Apply portal bonus (only if rotating was not applied, or take the higher rate)
   const portalResult = applyPortalBonus(category, card.portalBonuses, baseRate, price)
-  earnRate = portalResult.earnRate
-  bonusPoints = portalResult.bonusPoints
-  portalBonusApplied = portalResult.portalBonusApplied
-  portalBonusName = portalResult.portalBonusName
-  portalBonusUrl = portalResult.portalBonusUrl
+  if (confirmedEarn) {
+    if (!rotatingBonusApplied && portalResult.portalBonusApplied) {
+      // Portal bonus applies when rotating was not active
+      earnRate = portalResult.earnRate
+      portalBonusApplied = portalResult.portalBonusApplied
+      portalBonusName = portalResult.portalBonusName
+      portalBonusUrl = portalResult.portalBonusUrl
+    } else if (rotatingBonusApplied && portalResult.portalBonusApplied) {
+      // Both apply - take the higher rate
+      if (portalResult.earnRate > rotatingResult.earnRate) {
+        earnRate = portalResult.earnRate
+        portalBonusApplied = portalResult.portalBonusApplied
+        portalBonusName = portalResult.portalBonusName
+        portalBonusUrl = portalResult.portalBonusUrl
+      }
+    }
+  }
 
   // Step 4: Apply EMI override
   earnRate = applyEmiOverride(isEmi, card.emiEarnRate, earnRate)
@@ -316,9 +355,7 @@ function calculateCardResult(
   capBreached = capResult.capBreached
 
   // Calculate points
-  const basePoints = (price * baseRate) / 100
-  const totalPoints = (price * earnRate) / 100
-  bonusPoints = totalPoints - basePoints
+  const { basePoints, totalPoints, bonusPoints } = calculatePointsEarned(price, baseRate, earnRate)
 
   // Step 6: Calculate CPP tiers
   const cppResult = calculateCppTiers(
@@ -334,9 +371,17 @@ function calculateCardResult(
 
   // Fee burden (amortized over monthly transactions)
   const feeBurdenUsd = calculateFeeBurden(card.annualFeeUsd, userMonthlyTxns)
-  const monthlySpend = userContext.behaviour?.monthlyAvgSpendUsd ?? 0
-  const feeWaiverActive = card.feeWaiverSpendUsd !== null && monthlySpend >= card.feeWaiverSpendUsd
-  const feeWaiverNote = feeWaiverActive ? 'Waived based on spend' : null
+  let feeWaiverActive: boolean
+  let feeWaiverNote: string | null
+  if (!userContext.behaviour) {
+    logger.warn('[calculateCardResult] behaviour is undefined, skipping fee waiver calculation')
+    feeWaiverActive = false
+    feeWaiverNote = 'Behaviour data unavailable'
+  } else {
+    const monthlySpend = userContext.behaviour.monthlyAvgSpendUsd
+    feeWaiverActive = card.feeWaiverSpendUsd !== null && monthlySpend >= card.feeWaiverSpendUsd
+    feeWaiverNote = feeWaiverActive ? 'Waived based on spend' : null
+  }
 
   // Float value (30-day grace period at risk-free rate)
   const floatValueUsd = (price * riskFreeRatePercent / 100) * (FLOAT_PERIOD_DAYS / DAYS_PER_YEAR)
@@ -360,13 +405,7 @@ function calculateCardResult(
   const { netCost, industryCost, savings, effectiveDiscountPercent } = costResult
 
   // Build earn audit
-  const earnAudit: EarnAudit = {
-    rate: earnRate,
-    per: 100,
-    confirmedEarn,
-    exclusionReason,
-    capBreached,
-  }
+  const earnAudit = buildEarnAudit(earnRate, confirmedEarn, exclusionReason, capBreached)
 
   return {
     cardKey,
@@ -384,7 +423,6 @@ function calculateCardResult(
     industryCost,
     savings,
     effectiveDiscountPercent,
-    reasoning: '',
     portalBonusApplied,
     portalBonusName,
     portalBonusUrl,

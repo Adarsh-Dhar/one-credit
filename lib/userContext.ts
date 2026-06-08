@@ -276,9 +276,9 @@ export function computeMonthlyTrend(monthBuckets: Record<string, Record<string, 
     const lastCatMap = Object.fromEntries(last.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
     const prevCatMap = Object.fromEntries(prev.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
     const growthByCategory = Object.entries(lastCatMap)
-      .map(([cat, lastAmt]) => ({ cat, growth: lastAmt - (prevCatMap[cat] ?? 0) }))
+      .map(([category, lastAmt]) => ({ category, growth: lastAmt - (prevCatMap[category] ?? 0) }))
       .sort((a, b) => b.growth - a.growth)
-    fastestGrowingCategory = growthByCategory[0]?.growth > 0 ? growthByCategory[0].cat : null
+    fastestGrowingCategory = growthByCategory[0]?.growth > 0 ? growthByCategory[0].category : null
   }
 
   return { monthlyTrend, momSpendChangePct, fastestGrowingCategory }
@@ -339,26 +339,32 @@ function aggregateSpendingBehaviour(txns: TransactionLean[], totalSpend: number)
 
     // per-card category
     cardCategoryMap[cardId] ??= {}
-    cardCategoryMap[cardId][category] ??= { total: 0, count: 0 }
-    cardCategoryMap[cardId][category].total += amt
-    cardCategoryMap[cardId][category].count += 1
+    const cardCatMap = cardCategoryMap[cardId]
+    cardCatMap[category] ??= { total: 0, count: 0 }
+    const cardCatEntry = cardCatMap[category]
+    cardCatEntry.total += amt
+    cardCatEntry.count += 1
 
     // global merchant
     merchantMap[merchant] ??= { total: 0, count: 0, categories: {}, cardCounts: {} }
-    merchantMap[merchant].total += amt
-    merchantMap[merchant].count += 1
-    merchantMap[merchant].categories[category] = (merchantMap[merchant].categories[category] ?? 0) + 1
-    merchantMap[merchant].cardCounts[cardId] = (merchantMap[merchant].cardCounts[cardId] ?? 0) + 1
+    const merchantEntry = merchantMap[merchant]
+    merchantEntry.total += amt
+    merchantEntry.count += 1
+    merchantEntry.categories[category] = (merchantEntry.categories[category] ?? 0) + 1
+    merchantEntry.cardCounts[cardId] = (merchantEntry.cardCounts[cardId] ?? 0) + 1
 
     // per-card merchant
     cardMerchantMap[cardId] ??= {}
-    cardMerchantMap[cardId][merchant] ??= { total: 0, count: 0 }
-    cardMerchantMap[cardId][merchant].total += amt
-    cardMerchantMap[cardId][merchant].count += 1
+    const cardMerchMap = cardMerchantMap[cardId]
+    cardMerchMap[merchant] ??= { total: 0, count: 0 }
+    const cardMerchEntry = cardMerchMap[merchant]
+    cardMerchEntry.total += amt
+    cardMerchEntry.count += 1
 
     // monthly trend
     monthBuckets[month] ??= {}
-    monthBuckets[month][category] = (monthBuckets[month][category] ?? 0) + amt
+    const monthBucket = monthBuckets[month]
+    monthBucket[category] = (monthBucket[category] ?? 0) + amt
   }
 
   const categoryBreakdown = Object.entries(categoryMap)
