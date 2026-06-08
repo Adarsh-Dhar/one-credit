@@ -175,7 +175,8 @@ function buildCardLiveStates(
         ((card.credit_token_balance ?? 0) * (card.op_redemption.op_cents_per_token / 100)).toFixed(2)
       )
     } else {
-      pointsValueUsd = parseFloat((pointsBalance * ((card.points_value_cents ?? 100) / 100)).toFixed(2))
+      const centsPerPoint = card.points_value_cents ?? 100
+      pointsValueUsd = parseFloat((pointsBalance * (centsPerPoint / 100)).toFixed(2))
     }
 
     let opTokenState: CardLiveState['opTokenState'] = null
@@ -457,8 +458,11 @@ function assembleContext(
   const cardStates = buildCardLiveStates(cards, annualSpendByCard)
   const totalSpend = txns.reduce((sum, t) => sum + (t.amountUsd ?? 0), 0)
 
-  const { categoryBreakdown, cardCategoryBreakdown, topMerchants, cardTopMerchants, monthBuckets, emiTransactionPct } =
-    aggregateSpendingBehaviour(txns, totalSpend)
+  const {
+    categoryBreakdown, cardCategoryBreakdown,
+    topMerchants, cardTopMerchants,
+    monthBuckets, emiTransactionPct,
+  } = aggregateSpendingBehaviour(txns, totalSpend)
 
   const { monthlyTrend, momSpendChangePct, fastestGrowingCategory } = computeMonthlyTrend(monthBuckets)
 

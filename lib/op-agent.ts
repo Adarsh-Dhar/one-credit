@@ -84,37 +84,49 @@ export interface EarnAudit {
   capBreached: boolean
 }
 
-export interface CardResult {
-  cardKey: string
-  name: string
-  issuer: string
+export interface EarnOutcome {
   actualPointsEarned: number
+  basePointsEarned: number
+  bonusPointsEarned: number
   earnAudit: EarnAudit
-  bestRedemptionName: string
-  bestRedemptionRatePerPoint: number
-  trueRewardValueUsd: number
-  industryRewardValue: number
-  feeBurdenUsd: number
-  floatValueUsd: number
+  rotatingBonusApplied: boolean
+  portalBonusApplied: boolean
+  portalBonusName: string | null
+  portalBonusUrl: string | null
+}
+
+export interface CostBreakdown {
   netCost: number
   industryCost: number
   savings: number
   effectiveDiscountPercent: number
-  reasoning?: string
-  portalBonusApplied: boolean
-  portalBonusName: string | null
-  portalBonusUrl: string | null
-  realisticCpp: number
-  conservativeCpp: number
-  industryAssumedCpp: number
-  basePointsEarned: number
-  bonusPointsEarned: number
+  feeBurdenUsd: number
+  floatValueUsd: number
+  foreignFeeUsd: number
   statementCreditApplied: number
   feeWaiverActive: boolean
   feeWaiverNote: string | null
-  rotatingBonusApplied: boolean
-  foreignFeeUsd: number
+}
+
+export interface Valuation {
+  trueRewardValueUsd: number
+  industryRewardValue: number
+  realisticCpp: number
+  conservativeCpp: number
+  industryAssumedCpp: number
+  bestRedemptionName: string
+  bestRedemptionRatePerPoint: number
+}
+
+export interface CardResult {
+  cardKey: string
+  name: string
+  issuer: string
   rewardType: 'points' | 'miles' | 'cashback'
+  reasoning?: string
+  earn: EarnOutcome
+  cost: CostBreakdown
+  valuation: Valuation
 }
 
 export interface AnalysisResult {
@@ -411,32 +423,38 @@ export function calculateCardResult(
     cardKey,
     name: card.name,
     issuer: card.issuer,
-    actualPointsEarned: totalPoints,
-    earnAudit,
-    bestRedemptionName: card.bestRedemptionName,
-    bestRedemptionRatePerPoint: card.bestRedemptionRatePerPoint,
-    trueRewardValueUsd,
-    industryRewardValue,
-    feeBurdenUsd,
-    floatValueUsd,
-    netCost,
-    industryCost,
-    savings,
-    effectiveDiscountPercent,
-    portalBonusApplied,
-    portalBonusName,
-    portalBonusUrl,
-    realisticCpp,
-    conservativeCpp,
-    industryAssumedCpp,
-    basePointsEarned: basePoints,
-    bonusPointsEarned: bonusPoints,
-    statementCreditApplied,
-    feeWaiverActive,
-    feeWaiverNote,
-    rotatingBonusApplied,
-    foreignFeeUsd,
     rewardType: card.rewardType,
+    earn: {
+      actualPointsEarned: totalPoints,
+      basePointsEarned: basePoints,
+      bonusPointsEarned: bonusPoints,
+      earnAudit,
+      rotatingBonusApplied,
+      portalBonusApplied,
+      portalBonusName,
+      portalBonusUrl,
+    },
+    cost: {
+      netCost,
+      industryCost,
+      savings,
+      effectiveDiscountPercent,
+      feeBurdenUsd,
+      floatValueUsd,
+      foreignFeeUsd,
+      statementCreditApplied,
+      feeWaiverActive,
+      feeWaiverNote,
+    },
+    valuation: {
+      trueRewardValueUsd,
+      industryRewardValue,
+      realisticCpp,
+      conservativeCpp,
+      industryAssumedCpp,
+      bestRedemptionName: card.bestRedemptionName,
+      bestRedemptionRatePerPoint: card.bestRedemptionRatePerPoint,
+    },
   }
 }
 
@@ -445,42 +463,42 @@ export function calculateCardResult(
 function generateAutoReasoning(card: CardResult, product: OPAgentInput['product']): string {
   const parts: string[] = []
 
-  if (card.earnAudit.exclusionReason) {
-    parts.push(card.earnAudit.exclusionReason)
+  if (card.earn.earnAudit.exclusionReason) {
+    parts.push(card.earn.earnAudit.exclusionReason)
   } else {
-    parts.push(`Earns ${card.earnAudit.rate}x on ${product.category}`)
+    parts.push(`Earns ${card.earn.earnAudit.rate}x on ${product.category}`)
   }
 
-  if (card.rotatingBonusApplied) {
+  if (card.earn.rotatingBonusApplied) {
     parts.push('Rotating category bonus active')
   }
 
-  if (card.portalBonusApplied) {
-    parts.push(`Portal bonus via ${card.portalBonusName}`)
+  if (card.earn.portalBonusApplied) {
+    parts.push(`Portal bonus via ${card.earn.portalBonusName}`)
   }
 
-  if (card.statementCreditApplied > 0) {
-    parts.push(`Statement credit applied: $${card.statementCreditApplied.toFixed(2)}`)
+  if (card.cost.statementCreditApplied > 0) {
+    parts.push(`Statement credit applied: $${card.cost.statementCreditApplied.toFixed(2)}`)
   }
 
-  if (card.feeWaiverActive) {
+  if (card.cost.feeWaiverActive) {
     parts.push('Annual fee waived based on spend')
   }
 
-  if (card.foreignFeeUsd > 0) {
-    parts.push(`Foreign transaction fee: $${card.foreignFeeUsd.toFixed(2)}`)
+  if (card.cost.foreignFeeUsd > 0) {
+    parts.push(`Foreign transaction fee: $${card.cost.foreignFeeUsd.toFixed(2)}`)
   }
 
-  parts.push(`Effective cost: $${card.netCost.toFixed(2)}`)
+  parts.push(`Effective cost: $${card.cost.netCost.toFixed(2)}`)
 
   return parts.join('. ') + '.'
 }
 
 function generateAgentReasoning(winner: CardResult, allCards: CardResult[], product: OPAgentInput['product']): string {
-  const savingsVsIndustry = winner.industryCost - winner.netCost
-  const savingsVsBest = allCards.length > 1 ? Math.max(...allCards.map(c => c.netCost)) - winner.netCost : 0
+  const savingsVsIndustry = winner.cost.industryCost - winner.cost.netCost
+  const savingsVsBest = allCards.length > 1 ? Math.max(...allCards.map(c => c.cost.netCost)) - winner.cost.netCost : 0
 
-  return `${winner.name} is the best choice for this ${product.category} purchase at $${product.price.toFixed(2)}. It earns ${winner.earnAudit.rate}x (${winner.actualPointsEarned.toLocaleString()} points) with an effective cost of $${winner.netCost.toFixed(2)}. You save $${savingsVsIndustry.toFixed(2)} compared to industry valuation${savingsVsBest > 0 ? ` and $${savingsVsBest.toFixed(2)} vs the next best card` : ''}.`
+  return `${winner.name} is the best choice for this ${product.category} purchase at $${product.price.toFixed(2)}. It earns ${winner.earn.earnAudit.rate}x (${winner.earn.actualPointsEarned.toLocaleString()} points) with an effective cost of $${winner.cost.netCost.toFixed(2)}. You save $${savingsVsIndustry.toFixed(2)} compared to industry valuation${savingsVsBest > 0 ? ` and $${savingsVsBest.toFixed(2)} vs the next best card` : ''}.`
 }
 
 // ─── Gemini reasoning pass (optional, falls back to auto-generated) ───────────
@@ -498,7 +516,7 @@ You are a credit card optimization expert. Given a product and card analysis res
 Product: ${product.name}, Price: $${product.price}, Category: ${product.category}, Merchant: ${product.merchant}
 
 Card results:
-${cards.map(c => `- ${c.name} (key: ${c.cardKey}): Earn rate ${c.earnAudit.rate}x, Points earned ${c.actualPointsEarned.toLocaleString()}, Net cost $${c.netCost.toFixed(2)}, ${c.earnAudit.exclusionReason || 'No exclusions'}, ${c.rotatingBonusApplied ? 'Rotating bonus active' : ''}, ${c.portalBonusApplied ? `Portal bonus: ${c.portalBonusName}` : ''}`).join('\n')}
+${cards.map(c => `- ${c.name} (key: ${c.cardKey}): Earn rate ${c.earn.earnAudit.rate}x, Points earned ${c.earn.actualPointsEarned.toLocaleString()}, Net cost $${c.cost.netCost.toFixed(2)}, ${c.earn.earnAudit.exclusionReason || 'No exclusions'}, ${c.earn.rotatingBonusApplied ? 'Rotating bonus active' : ''}, ${c.earn.portalBonusApplied ? `Portal bonus: ${c.earn.portalBonusName}` : ''}`).join('\n')}
 
 Respond ONLY with JSON (no markdown):
 {
@@ -526,7 +544,7 @@ Respond ONLY with JSON (no markdown):
     for (const card of cards) {
       cardReasonings[card.cardKey] = generateAutoReasoning(card, product)
     }
-    const winner = cards.sort((a, b) => a.netCost - b.netCost)[0]
+    const winner = cards.sort((a, b) => a.cost.netCost - b.cost.netCost)[0]
     const agentReasoning = generateAgentReasoning(winner, cards, product)
     return { cardReasonings, agentReasoning }
   }
@@ -576,14 +594,14 @@ export async function runOPAgent(
   }
 
   // Sort by net cost (ascending)
-  cardResults.sort((a, b) => a.netCost - b.netCost)
+  cardResults.sort((a, b) => a.cost.netCost - b.cost.netCost)
 
   const winner = cardResults[0]
-  const industryWinner = [...cardResults].sort((a, b) => a.industryCost - b.industryCost)[0]
+  const industryWinner = [...cardResults].sort((a, b) => a.cost.industryCost - b.cost.industryCost)[0]
 
-  const savingsVsIndustryUsd = winner.industryCost - winner.netCost
+  const savingsVsIndustryUsd = winner.cost.industryCost - winner.cost.netCost
   const savingsVsBestAlternativeUsd = cardResults.length > 1
-    ? Math.max(...cardResults.map(c => c.netCost)) - winner.netCost
+    ? Math.max(...cardResults.map(c => c.cost.netCost)) - winner.cost.netCost
     : 0
 
   return {

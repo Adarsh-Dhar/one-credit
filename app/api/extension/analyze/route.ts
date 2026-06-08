@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { runOPAgent, CardKnowledge } from '@/lib/op-agent'
 import { FiatCard } from '@/lib/models/FiatCard'
 import type { IMilestoneBonus } from '@/lib/models/FiatCard'
@@ -10,6 +9,7 @@ import { ratelimit } from '@/lib/rateLimit'
 import logger from '@/lib/logger'
 import { getEnv } from '@/lib/env'
 import { toErrorResponse } from '@/lib/errors'
+import { createGeminiModel } from '@/lib/gemini'
 
 const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
   amazon: 'amazon.in',
@@ -167,11 +167,11 @@ function transformCardToKnowledge(
 
 async function buildCardKnowledge(
   userContext: Awaited<ReturnType<typeof buildUserContext>>,
-  userId: string,
   env: ReturnType<typeof getEnv>,
   cardKeys: string[]
 ): Promise<Record<string, CardKnowledge>> {
   const cardKnowledgeMap: Record<string, CardKnowledge> = {}
+  const { userId } = userContext
 
   const dbCards = await FiatCard.find({
     card_id: { $in: cardKeys },
@@ -288,11 +288,10 @@ export async function POST(request: NextRequest) {
 
     // Build card knowledge map
     const cardKeys = userContext.cards.map(c => c.cardId)
-    const cardKnowledgeMap = await buildCardKnowledge(userContext, userId, env, cardKeys)
+    const cardKnowledgeMap = await buildCardKnowledge(userContext, env, cardKeys)
 
     // Instantiate Gemini model
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+    const model = createGeminiModel(apiKey)
 
     // Run agent and build response
     return await runAgentAndBuildResponse(product, cardKeys, cardKnowledgeMap, userContext, env, model)

@@ -422,11 +422,11 @@ describe('calculateCardResult', () => {
 
     expect(result.cardKey).toBe('test-card')
     expect(result.name).toBe('Test Card')
-    expect(result.netCost).toBeGreaterThan(0)
-    expect(result.feeWaiverActive).toBe(false)
-    expect(result.earnAudit.confirmedEarn).toBe(true)
-    expect(result.earnAudit.exclusionReason).toBeNull()
-    expect(result.earnAudit.capBreached).toBe(false)
+    expect(result.cost.netCost).toBeGreaterThan(0)
+    expect(result.cost.feeWaiverActive).toBe(false)
+    expect(result.earn.earnAudit.confirmedEarn).toBe(true)
+    expect(result.earn.earnAudit.exclusionReason).toBeNull()
+    expect(result.earn.earnAudit.capBreached).toBe(false)
   })
 
   it('should handle excluded category', () => {
@@ -485,9 +485,9 @@ describe('calculateCardResult', () => {
 
     const result = calculateCardResult('test-card', card, ctx)
 
-    expect(result.earnAudit.confirmedEarn).toBe(false)
-    expect(result.earnAudit.exclusionReason).toBe('Category "grocery" is excluded for this card')
-    expect(result.earnAudit.rate).toBe(0)
+    expect(result.earn.earnAudit.confirmedEarn).toBe(false)
+    expect(result.earn.earnAudit.exclusionReason).toBe('Category "grocery" is excluded for this card')
+    expect(result.earn.earnAudit.rate).toBe(0)
   })
 
   it('should take higher rate when both rotating and portal bonuses apply to same category', () => {
@@ -549,10 +549,10 @@ describe('calculateCardResult', () => {
     const result = calculateCardResult('test-card', card, ctx)
 
     // Portal bonus (4x) should win over rotating bonus (3x)
-    expect(result.earnAudit.rate).toBe(4)
-    expect(result.rotatingBonusApplied).toBe(true)
-    expect(result.portalBonusApplied).toBe(true)
-    expect(result.portalBonusName).toBe('Rakuten')
+    expect(result.earn.earnAudit.rate).toBe(4)
+    expect(result.earn.rotatingBonusApplied).toBe(true)
+    expect(result.earn.portalBonusApplied).toBe(true)
+    expect(result.earn.portalBonusName).toBe('Rakuten')
   })
 
   it('should apply rotating bonus when portal does not apply', () => {
@@ -614,9 +614,9 @@ describe('calculateCardResult', () => {
     const result = calculateCardResult('test-card', card, ctx)
 
     // Rotating bonus (3x) should apply since portal doesn't match grocery
-    expect(result.earnAudit.rate).toBe(3)
-    expect(result.rotatingBonusApplied).toBe(true)
-    expect(result.portalBonusApplied).toBe(false)
+    expect(result.earn.earnAudit.rate).toBe(3)
+    expect(result.earn.rotatingBonusApplied).toBe(true)
+    expect(result.earn.portalBonusApplied).toBe(false)
   })
 })
 
@@ -635,32 +635,38 @@ describe('generateReasoningWithGemini', () => {
 
     const cards = [{
       cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
-      actualPointsEarned: 2,
-      earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
-      bestRedemptionName: 'Statement credit',
-      bestRedemptionRatePerPoint: 1.0,
-      trueRewardValueUsd: 2,
-      industryRewardValue: 2,
-      feeBurdenUsd: 1,
-      floatValueUsd: 0.5,
-      netCost: 95,
-      industryCost: 97,
-      savings: 2,
-      effectiveDiscountPercent: 5,
-      portalBonusApplied: false,
-      portalBonusName: null,
-      portalBonusUrl: null,
-      realisticCpp: 1.0,
-      conservativeCpp: 1.0,
-      industryAssumedCpp: 1.0,
-      basePointsEarned: 1,
-      bonusPointsEarned: 1,
-      statementCreditApplied: 0,
-      feeWaiverActive: false,
-      feeWaiverNote: null,
-      rotatingBonusApplied: false,
-      foreignFeeUsd: 0,
       rewardType: 'cashback',
+      earn: {
+        actualPointsEarned: 2,
+        basePointsEarned: 1,
+        bonusPointsEarned: 1,
+        earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
+        rotatingBonusApplied: false,
+        portalBonusApplied: false,
+        portalBonusName: null,
+        portalBonusUrl: null,
+      },
+      cost: {
+        netCost: 95,
+        industryCost: 97,
+        savings: 2,
+        effectiveDiscountPercent: 5,
+        feeBurdenUsd: 1,
+        floatValueUsd: 0.5,
+        foreignFeeUsd: 0,
+        statementCreditApplied: 0,
+        feeWaiverActive: false,
+        feeWaiverNote: null,
+      },
+      valuation: {
+        trueRewardValueUsd: 2,
+        industryRewardValue: 2,
+        realisticCpp: 1.0,
+        conservativeCpp: 1.0,
+        industryAssumedCpp: 1.0,
+        bestRedemptionName: 'Statement credit',
+        bestRedemptionRatePerPoint: 1.0,
+      },
     }] as any
 
     const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
@@ -679,10 +685,38 @@ describe('generateReasoningWithGemini', () => {
 
     const cards = [{
       cardKey: 'card1', name: 'Test Card', issuer: 'Bank',
-      earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
-      netCost: 95, rotatingBonusApplied: false, portalBonusApplied: false, portalBonusName: null,
-      statementCreditApplied: 0, feeWaiverActive: false, foreignFeeUsd: 0, industryCost: 97,
-      actualPointsEarned: 2,
+      rewardType: 'cashback',
+      earn: {
+        actualPointsEarned: 2,
+        basePointsEarned: 1,
+        bonusPointsEarned: 1,
+        earnAudit: { rate: 2, per: 100, confirmedEarn: true, exclusionReason: null, capBreached: false },
+        rotatingBonusApplied: false,
+        portalBonusApplied: false,
+        portalBonusName: null,
+        portalBonusUrl: null,
+      },
+      cost: {
+        netCost: 95,
+        industryCost: 97,
+        savings: 2,
+        effectiveDiscountPercent: 5,
+        feeBurdenUsd: 1,
+        floatValueUsd: 0.5,
+        foreignFeeUsd: 0,
+        statementCreditApplied: 0,
+        feeWaiverActive: false,
+        feeWaiverNote: null,
+      },
+      valuation: {
+        trueRewardValueUsd: 2,
+        industryRewardValue: 2,
+        realisticCpp: 1.0,
+        conservativeCpp: 1.0,
+        industryAssumedCpp: 1.0,
+        bestRedemptionName: 'Statement credit',
+        bestRedemptionRatePerPoint: 1.0,
+      },
     }] as any
 
     const product = { name: 'Rice', price: 100, category: 'grocery', merchant: 'Amazon', isEmi: false, isForeignMerchant: false }
