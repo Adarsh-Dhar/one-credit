@@ -101,6 +101,9 @@ export function SidePanel() {
   const [selectedCard, setSelectedCard] = useState<string | null>(null)
   const [pendingProduct, setPendingProduct] = useState<any>(null)
   const [sortMode, setSortMode] = useState<'cost' | 'points'>('cost')
+  const [confirmingPurchase, setConfirmingPurchase] = useState(false)
+  const [purchaseError, setPurchaseError] = useState<string | null>(null)
+  const [purchaseSuccess, setPurchaseSuccess] = useState(false)
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
@@ -207,11 +210,65 @@ export function SidePanel() {
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [runAnalysis])
 
-  const handleCardSelect = (cardKey: string) => {
+  const handleCardSelect = async (cardKey: string) => {
     setSelectedCard(cardKey)
-    chrome.runtime.sendMessage({ type: 'CARD_SELECTED', cardKey }, () => {
-      setTimeout(() => setSelectedCard(null), 2000)
-    })
+    setConfirmingPurchase(true)
+    setPurchaseError(null)
+    setPurchaseSuccess(false)
+
+    try {
+      // Find the selected card from the results
+      const selectedCardData = result?.cards.find(c => c.cardKey === cardKey)
+      if (!selectedCardData || !result?.product) {
+        throw new Error('Card or product data not found')
+      }
+
+      // Build URL parameters for the payment page
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+      const params = new URLSearchParams({
+        cardKey: cardKey,
+        cardName: selectedCardData.name,
+        cardIssuer: selectedCardData.issuer,
+        rewardType: selectedCardData.rewardType,
+        productName: result.product.name,
+        productPrice: result.product.price.toString(),
+        pointsEarned: selectedCardData.earn.actualPointsEarned.toString(),
+        rewardValueUsd: selectedCardData.valuation.trueRewardValueUsd.toString(),
+        netCost: selectedCardData.cost.netCost.toString(),
+      })
+
+      if (result.product.category) params.append('category', result.product.category)
+      if (result.product.merchant) params.append('merchant', result.product.merchant)
+      if (result.product.url) params.append('url', result.product.url)
+
+      const paymentUrl = `${API_BASE}/pay/extension?${params.toString()}`
+
+      // Use background script to open the tab (more reliable in extension context)
+      const response = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage(
+          {
+            type: 'CONFIRM_PURCHASE',
+            paymentUrl,
+          },
+          (response) => resolve(response)
+        )
+      })
+
+      if (response.success) {
+        setPurchaseSuccess(true)
+        setTimeout(() => {
+          setSelectedCard(null)
+          setPurchaseSuccess(false)
+        }, 3000)
+      } else {
+        setPurchaseError(response.error || 'Failed to open payment page')
+      }
+    } catch (e: any) {
+      console.error('handleCardSelect error:', e)
+      setPurchaseError(e.message || 'Failed to open payment page')
+    } finally {
+      setConfirmingPurchase(false)
+    }
   }
 
   // For prices (MRP, industry cost) — show in $
@@ -463,11 +520,17 @@ export function SidePanel() {
 
             <button
               onClick={() => handleCardSelect(winner.cardKey)}
-              disabled={selectedCard === winner.cardKey}
+              disabled={confirmingPurchase || selectedCard === winner.cardKey}
               className="w-full bg-[#C5AA67] hover:bg-[#A8893F] disabled:bg-[#4ECDA4] text-[#0D0A06] py-2.5 rounded-lg font-semibold text-sm transition-all"
             >
-              {selectedCard === winner.cardKey ? '✓ Selected' : 'Use This Card'}
+              {confirmingPurchase ? 'Processing...' : purchaseSuccess ? '✓ Purchase Confirmed' : selectedCard === winner.cardKey ? '✓ Selected' : 'Use This Card'}
             </button>
+
+            {purchaseError && (
+              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+                <p className="text-xs text-red-300">{purchaseError}</p>
+              </div>
+            )}
           </div>
 
           {/* Agent reasoning */}
@@ -660,10 +723,10 @@ export function SidePanel() {
 
                       <button
                         onClick={() => handleCardSelect(card.cardKey)}
-                        disabled={selectedCard === card.cardKey}
+                        disabled={confirmingPurchase || selectedCard === card.cardKey}
                         className="w-full bg-[#C5AA67] hover:bg-[#A8893F] disabled:bg-[#4ECDA4] text-[#0D0A06] py-2 rounded-lg font-medium text-xs transition-all"
                       >
-                        {selectedCard === card.cardKey ? '✓ Selected' : 'Use This Card'}
+                        {confirmingPurchase ? 'Processing...' : purchaseSuccess ? '✓ Purchase Confirmed' : selectedCard === card.cardKey ? '✓ Selected' : 'Use This Card'}
                       </button>
                     </div>
                   )}

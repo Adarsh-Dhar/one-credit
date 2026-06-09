@@ -8,7 +8,8 @@
     "scripting",
     "webRequest",
     "storage",
-    "sidePanel"
+    "sidePanel",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"

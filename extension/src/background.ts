@@ -94,6 +94,41 @@ const messageHandlers: Record<string, MessageHandler> = {
     return true
   },
 
+  CONFIRM_PURCHASE: (request, sendResponse) => {
+    const { cardId, product, paymentUrl } = request as any
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || RUM_CONFIG.DEFAULT_API_URL
+
+    // If paymentUrl is provided, open it in a new tab
+    if (paymentUrl) {
+      chrome.tabs.create({ url: paymentUrl })
+      sendResponse({ success: true })
+      return true
+    }
+
+    // Original behavior for direct API call
+    fetch(`${API_BASE}/api/extension/confirm-purchase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardId, product }),
+    })
+      .then(response => {
+        return response.json().then(data => ({ ok: response.ok, data }))
+      })
+      .then(({ ok, data }) => {
+        if (!ok) {
+          sendResponse({ success: false, error: data.error || 'Purchase confirmation failed' })
+        } else {
+          sendResponse({ success: true, transaction: data.transaction } as any)
+        }
+      })
+      .catch(error => {
+        logger.error('Confirm purchase error:', error)
+        sendResponse({ success: false, error: 'Network error' })
+      })
+
+    return true
+  },
+
   GET_STATUS: (request, sendResponse) => {
     chrome.storage.local.get(['lastDetectedProduct', 'selectedCard'], (result) => {
       sendResponse({

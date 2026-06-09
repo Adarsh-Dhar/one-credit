@@ -137,6 +137,10 @@ export interface IFiatCard extends Document {
   points_value_cents?: number;
   points_program_name?: string;
 
+  // Monthly tracking
+  monthly_balance_owed?: number;
+  last_reset_month?: string;
+
   // Nested objects
   financials: IFinancials;
   rewards_structure: IRewardsStructure;
@@ -313,6 +317,10 @@ const FiatCardSchema = new Schema<IFiatCard>(
     points_value_cents:   { type: Number },
     points_program_name:  { type: String },
 
+    // Monthly tracking
+    monthly_balance_owed: { type: Number, default: 0 },
+    last_reset_month:     { type: String, default: '' },
+
     financials:            { type: FinancialsSchema,          required: true },
     rewards_structure:     { type: RewardsStructureSchema,    required: true },
     benefits_and_credits:  { type: BenefitsAndCreditsSchema,  required: true },
@@ -342,6 +350,8 @@ export const FIAT_CARD_PROJECTION = {
   points_value_cents: 1,
   current_balance_owed: 1,
   credit_limit: 1,
+  monthly_balance_owed: 1,
+  last_reset_month: 1,
   rewards_structure: 1,
   benefits_and_credits: 1,
   financials: 1,

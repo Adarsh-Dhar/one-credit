@@ -115,11 +115,19 @@ export function TiltCard({ card, isTopCard, onClick }: TiltCardProps) {
           <p className="text-[#8B8070] text-xs mb-1">{card.issuer}</p>
           <p className="text-[#E8D8B0] font-bold text-lg mb-4">{card.name}</p>
 
-          <div className="mb-4">
-            <p className="text-[#6B5E52] text-xs">Balance (USD)</p>
-            <p className="text-[#C5AA67] font-bold text-2xl">
-              ${Math.round(card.value || 0).toLocaleString()}
-            </p>
+          <div className="mb-4 space-y-2">
+            <div>
+              <p className="text-[#6B5E52] text-xs">Credit Used This Month</p>
+              <p className="text-[#E8D8B0] font-bold text-lg">
+                ${Math.round(card.balance || 0).toLocaleString()} of ${card.limit ? `${card.limit.toLocaleString()}` : 'Unlimited'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[#6B5E52] text-xs">Rewards Value</p>
+              <p className="text-[#C5AA67] font-bold text-2xl">
+                ${Math.round(card.value || 0).toLocaleString()}
+              </p>
+            </div>
           </div>
 
           {/* Earn rate chips */}

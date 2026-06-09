@@ -130,7 +130,7 @@ export function transformFiatCardToWalletDetail(card: IFiatCard, value: number):
     type: common.cardType,
     color: CARD_TYPE_COLORS[common.cardType] || CARD_TYPE_COLORS.general,
     currency: common.currency,
-    balance: card.current_balance_owed || 0,
+    balance: card.monthly_balance_owed || 0,
     limit: card.credit_limit || 0,
     value,
     earnRates: common.earnRates,

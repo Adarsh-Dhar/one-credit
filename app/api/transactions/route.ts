@@ -3,9 +3,16 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
 import { Transaction } from '@/lib/models/Transaction';
+import { FiatCard } from '@/lib/models/FiatCard';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import logger from '@/lib/logger';
 import { toErrorResponse } from '@/lib/errors';
+import {
+  validateSufficientCredit,
+  calculatePointsEarned,
+  calculateTokensEarned,
+  getBalanceUpdateField,
+} from '@/lib/cardBalanceHelpers';
 
 export async function GET(request: Request) {
   try {
@@ -60,6 +67,82 @@ export async function POST(request: Request) {
     }
 
     await connectDB();
+
+    // For spend transactions, validate credit limit and update balances
+    if (type === 'spend' && cardId && amountUsd) {
+      const card = await FiatCard.findOne({
+        card_id: cardId,
+        user_id: userId,
+      });
+
+      if (!card) {
+        return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+      }
+
+      // Validate credit limit
+      const creditValidation = validateSufficientCredit(card, amountUsd);
+      if (!creditValidation.isValid) {
+        return NextResponse.json(
+          {
+            error: creditValidation.error,
+            availableCredit: creditValidation.availableCredit,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Calculate points/tokens if not provided
+      let calculatedPointsEarned = pointsEarned ?? 0;
+      let calculatedRewardValueUsd = rewardValueUsd ?? 0;
+
+      if (!pointsEarned && (card.currency_type === 'POINTS' || card.currency_type === 'MILES')) {
+        const pointsResult = calculatePointsEarned(card, amountUsd, category || 'other');
+        calculatedPointsEarned = pointsResult.pointsEarned;
+        const pointsValueCents = card.points_value_cents || 1.0;
+        calculatedRewardValueUsd = (calculatedPointsEarned * pointsValueCents) / 100;
+      } else if (!pointsEarned && card.currency_type === 'USD') {
+        const tokensEarned = calculateTokensEarned(card, amountUsd);
+        const tokenVelocity = card.op_redemption?.token_velocity ?? 1.0;
+        calculatedRewardValueUsd = tokensEarned / tokenVelocity;
+      }
+
+      // Update card balances
+      const updateFields: any = {
+        current_balance_owed: (card.current_balance_owed || 0) + amountUsd,
+        monthly_balance_owed: (card.monthly_balance_owed || 0) + amountUsd,
+      };
+
+      const balanceField = getBalanceUpdateField(card);
+      if (card.currency_type === 'POINTS' || card.currency_type === 'MILES') {
+        updateFields[balanceField] = (card[balanceField] || 0) + calculatedPointsEarned;
+      } else if (card.currency_type === 'USD') {
+        const tokensEarned = calculateTokensEarned(card, amountUsd);
+        updateFields[balanceField] = (card[balanceField] || 0) + tokensEarned;
+      }
+
+      await FiatCard.updateOne(
+        { _id: card._id },
+        { $set: updateFields }
+      );
+
+      // Create transaction with calculated values
+      const transaction = await Transaction.create({
+        userId, type,
+        amountUsd: amountUsd ?? 0,
+        cardId: cardId ?? '',
+        category: category ?? 'other',
+        merchant: merchant ?? '',
+        isEmi: isEmi ?? false,
+        pointsEarned: calculatedPointsEarned,
+        rewardValueUsd: calculatedRewardValueUsd,
+        pointsRedeemed: pointsRedeemed ?? 0,
+        valueReceivedUsd: valueReceivedUsd ?? 0,
+      });
+
+      return NextResponse.json({ transaction });
+    }
+
+    // For non-spend transactions, create without balance updates
     const transaction = await Transaction.create({
       userId, type,
       amountUsd: amountUsd ?? 0,
