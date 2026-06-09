@@ -346,7 +346,7 @@ export function SidePanel() {
                 )}
               </div>
 
-              {/* CPP range */}
+              {/* CentsPerPoint range */}
               <div className="mt-2 pt-2 border-t border-[#3D2E1A] space-y-1 text-xs">
                 <div className="flex justify-between text-[#8B8070]">
                   <span>Conservative</span>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { ExternalLink, Sparkles, Calculator, User, Crosshair } from 'lucide-react'
+import { logger } from '../../logger'
 
 interface DetectedProduct {
   name: string
@@ -46,22 +47,22 @@ export function Popup() {
           })
 
           // Fetch card count from API
-          console.log('[OneCredit] Fetching card count for userId:', data.user.id)
+          logger.log('Fetching card count for userId:', data.user.id)
           fetch(`${API_BASE}/api/extension/card-count?userId=${data.user.id}`)
             .then(res => {
-              console.log('[OneCredit] Card count API response status:', res.status)
+              logger.log('Card count API response status:', res.status)
               return res.json()
             })
             .then(data => {
-              console.log('[OneCredit] Card count API response:', data)
+              logger.log('Card count API response:', data)
               if (data.cardCount !== undefined) {
                 setCardCount(data.cardCount)
               } else {
-                console.error('[OneCredit] No cardCount in response:', data)
+                logger.error('No cardCount in response:', data)
               }
             })
             .catch(err => {
-              console.error('[OneCredit] Failed to fetch card count:', err)
+              logger.error('Failed to fetch card count:', err)
             })
         } else {
           setConnectionStatus('not-connected')
@@ -79,25 +80,25 @@ export function Popup() {
 
                 // Fetch card count from API
                 if (local.userId) {
-                  console.log('[OneCredit] Fetching card count from fallback for userId:', local.userId)
+                  logger.log('Fetching card count from fallback for userId:', local.userId)
                   fetch(`${API_BASE}/api/extension/card-count?userId=${local.userId}`)
                     .then(res => {
-                      console.log('[OneCredit] Card count API response status (fallback):', res.status)
+                      logger.log('Card count API response status (fallback):', res.status)
                       return res.json()
                     })
                     .then(data => {
-                      console.log('[OneCredit] Card count API response (fallback):', data)
+                      logger.log('Card count API response (fallback):', data)
                       if (data.cardCount !== undefined) {
                         setCardCount(data.cardCount)
                       } else {
-                        console.error('[OneCredit] No cardCount in response (fallback):', data)
+                        logger.error('No cardCount in response (fallback):', data)
                       }
                     })
                     .catch(err => {
-                      console.error('[OneCredit] Failed to fetch card count (fallback):', err)
+                      logger.error('Failed to fetch card count (fallback):', err)
                     })
                 } else {
-                  console.log('[OneCredit] No userId found in local storage')
+                  logger.log('No userId found in local storage')
                 }
               } else {
                 // Fallback: check sync storage (set manually via options page)
@@ -112,7 +113,7 @@ export function Popup() {
         }
       })
       .catch(err => {
-        console.error('[OneCredit] Failed to fetch session:', err)
+        logger.error('Failed to fetch session:', err)
         setConnectionStatus('not-connected')
       })
 

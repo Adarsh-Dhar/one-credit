@@ -1,6 +1,4 @@
-// lib/card-constants.ts
-//
-// Shared card constants to avoid duplication across the codebase
+import { MULTIPLIER_DEFAULTS } from './constants';
 
 export const CARD_TYPE_COLORS: Record<string, string> = {
   travel: 'from-blue-500 to-cyan-600',
@@ -70,20 +68,22 @@ export function buildEarnRates(
   groceries: number;
   fuel: number;
   shopping: number;
+  pharmacy: number;
+  streaming: number;
   crypto: number;
   general: number;
 } {
   const earnRates = {
-    flights: 1.0,
-    hotel: 1.0,
-    dining: 1.0,
-    electronics: 1.0,
-    groceries: 1.0,
-    fuel: 1.0,
-    shopping: 1.0,
-    pharmacy: 1.0,
-    streaming: 1.0,
-    crypto: 1.0,
+    flights: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    hotel: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    dining: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    electronics: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    groceries: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    fuel: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    shopping: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    pharmacy: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    streaming: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
+    crypto: MULTIPLIER_DEFAULTS.BASE_MULTIPLIER,
     general: baseMultiplier,
   };
 

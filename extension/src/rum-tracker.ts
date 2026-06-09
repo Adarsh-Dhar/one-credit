@@ -1,5 +1,6 @@
 // RUM Tracker for OneCredit extension
 // Collects behavioral signals from the page and flushes to background worker
+import { logger } from './logger'
 
 interface RUMEvent {
   eventType: string
@@ -10,7 +11,7 @@ interface RUMEvent {
 
 // Local event buffer
 let eventBuffer: RUMEvent[] = []
-const BUFFER_FLUSH_INTERVAL = 15000 // 15 seconds
+const BUFFER_FLUSH_INTERVAL = 15000
 const BUFFER_MAX_SIZE = 50
 
 // Flush buffer to background worker
@@ -26,7 +27,7 @@ function flushBuffer() {
     { type: 'RUM_EVENTS', events: eventsToSend },
     (_response) => {
       if (chrome.runtime.lastError) {
-        console.error('[RUM Tracker] Failed to send events to background:', chrome.runtime.lastError)
+        logger.error('Failed to send events to background:', chrome.runtime.lastError)
         // Re-add failed events to buffer
         eventBuffer.unshift(...eventsToSend)
       }

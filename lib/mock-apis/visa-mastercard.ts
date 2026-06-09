@@ -3,6 +3,15 @@
  * Simulates card network discount offers
  */
 
+interface GeoTarget {
+  country: string;
+}
+
+interface EligibleTier {
+  tier: string;
+  minSpend?: number;
+}
+
 interface NetworkOffer {
   offerId: string;
   merchantName: string;
@@ -16,8 +25,8 @@ interface NetworkOffer {
   description: string;
   terms?: string[];
   network: string;
-  eligibleTiers?: any[];
-  geoTargets?: any[];
+  eligibleTiers?: EligibleTier[];
+  geoTargets?: GeoTarget[];
   channels?: string[];
   impressionCount?: number;
   activationCount?: number;
@@ -47,7 +56,7 @@ class NetworkOfferStore {
         description: '10% off Hilton hotel bookings',
         terms: ['Valid for new bookings only', 'Cannot combine with other offers'],
         network: 'VISA',
-        eligibleTiers: ['Signature', 'Infinite'],
+        eligibleTiers: [{ tier: 'Signature' }, { tier: 'Infinite' }],
         geoTargets: [{ country: 'US' }],
         channels: ['online', 'mobile'],
         impressionCount: 8000,
@@ -68,7 +77,7 @@ class NetworkOfferStore {
         description: '5% off Delta flights',
         terms: ['Valid for domestic flights', 'Excludes Basic Economy'],
         network: 'MASTERCARD',
-        eligibleTiers: ['World', 'World Elite'],
+        eligibleTiers: [{ tier: 'World' }, { tier: 'World Elite' }],
         geoTargets: [{ country: 'US' }, { country: 'CA' }],
         channels: ['online'],
         impressionCount: 12000,
@@ -89,7 +98,7 @@ class NetworkOfferStore {
         description: '$15 off Hertz car rentals',
         terms: ['Valid for rentals of 3+ days', 'Excludes luxury vehicles'],
         network: 'VISA',
-        eligibleTiers: ['Platinum', 'Signature'],
+        eligibleTiers: [{ tier: 'Platinum' }, { tier: 'Signature' }],
         geoTargets: [{ country: 'US' }],
         channels: ['online', 'in-store'],
         impressionCount: 6000,

@@ -21,6 +21,27 @@ import { networkOfferStore } from '@/lib/mock-apis/visa-mastercard';
 import logger from '@/lib/logger';
 import { affiliateStore } from '@/lib/mock-apis/rakuten-impact';
 
+// ── Type definitions for Mongoose workarounds ─────────────────────────────────────
+
+type BulkOperation = {
+  updateOne: {
+    filter: Record<string, unknown>;
+    update: Record<string, unknown>;
+    upsert: boolean;
+  };
+};
+
+type MongoConnection = {
+  connection: {
+    db: {
+      collection: (name: string) => {
+        insertOne: (doc: unknown) => Promise<void>;
+        findOne: (query: unknown, options: unknown) => Promise<unknown>;
+      };
+    };
+  };
+};
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 // Raw input types from mock APIs - narrow interfaces for type safety
@@ -43,6 +64,16 @@ interface CardlyticsOfferRaw {
   syncCount?: number;
 }
 
+interface EligibleTier {
+  tier: string;
+  minSpend?: number;
+}
+
+interface GeoTarget {
+  country: string;
+  region?: string;
+}
+
 interface NetworkOfferRaw {
   offerId: string;
   merchantName: string;
@@ -56,13 +87,18 @@ interface NetworkOfferRaw {
   description: string;
   terms?: string[];
   network: string;
-  eligibleTiers?: any[];
-  geoTargets?: any[];
+  eligibleTiers?: EligibleTier[];
+  geoTargets?: GeoTarget[];
   channels?: string[];
   impressionCount?: number;
   activationCount?: number;
   redemptionCount?: number;
   syncCount?: number;
+}
+
+interface TieredRate {
+  minSpend: number;
+  rate: number;
 }
 
 interface AffiliateDealRaw {
@@ -72,7 +108,7 @@ interface AffiliateDealRaw {
   network: string;
   commissionType: string;
   commissionRate: number;
-  tieredRates?: any[];
+  tieredRates?: TieredRate[];
   trackingUrl?: string;
   promoCode?: string;
   cookieWindow?: number;
@@ -146,13 +182,22 @@ function normalizeCardlyticsOffer(offer: CardlyticsOfferRaw, syncId: string) {
   };
 }
 
+export enum RewardType {
+  CASHBACK = 'cashback',
+  POINTS = 'points',
+  MILES = 'miles',
+  DISCOUNT = 'discount',
+}
+
+export type RewardTypeString = RewardType | string;
+
 function normalizeNetworkOffer(offer: NetworkOfferRaw, syncId: string) {
   return {
     offerId:      unifiedOfferId('network', offer.offerId),
     source:       'network' as const,
     merchantName: offer.merchantName,
     category:     inferCategoryFromNetwork(offer.merchantName),
-    rewardType:   offer.discountType as any,
+    rewardType:   offer.discountType as RewardType,
     rewardRate:   offer.discountRate,
     minSpend:     offer.minSpend ?? 0,
     maxReward:    offer.maxDiscount ?? 0,
@@ -183,7 +228,7 @@ function normalizeAffiliateOffer(deal: AffiliateDealRaw, syncId: string) {
     source:       'affiliate' as const,
     merchantName: deal.merchantName,
     category:     deal.vertical,
-    rewardType:   deal.commissionType as any,
+    rewardType:   deal.commissionType as RewardType,
     rewardRate:   deal.commissionRate,
     minSpend:     0,
     maxReward:    0,
@@ -237,12 +282,31 @@ return 'travel';
 
 // ── MongoDB bulk upsert ────────────────────────────────────────────────────────
 
-async function bulkUpsertOffers(docs: ReturnType<typeof normalizeCardlyticsOffer>[]): Promise<number> {
+interface NormalizedOffer {
+  offerId: string;
+  source: string;
+  merchantName: string;
+  category: string;
+  rewardType: string;
+  rewardRate: number;
+  minSpend: number;
+  maxReward: number;
+  active: boolean;
+  startDate: string;
+  endDate: string;
+  description: string;
+  terms: string[];
+  fivetranSyncId: string;
+  lastSyncedAt: Date;
+  [key: string]: unknown;
+}
+
+async function bulkUpsertOffers(docs: NormalizedOffer[]): Promise<number> {
   if (docs.length === 0) {
 return 0;
 }
 
-  const bulkOps = docs.map((doc) => ({
+  const bulkOps: BulkOperation[] = docs.map((doc) => ({
     updateOne: {
       filter: { offerId: doc.offerId },
       update: { $set: doc },
@@ -250,8 +314,7 @@ return 0;
     },
   }));
 
-  // Mongoose typing workaround: bulkWrite expects strict BulkOperation[] type
-  const result = await RewardsOffer.bulkWrite(bulkOps as any, { ordered: false });
+  const result = await RewardsOffer.bulkWrite(bulkOps, { ordered: false });
   return (result.upsertedCount ?? 0) + (result.modifiedCount ?? 0);
 }
 
@@ -264,7 +327,7 @@ async function syncCardlyticsConnector(syncId: string): Promise<ConnectorSyncRes
     // Call sync() directly — no HTTP round-trip, same module instance
     cardlyticsStore.sync();
     const offers = cardlyticsStore.listOffers();
-    const docs = offers.map((o) => normalizeCardlyticsOffer(o as any, syncId));
+    const docs = offers.map((o: CardlyticsOfferRaw) => normalizeCardlyticsOffer(o, syncId));
     const upserted = await bulkUpsertOffers(docs);
 
     return {
@@ -289,8 +352,8 @@ async function syncNetworkConnector(syncId: string): Promise<ConnectorSyncResult
   try {
     networkOfferStore.sync();
     const offers = networkOfferStore.listOffers();
-    const docs = offers.map((o) => normalizeNetworkOffer(o as any, syncId));
-    const upserted = await bulkUpsertOffers(docs as any);
+    const docs = offers.map((o: NetworkOfferRaw) => normalizeNetworkOffer(o, syncId));
+    const upserted = await bulkUpsertOffers(docs);
 
     return {
       connectorId, source: 'network', syncId,
@@ -314,8 +377,8 @@ async function syncAffiliateConnector(syncId: string): Promise<ConnectorSyncResu
   try {
     const result = affiliateStore.sync();
     const allDeals = [...(result.rakuten ?? []), ...(result.impact ?? [])];
-    const docs = allDeals.map((d) => normalizeAffiliateOffer(d as any, syncId));
-    const upserted = await bulkUpsertOffers(docs as any);
+    const docs = allDeals.map((d: AffiliateDealRaw) => normalizeAffiliateOffer(d, syncId));
+    const upserted = await bulkUpsertOffers(docs);
 
     return {
       connectorId, source: 'affiliate', syncId,
@@ -337,8 +400,8 @@ async function syncAffiliateConnector(syncId: string): Promise<ConnectorSyncResu
 
 async function persistSyncLog(report: RewardsSyncReport): Promise<void> {
   try {
-    const mg = await connectDB();
-    await (mg as any).connection.db
+    const mg = await connectDB() as unknown as MongoConnection;
+    await mg.connection.db
       .collection('fivetran_sync_log')
       .insertOne(report);
   } catch (e) {
@@ -390,11 +453,11 @@ jobs.push(syncAffiliateConnector(syncId));
  * Get the most recent sync log entry.
  */
 export async function getLastSyncStatus(): Promise<RewardsSyncReport | null> {
-  const mg = await connectDB();
-  const doc = await (mg as any).connection.db
+  const mg = await connectDB() as unknown as MongoConnection;
+  const doc = await mg.connection.db
     .collection('fivetran_sync_log')
-    .findOne({}, { sort: { timestamp: -1 } });
-  return doc ?? null;
+    .findOne({}, { sort: { timestamp: -1 } }) as RewardsSyncReport | null;
+  return doc;
 }
 
 /**
@@ -411,10 +474,10 @@ export async function queryRewardsOffers(filters: {
   network?:      string;   // VISA | MASTERCARD | rakuten | impact
   limit?:        number;
   sortBy?:       'rewardRate' | 'lastSyncedAt';
-}): Promise<any[]> {
+}): Promise<NormalizedOffer[]> {
   await connectDB();
 
-  const query: Record<string, any> = {};
+  const query: Record<string, unknown> = {};
 
   if (filters.activeOnly !== false) {
 query.active = true;
@@ -442,8 +505,9 @@ query['networkData.geoTargets.country'] = filters.country.toUpperCase();
     ];
   }
 
-  const sortField = filters.sortBy === 'lastSyncedAt' ? { lastSyncedAt: -1 } : { rewardRate: -1 };
+  const sortField = filters.sortBy === 'lastSyncedAt' ? { lastSyncedAt: -1 as const } : { rewardRate: -1 as const };
   const limit = filters.limit ?? 20;
 
-  return RewardsOffer.find(query).sort(sortField as any).limit(limit).lean();
+  const results = await RewardsOffer.find(query).sort(sortField as any).limit(limit).lean();
+  return results as unknown as NormalizedOffer[];
 }

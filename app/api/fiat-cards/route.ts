@@ -10,27 +10,37 @@ import { FiatCard, FIAT_CARD_PROJECTION } from '@/lib/models/FiatCard';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { ValidationError, toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
+import { MONGODB_CONFIG } from '@/lib/constants';
+
+async function authenticateAndConnectDB() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return { userId: null, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  await connectDB();
+
+  return { userId: session.user.id, error: null };
+}
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId: authenticatedUserId, error } = await authenticateAndConnectDB();
+    if (error) {
+      return error;
     }
 
-    await connectDB();
-
-    const userId = req.nextUrl.searchParams.get('userId');
-    if (!userId) {
+    const requestedUserId = req.nextUrl.searchParams.get('userId');
+    if (!requestedUserId) {
       return NextResponse.json({ error: 'userId query param is required' }, { status: 400 });
     }
 
     // Verify the requested userId matches the authenticated user
-    if (session.user.id !== userId) {
+    if (authenticatedUserId !== requestedUserId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const cards = await FiatCard.find({ user_id: userId })
+    const cards = await FiatCard.find({ user_id: requestedUserId })
       .select(FIAT_CARD_PROJECTION)
       .lean();
     return NextResponse.json({ cards });
@@ -43,12 +53,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId: authenticatedUserId, error } = await authenticateAndConnectDB();
+    if (error) {
+      return error;
     }
-
-    await connectDB();
 
     const body = await req.json();
     const { user_id, card_id } = body;
@@ -58,7 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify the requested userId matches the authenticated user
-    if (session.user.id !== user_id) {
+    if (authenticatedUserId !== user_id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -95,7 +103,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ card }, { status: 201 });
   } catch (err: unknown) {
     logger.error({ error: err }, '[POST /api/fiat-cards]');
-    if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === MONGODB_CONFIG.DUPLICATE_KEY_ERROR_CODE) {
       const validationError = new ValidationError('Card already exists for this user');
       const { error: errResponse, status } = toErrorResponse(validationError);
       return NextResponse.json(errResponse, { status });

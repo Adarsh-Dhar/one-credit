@@ -1,12 +1,16 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
+const UTILS_CONSTANTS = {
+  MAX_PROMPT_LENGTH: 200,
+} as const;
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 // Sanitize user-controlled strings before prompt interpolation
-export function sanitizeForPrompt(s: string, maxLen = 200): string {
+export function sanitizeForPrompt(s: string, maxLen = UTILS_CONSTANTS.MAX_PROMPT_LENGTH): string {
   return s.replace(/[`${}\\]/g, '').slice(0, maxLen)
 }
 
@@ -34,45 +38,56 @@ export function inferCategory(productName: string): string {
   return CATEGORY_PATTERNS.find(({ pattern }) => pattern.test(name))?.category ?? 'shopping'
 }
 
-// Currency type utilities
-export type CurrencyType = 'USD' | 'POINTS' | 'MILES' | string
-
-export function isCashbackCard(currencyType: CurrencyType): boolean {
-  return currencyType === 'USD'
+export enum CurrencyType {
+  USD = 'USD',
+  POINTS = 'POINTS',
+  MILES = 'MILES',
 }
 
-export function isPointsCard(currencyType: CurrencyType): boolean {
-  return currencyType === 'POINTS'
+export type CurrencyTypeString = CurrencyType | string
+
+export function isCashbackCard(currencyType: CurrencyTypeString): boolean {
+  return currencyType === CurrencyType.USD
 }
 
-export function isMilesCard(currencyType: CurrencyType): boolean {
-  return currencyType === 'MILES'
+export function isPointsCard(currencyType: CurrencyTypeString): boolean {
+  return currencyType === CurrencyType.POINTS
 }
 
-export function getRewardType(currencyType: CurrencyType | undefined): 'cashback' | 'points' | 'miles' {
-  if (!currencyType || currencyType === 'USD') {
-    return 'cashback'
+export function isMilesCard(currencyType: CurrencyTypeString): boolean {
+  return currencyType === CurrencyType.MILES
+}
+
+export enum RewardType {
+  CASHBACK = 'cashback',
+  POINTS = 'points',
+  MILES = 'miles',
+}
+
+export function getRewardType(currencyType: CurrencyTypeString | undefined): RewardType {
+  if (!currencyType || currencyType === CurrencyType.USD) {
+    return RewardType.CASHBACK
   }
-  if (currencyType === 'MILES') {
-    return 'miles'
+  if (currencyType === CurrencyType.MILES) {
+    return RewardType.MILES
   }
-  return 'points'
+  return RewardType.POINTS
 }
 
 export function calculateCardValue(
-  currencyType: CurrencyType,
+  currencyType: CurrencyTypeString,
   creditTokenBalance: number,
   pointsBalance: number,
   pointsValueCents: number
 ): number {
-  if (currencyType === 'POINTS') {
+  if (currencyType === CurrencyType.POINTS) {
     return pointsBalance * (pointsValueCents / 100)
   }
   return creditTokenBalance
 }
 
 export function calculateDefaultBalance(
-  currencyType: CurrencyType,
+  currencyType: CurrencyTypeString,
   creditTokenBalance: number,
   pointsBalance: number
 ): number {
@@ -86,7 +101,7 @@ export function calculateDefaultBalance(
 }
 
 export function isForeignMerchant(merchant: string, countryCode = 'IN'): boolean {
-  const tld = `.${countryCode.toLowerCase()}`
+  const topLevelDomain = `.${countryCode.toLowerCase()}`
   const knownDomain = `amazon.${countryCode.toLowerCase()}`
-  return !merchant.endsWith(tld) && merchant !== knownDomain
+  return !merchant.endsWith(topLevelDomain) && merchant !== knownDomain
 }

@@ -1,7 +1,7 @@
-type Step = 'category' | 'merchant' | 'amount' | 'analyzing' | 'approval' | 'success';
+import { Step } from '@/hooks/usePayFlow';
 
 export function StepIndicator({ step }: { step: Step }) {
-  const steps: Step[] = ['category', 'merchant', 'amount', 'analyzing', 'approval', 'success'];
+  const steps: Step[] = [Step.CATEGORY, Step.MERCHANT, Step.AMOUNT, Step.ANALYZING, Step.APPROVAL, Step.SUCCESS];
   const current = steps.indexOf(step);
   return (
     <div className="flex items-center gap-1 mb-10">

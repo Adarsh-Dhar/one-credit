@@ -13,11 +13,11 @@ import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
 import { usePersona } from '@/contexts/PersonaContext';
 import { useToast } from '@/hooks/use-toast';
 import { WalletCard } from '@/lib/types';
+import { CARD_TABS, SPENDING_CAP_THRESHOLDS } from '@/lib/constants';
 
 // ── Spending-cap config per card (issuer/category) ─────────────────────────
 // These caps mirror the reward structure limits (e.g., Amex $6k grocery cap).
 // In production this would come from the DB via rewards_structure.
-const DANGER_ZONE_PCT = 0.983; // $5,900 of $6,000
 
 interface SpendingCap {
   label: string;
@@ -89,8 +89,8 @@ function SpendingRing({ cap }: RingProps) {
   const offset = circumference * (1 - pct);
 
   // Color zones
-  const isRed = pct >= DANGER_ZONE_PCT; // $5,900+ of $6,000 → red/pulsing
-  const isYellow = pct >= 0.667 && !isRed; // $4,000–$5,900 → yellow
+  const isRed = pct >= SPENDING_CAP_THRESHOLDS.DANGER_ZONE_PCT;
+  const isYellow = pct >= SPENDING_CAP_THRESHOLDS.WARNING_ZONE_PCT && !isRed;
   const strokeColor = isRed ? '#ef4444' : isYellow ? '#eab308' : '#22c55e';
   const glowColor = isRed ? 'rgba(239,68,68,0.45)' : isYellow ? 'rgba(234,179,8,0.35)' : 'rgba(34,197,94,0.3)';
 
@@ -189,7 +189,7 @@ export default function CardsPage() {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<WalletCard | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'cashback' | 'travel'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'cashback' | 'travel'>(CARD_TABS.ALL);
 
   const userId = session?.user?.id;
 
@@ -207,7 +207,7 @@ export default function CardsPage() {
 
   // Track travel tab dwell time
   useEffect(() => {
-    if (activeTab === 'travel') {
+    if (activeTab === CARD_TABS.TRAVEL) {
       startTravelDwell();
     } else {
       endTravelDwell();
@@ -216,9 +216,9 @@ export default function CardsPage() {
 
   const handleTabChange = (tab: 'all' | 'cashback' | 'travel') => {
     setActiveTab(tab);
-    if (tab === 'travel') {
+    if (tab === CARD_TABS.TRAVEL) {
       trackTabClick('transfer_partners');
-    } else if (tab === 'cashback') {
+    } else if (tab === CARD_TABS.CASHBACK) {
       trackTabClick('cashback');
     } else {
       trackTabClick('offers');
@@ -228,13 +228,13 @@ export default function CardsPage() {
   // Filter and sort cards based on persona and tab
   const filteredCards = cards.filter(card => {
     // Filter by tab
-    if (activeTab === 'cashback') {
+    if (activeTab === CARD_TABS.CASHBACK) {
       const hasCashback = card.earnRates?.groceries || card.earnRates?.general || card.currency === 'usd';
       if (!hasCashback) {
         return false;
       }
     }
-    if (activeTab === 'travel') {
+    if (activeTab === CARD_TABS.TRAVEL) {
       const hasTravel = (card.transferPartners?.length ?? 0) > 0 || card.protections?.trip_cancellation;
       if (!hasTravel) {
         return false;
@@ -322,23 +322,23 @@ export default function CardsPage() {
           {/* Tab Buttons */}
           <div className="flex gap-2 mt-6">
             <Button
-              variant={activeTab === 'all' ? 'default' : 'outline'}
-              onClick={() => handleTabChange('all')}
-              className={activeTab === 'all' ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
+              variant={activeTab === CARD_TABS.ALL ? 'default' : 'outline'}
+              onClick={() => handleTabChange(CARD_TABS.ALL)}
+              className={activeTab === CARD_TABS.ALL ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
             >
               All Cards
             </Button>
             <Button
-              variant={activeTab === 'cashback' ? 'default' : 'outline'}
-              onClick={() => handleTabChange('cashback')}
-              className={activeTab === 'cashback' ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
+              variant={activeTab === CARD_TABS.CASHBACK ? 'default' : 'outline'}
+              onClick={() => handleTabChange(CARD_TABS.CASHBACK)}
+              className={activeTab === CARD_TABS.CASHBACK ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
             >
               Cashback
             </Button>
             <Button
-              variant={activeTab === 'travel' ? 'default' : 'outline'}
-              onClick={() => handleTabChange('travel')}
-              className={activeTab === 'travel' ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
+              variant={activeTab === CARD_TABS.TRAVEL ? 'default' : 'outline'}
+              onClick={() => handleTabChange(CARD_TABS.TRAVEL)}
+              className={activeTab === CARD_TABS.TRAVEL ? 'bg-[#C5AA67]' : 'border-[#3D2E1A] text-[#C4B8A8]'}
             >
               Travel
             </Button>
@@ -613,7 +613,7 @@ export default function CardsPage() {
         {detailModalOpen && selectedCard && (
           <CardDetailModal
             selectedCard={selectedCard}
-            cardDetails={selectedCard.rawCard || selectedCard}
+            cardDetails={selectedCard.rawCard || null}
             onClose={handleDetailModalClose}
           />
         )}

@@ -35,7 +35,7 @@ export interface Message {
     | 'RUM_EVENTS'
     | 'START_PICKER'
     | 'PICKER_RESULT'
-  data?: any
+  data?: Record<string, unknown>
   product?: Product
   userId?: string
   apiKey?: string
@@ -44,7 +44,7 @@ export interface Message {
 
 export interface MessageResponse {
   success: boolean
-  data?: any
+  data?: Record<string, unknown>
   error?: string
-  status?: any
+  status?: number | string
 }

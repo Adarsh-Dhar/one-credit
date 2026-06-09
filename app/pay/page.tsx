@@ -7,14 +7,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plane, ShoppingCart, Utensils, Fuel, Tv, Pill,
   ShoppingBag, Zap, CheckCircle2, XCircle,
-  CreditCard, ArrowRight, Sparkles
+  Sparkles
 } from 'lucide-react';
 import { StepIndicator } from '@/components/pay/StepIndicator';
 import { AITerminal } from '@/components/pay/TerminalAnalyzer';
 import { ArbitrageReceipt } from '@/components/pay/ArbitrageReceipt';
+import { TokenFlowAnimation } from '@/components/pay/TokenFlowAnimation';
 import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
 import { useWallet } from '@/hooks/useWallet';
-import { usePayFlow } from '@/hooks/usePayFlow';
+import { usePayFlow, Step } from '@/hooks/usePayFlow';
 
 // ── Data ───────────────────────────────────────────────────────────────────
 const CATEGORY_TO_EARN_KEY: Record<string, string> = {
@@ -27,6 +28,13 @@ const CATEGORY_TO_EARN_KEY: Record<string, string> = {
   pharmacy:      'pharmacy',
   subscription:  'streaming',
 };
+
+const PAYMENT_CONSTANTS = {
+  MIN_AMOUNT: 0.01,
+  MAX_AMOUNT: 10000,
+  QUICK_AMOUNTS: ['25', '50', '100', '200', '500'] as const,
+  TERMINAL_DELAYS: [0, 400, 800, 1200, 1600, 2000, 2400, 2800, 3200, 3600, 4000, 4400, 4800] as const,
+} as const;
 
 const CATEGORIES = [
   { id: 'travel',        label: 'Travel',       icon: Plane,       color: 'from-blue-500 to-indigo-600' },
@@ -104,7 +112,7 @@ export default function PayPage() {
   const payFlow = usePayFlow({
     userId,
     cards: walletCards,
-    trackEvent,
+    trackEvent: trackEvent as any,
     trackCardView,
     CATEGORY_TO_EARN_KEY,
   });
@@ -125,12 +133,12 @@ export default function PayPage() {
 
       <main className="max-w-2xl mx-auto px-4 py-12">
         {/* Progress bar */}
-        {payFlow.step !== 'failed' && <StepIndicator step={payFlow.step as any} />}
+        {payFlow.step !== Step.FAILED && <StepIndicator step={payFlow.step as any} />}
 
         <AnimatePresence mode="wait">
 
           {/* ── STEP 1: Category ── */}
-          {payFlow.step === 'category' && (
+          {payFlow.step === Step.CATEGORY && (
             <motion.div key="category"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
               <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">What are you paying for?</h2>
@@ -152,10 +160,10 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 2: Merchant ── */}
-          {payFlow.step === 'merchant' && payFlow.selectedCategory && (
+          {payFlow.step === Step.MERCHANT && payFlow.selectedCategory && (
             <motion.div key="merchant"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <button onClick={() => payFlow.setStep('category')} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
+              <button onClick={() => payFlow.setStep(Step.CATEGORY)} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
               <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">Choose merchant</h2>
               <p className="text-[#8B8070] mb-8">{payFlow.selectedCategory.label} merchants with live reward offers</p>
               <div className="grid grid-cols-2 gap-3">
@@ -172,10 +180,10 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 3: Amount ── */}
-          {payFlow.step === 'amount' && payFlow.selectedMerchant && (
+          {payFlow.step === Step.AMOUNT && payFlow.selectedMerchant && (
             <motion.div key="amount"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <button onClick={() => payFlow.setStep('merchant')} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
+              <button onClick={() => payFlow.setStep(Step.MERCHANT)} className="text-[#8B8070] hover:text-[#E8D8B0] mb-4 text-sm">← Back</button>
               <h2 className="text-2xl font-bold text-[#E8D8B0] mb-2">How much?</h2>
               <div className="flex items-center gap-3 mb-8">
                 <span className="text-4xl">{payFlow.selectedMerchant.logo}</span>
@@ -188,8 +196,8 @@ export default function PayPage() {
                   <span className="text-[#8B8070] text-3xl">$</span>
                   <input
                     type="number"
-                    min="0.01"
-                    max="10000"
+                    min={PAYMENT_CONSTANTS.MIN_AMOUNT}
+                    max={PAYMENT_CONSTANTS.MAX_AMOUNT}
                     step="0.01"
                     value={payFlow.amount}
                     onChange={e => payFlow.setAmount(e.target.value)}
@@ -202,7 +210,7 @@ export default function PayPage() {
 
               {/* Quick amounts */}
               <div className="flex gap-2 mb-8">
-                {['25', '50', '100', '200', '500'].map(v => (
+                {PAYMENT_CONSTANTS.QUICK_AMOUNTS.map(v => (
                   <button key={v} onClick={() => payFlow.setAmount(v)}
                     className="flex-1 bg-[#1A1209] hover:bg-[#261B0E] border border-[#3D2E1A] text-[#C4B8A8]
                       rounded-lg py-2 text-sm transition-colors">
@@ -223,7 +231,7 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 4: Analyzing ── */}
-          {payFlow.step === 'analyzing' && (
+          {payFlow.step === Step.ANALYZING && (
             <motion.div key="analyzing"
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
               <div data-section="card-recommendation">
@@ -238,7 +246,7 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 5: Approval (crypto wallet animation) ── */}
-          {payFlow.step === 'approval' && payFlow.recommendation && (
+          {payFlow.step === Step.APPROVAL && payFlow.recommendation && (
             <motion.div key="approval"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
 
@@ -303,7 +311,7 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 6: Success — Arbitrage Receipt ── */}
-          {payFlow.step === 'success' && (
+          {payFlow.step === Step.SUCCESS && (
             <ArbitrageReceipt
               merchant={payFlow.selectedMerchant?.name ?? ''}
               amount={parseFloat(payFlow.amount)}
@@ -316,7 +324,7 @@ export default function PayPage() {
           )}
 
           {/* ── STEP 7: Failed ── */}
-          {payFlow.step === 'failed' && (
+          {payFlow.step === Step.FAILED && (
             <motion.div key="failed"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="text-center py-12">
@@ -332,78 +340,6 @@ export default function PayPage() {
 
         </AnimatePresence>
       </main>
-    </div>
-  );
-}
-
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-function TokenFlowAnimation({
-  fromCard, toMerchant, amount
-}: {
-  fromCard: string;
-  toMerchant: Merchant;
-  amount: number;
-}) {
-  return (
-    <div className="bg-[#0D0A06] border border-[#3D2E1A] rounded-2xl p-6 mb-5">
-      <div className="flex items-center justify-between gap-4">
-
-        {/* From: Card */}
-        <div className="flex-1 relative">
-          {/* Winner glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#C5AA67] via-[#4ECDA4] to-[#C5AA67] rounded-xl animate-pulse opacity-60 blur-sm" />
-          <div className="relative bg-[#1A1209] rounded-xl p-4 text-center border border-[#C5AA67]/40 shadow-[0_0_40px_rgba(197,170,103,0.6)]">
-            <CreditCard className="w-8 h-8 text-[#C5AA67] mx-auto mb-2" />
-            <p className="text-[#E8D8B0] text-xs font-medium leading-tight">{fromCard}</p>
-            <p className="text-[#6B5E52] text-xs mt-1">-${amount.toFixed(2)}</p>
-          </div>
-        </div>
-
-        {/* Animated token flow */}
-        <div className="flex items-center gap-1 relative w-16">
-          <TokenParticles />
-          <ArrowRight className="w-5 h-5 text-[#6B5E52]" />
-          <span className="text-[#C5AA67] text-xs font-bold text-center">
-            +${amount.toFixed(2)} USD
-          </span>
-        </div>
-
-        {/* To: Merchant */}
-        <div className="flex-1 bg-[#1A1209] rounded-xl p-4 text-center border border-[#4ECDA4]/40 opacity-80">
-          <span className="text-4xl block mb-1">{toMerchant.logo}</span>
-          <p className="text-[#E8D8B0] text-xs font-medium leading-tight">{toMerchant.name}</p>
-          <p className="text-[#6B5E52] text-xs mt-1">${amount.toFixed(2)}</p>
-        </div>
-
-      </div>
-    </div>
-  );
-}
-
-function TokenParticles() {
-  const particles = Array.from({ length: 6 }, (_, i) => i);
-  return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      {particles.map(i => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 rounded-full bg-[#C5AA67]"
-          initial={{ x: - 20, opacity: 0, scale: 0 }}
-          animate={{
-            x: [- 20, 0, 20],
-            opacity: [0, 1, 0],
-            scale: [0, 1, 0],
-          }}
-          transition={{
-            duration: 1.2,
-            repeat: Infinity,
-            delay: i * 0.2,
-            ease: 'easeInOut',
-          }}
-          style={{ top: `${30 + (i % 3) * 15}%` }}
-        />
-      ))}
     </div>
   );
 }

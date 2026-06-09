@@ -4,6 +4,10 @@ import { useRouter } from 'next/navigation';
 import { WalletCard } from '@/lib/types';
 import logger from '@/lib/logger';
 
+const WALLET_CONSTANTS = {
+  DEFAULT_WALLET_VALUE: 1500,
+} as const;
+
 export function useWallet() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -28,7 +32,7 @@ export function useWallet() {
       fetch(`/api/wallet?userId=${encodeURIComponent(userId)}`)
         .then((r) => r.json())
         .then((data) => {
-          setWallet(data.totalValue ?? 1500);
+          setWallet(data.totalValue ?? WALLET_CONSTANTS.DEFAULT_WALLET_VALUE);
           setCards(data.cards ?? []);
         })
         .catch((err) => {

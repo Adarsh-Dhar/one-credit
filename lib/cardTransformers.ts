@@ -5,6 +5,7 @@
 import { IFiatCard } from './models/FiatCard';
 import { CARD_TYPE_COLORS, buildEarnRates } from './card-constants';
 import { isCashbackCard, isPointsCard, isMilesCard } from './utils';
+import { MULTIPLIER_DEFAULTS } from './constants';
 
 export interface StatementCredit {
   name: string;
@@ -68,7 +69,7 @@ interface CommonCardFields {
 
 function buildCommonCardFields(card: IFiatCard): CommonCardFields {
   const rewardsStructure = card.rewards_structure || {};
-  const pointsValueCents = card.points_value_cents || 1.0;
+  const pointsValueCents = card.points_value_cents || MULTIPLIER_DEFAULTS.BASE_MULTIPLIER;
 
   const earnRates = buildEarnRates(
     rewardsStructure.fixed_categories || [],

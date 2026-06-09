@@ -134,26 +134,23 @@ export const executeMCPTool = async (
   toolName: string,
   toolInput: Record<string, unknown>
 ): Promise<unknown> => {
-  switch (toolName) {
-    case 'getUserBalances':
-      return await getUserBalances(toolInput.userId as string);
-    case 'updateBalances':
-      return await updateBalances(
-        toolInput.userId as string,
-        toolInput.cardDebits as Record<string, unknown>
-      );
+  const toolHandlers: Record<string, (input: Record<string, unknown>) => Promise<unknown>> = {
+    getUserBalances: (input) => getUserBalances(input.userId as string),
+    updateBalances: (input) => updateBalances(
+      input.userId as string,
+      input.cardDebits as Record<string, unknown>
+    ),
+    sync_rewards: (input) => syncRewards(input.sources as Array<'cardlytics' | 'network' | 'affiliate'> | undefined),
+    get_rewards_offers: (input) => getRewardsOffers(RewardsOffersFilterSchema.parse(input)),
+    search_rewards_by_merchant: (input) => searchRewardsByMerchant(input.merchantName as string),
+  };
 
-    // Rewards tools
-    case 'sync_rewards':
-      return await syncRewards(toolInput.sources as Array<'cardlytics' | 'network' | 'affiliate'> | undefined);
-    case 'get_rewards_offers':
-      return await getRewardsOffers(RewardsOffersFilterSchema.parse(toolInput));
-    case 'search_rewards_by_merchant':
-      return await searchRewardsByMerchant(toolInput.merchantName as string);
-
-    default:
-      return { error: `Unknown tool: ${toolName}` };
+  const handler = toolHandlers[toolName];
+  if (handler) {
+    return await handler(toolInput);
   }
+
+  return { error: `Unknown tool: ${toolName}` };
 };
 
 // ─── Gemini caller ────────────────────────────────────────────────────────────
@@ -274,6 +271,10 @@ return { error: 'User not found' };
 
   const cards = user.portfolio?.cards ?? {};
   const balances: Record<string, number> = {};
+
+  if (!CARDS) {
+    return { error: 'No cards found' };
+  }
 
   for (const card of CARDS) {
     balances[card.key] = cards[card.key]?.balance ?? card.defaultBalance;
@@ -427,8 +428,8 @@ async function getRewardsOffers(filters: {
       maxReward:    o.maxReward,
       description:  o.description,
       terms:        o.terms?.slice(0, 2),       // keep payload lean
-      promoCode:    o.affiliateData?.promoCode,
-      network:      o.networkData?.network ?? o.affiliateData?.network,
+      promoCode:    (o.affiliateData as any)?.promoCode,
+      network:      (o.networkData as any)?.network ?? (o.affiliateData as any)?.network,
       lastSyncedAt: o.lastSyncedAt,
     })),
   };

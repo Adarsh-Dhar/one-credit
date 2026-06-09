@@ -5,6 +5,7 @@ import { FiatCard, IFiatCard, FIAT_CARD_PROJECTION } from './models/FiatCard';
 import logger from '@/lib/logger';
 import { CARD_TYPE_COLORS, buildEarnRates } from './card-constants';
 import { calculateDefaultBalance } from './utils';
+import { MULTIPLIER_DEFAULTS } from './constants';
 
 export type CardKey = string;
 
@@ -86,25 +87,28 @@ function inferCardType(cardType: string, displayName: string, currencyType: stri
   return CARD_TYPE_PATTERNS.find(({ matches }) => matches(cardType, displayName, currencyType))?.type ?? 'general'
 }
 
-// Transform FiatCard to CardDefinition
+function buildPerks(benefitsAndCredits: IFiatCard['benefits_and_credits']): string[] {
+  return [
+    ...(benefitsAndCredits.airline_perks || []),
+    ...(benefitsAndCredits.general_perks || []),
+    ...(benefitsAndCredits.statement_credits || []).map(c => `${c.name} (${c.amount_usd} USD)`),
+  ]
+}
+
 function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
   const { card_id, display_name, network, card_type, currency_type, financials, rewards_structure, benefits_and_credits } = fiatCard;
 
   const type = inferCardType(card_type, display_name, currency_type)
   const earnRates = buildEarnRates(
     rewards_structure.fixed_categories || [],
-    rewards_structure.base_multiplier || 1.0
+    rewards_structure.base_multiplier || MULTIPLIER_DEFAULTS.BASE_MULTIPLIER
   );
   const defaultBalance = calculateDefaultBalance(
     currency_type,
     fiatCard.credit_token_balance || 0,
     fiatCard.points_balance || 0
   );
-  const perks = [
-    ...(benefits_and_credits.airline_perks || []),
-    ...(benefits_and_credits.general_perks || []),
-    ...(benefits_and_credits.statement_credits || []).map(c => `${c.name} (${c.amount_usd} USD)`),
-  ];
+  const perks = buildPerks(benefits_and_credits);
 
   return {
     key: card_id,
@@ -127,7 +131,7 @@ function transformFiatCard(fiatCard: IFiatCard): CardDefinition {
 }
 
 // Fetch cards from database
-export async function getCards(userId: string): Promise<CardDefinition[]> {
+export async function getCards(userId: string): Promise<CardDefinition[] | undefined> {
   if (!userId) {
     throw new Error('userId is required');
   }
@@ -137,7 +141,7 @@ export async function getCards(userId: string): Promise<CardDefinition[]> {
     return fiatCards.map(transformFiatCard);
   } catch (error) {
     logger.error({ error }, 'Error fetching cards from database');
-    return [];
+    return undefined;
   }
 }
 
@@ -145,7 +149,6 @@ function buildCardQuery() {
   return { ...FIAT_CARD_PROJECTION, op_redemption: 1 };
 }
 
-// Helper: get a card by key
 export async function getCard(key: CardKey, userId: string): Promise<CardDefinition | undefined> {
   if (!userId) {
     throw new Error('userId is required');
@@ -165,7 +168,6 @@ export async function getCard(key: CardKey, userId: string): Promise<CardDefinit
   }
 }
 
-// Helper: compute totalValue from a balances object (sync version - cards already passed in)
 export function computeTotalValue(balances: Record<string, number>, cards: CardDefinition[]): number {
   return cards.reduce((sum, card) => sum + (balances[card.key] ?? 0), 0);
 }

@@ -1,5 +1,6 @@
 // Content script for OneCredit app domain
 // Reads NextAuth session and sends it to extension background
+import { logger } from './logger'
 
 interface NextAuthSession {
   user?: {
@@ -19,7 +20,7 @@ function readNextAuthSession(): NextAuthSession | null {
       const session = JSON.parse(sessionStr)
       return session
     } catch (e) {
-      console.error('[OneCredit] Failed to parse session from localStorage:', e)
+      logger.error('Failed to parse session from localStorage:', e)
     }
   }
 
@@ -53,7 +54,7 @@ function readNextAuthSession(): NextAuthSession | null {
         },
       }
     } catch (e) {
-      console.error('[OneCredit] Failed to decode JWT:', e)
+      logger.error('Failed to decode JWT:', e)
     }
   }
 
@@ -78,7 +79,7 @@ function sendSessionToBackground(session: NextAuthSession | null) {
       },
       (response) => {
         if (response?.success) {
-          console.log('[OneCredit] Session sent to extension:', email)
+          logger.log('Session sent to extension:', email)
         }
       }
     )
@@ -115,4 +116,4 @@ if (document.readyState === 'loading') {
   monitorSession()
 }
 
-console.log('[OneCredit] App content script loaded')
+logger.log('App content script loaded')

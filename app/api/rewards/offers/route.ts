@@ -1,31 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActiveOffers, getNetworkDeals, getAffiliateDeals } from '@/lib/mock-apis/sync-engine';
+import { API_LAYERS } from '@/lib/constants';
+
+interface OffersResponse {
+  cardlytics: unknown[];
+  network: unknown[];
+  affiliate: unknown[];
+  totalCount: number;
+}
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const layer = searchParams.get('layer') || 'all';
+    const layer = searchParams.get('layer') || API_LAYERS.ALL;
     const category = searchParams.get('category') || undefined;
     const network = searchParams.get('network') || undefined;
     const country = searchParams.get('country') || undefined;
     const minCashback = searchParams.get('minCashback') ? parseFloat(searchParams.get('minCashback')!) : undefined;
     const minEpc = searchParams.get('minEpc') ? parseFloat(searchParams.get('minEpc')!) : undefined;
 
-    const data: any = {
+    const data: OffersResponse = {
       cardlytics: [],
       network: [],
       affiliate: [],
       totalCount: 0
     };
 
-    if (layer === 'all' || layer === 'cardlytics') {
+    if (layer === API_LAYERS.ALL || layer === API_LAYERS.CARDLYTICS) {
       data.cardlytics = await getActiveOffers({
         category,
         minCashback
       });
     }
 
-    if (layer === 'all' || layer === 'network') {
+    if (layer === API_LAYERS.ALL || layer === API_LAYERS.NETWORK) {
       data.network = await getNetworkDeals({
         network,
         country,
@@ -33,7 +41,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (layer === 'all' || layer === 'affiliate') {
+    if (layer === API_LAYERS.ALL || layer === API_LAYERS.AFFILIATE) {
       data.affiliate = await getAffiliateDeals({
         vertical: category,
         network,

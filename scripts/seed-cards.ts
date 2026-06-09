@@ -42,6 +42,7 @@ import mongoose from 'mongoose'
 import { connectDB } from '../lib/mongodb'
 import { FiatCard } from '../lib/models/FiatCard'
 import { User } from '../lib/models/User'
+import logger from '../lib/logger'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -51,9 +52,23 @@ const WIPE_FIRST = process.env.WIPE_FIRST !== 'false'
 
 // ─── Helper types ─────────────────────────────────────────────────────────────
 
-type CardType = 'personal' | 'business'
-type Network = 'AMEX' | 'VISA' | 'MASTERCARD' | 'DISCOVER'
-type CurrencyType = 'USD' | 'POINTS' | 'MILES'
+enum CardType {
+  PERSONAL = 'personal',
+  BUSINESS = 'business',
+}
+
+enum Network {
+  AMEX = 'AMEX',
+  VISA = 'VISA',
+  MASTERCARD = 'MASTERCARD',
+  DISCOVER = 'DISCOVER',
+}
+
+enum CurrencyType {
+  USD = 'USD',
+  POINTS = 'POINTS',
+  MILES = 'MILES',
+}
 
 // ─── Card data ────────────────────────────────────────────────────────────────
 
@@ -1230,7 +1245,7 @@ function buildCards(userId: string) {
         '3x on air, hotels, groceries, restaurants, and gas stations',
         '10x on hotels, car rentals, attractions via Citi Travel (through 2025)',
         '$100 annual hotel savings benefit',
-        'Transfer to 17 airline partners — some with very high CPP (Turkish, Flying Blue)',
+        'Transfer to 17 airline partners — some with very high centsPerPoint (Turkish, Flying Blue)',
         'No foreign transaction fees',
       ],
       cons: [
@@ -1801,28 +1816,28 @@ function buildCards(userId: string) {
 
 async function seed() {
   await connectDB()
-  console.log('✓ Connected to MongoDB')
+  logger.info('Connected to MongoDB')
 
   // Resolve user ID
   let userId = USER_ID_OVERRIDE
 
   if (SEED_EMAIL) {
-    const user = await (User as any).findOne({ email: SEED_EMAIL }).lean() as any
+    const user = await User.findOne({ email: SEED_EMAIL }).lean()
     if (!user) {
-      console.error(`✗ No user found with email: ${SEED_EMAIL}`)
+      logger.error(`No user found with email: ${SEED_EMAIL}`)
       process.exit(1)
     }
     userId = user._id.toString()
-    console.log(`✓ Resolved user ${SEED_EMAIL} → ${userId}`)
+    logger.info(`Resolved user ${SEED_EMAIL} → ${userId}`)
   } else {
-    console.log(`✓ Using USER_ID: ${userId}`)
+    logger.info(`Using USER_ID: ${userId}`)
   }
 
   const cards = buildCards(userId)
 
   if (WIPE_FIRST) {
     const deleted = await FiatCard.deleteMany({ user_id: userId })
-    console.log(`✓ Wiped ${deleted.deletedCount} existing cards for user ${userId}`)
+    logger.info(`Wiped ${deleted.deletedCount} existing cards for user ${userId}`)
   }
 
   // Upsert each card individually so duplicates are handled gracefully
@@ -1842,19 +1857,20 @@ async function seed() {
       } else {
         updated++
       }
-    } catch (err: any) {
-      console.error(`  ✗ Failed to upsert ${card.card_id}:`, err.message)
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      logger.error(`Failed to upsert ${card.card_id}: ${errorMessage}`)
       failed++
     }
   }
 
-  console.log(`\n✓ Seed complete`)
-  console.log(`  Inserted: ${inserted}`)
-  console.log(`  Updated:  ${updated}`)
-  console.log(`  Failed:   ${failed}`)
-  console.log(`  Total:    ${cards.length} cards`)
+  logger.info(`Seed complete`)
+  logger.info(`  Inserted: ${inserted}`)
+  logger.info(`  Updated:  ${updated}`)
+  logger.info(`  Failed:   ${failed}`)
+  logger.info(`  Total:    ${cards.length} cards`)
 
-  console.log('\nCard coverage:')
+  logger.info('Card coverage:')
   const coverage = [
     ['Grocery power user',        'Amex Blue Cash Preferred (6%), Amex Gold (4%), Amex BCE (3%)'],
     ['Travel rewards (premium)',  'Amex Platinum (5x flights), Chase Sapphire Reserve (3x all travel)'],
@@ -1869,13 +1885,13 @@ async function seed() {
     ['BofA relationship',         'BofA Premium Rewards (2.625–3.5x with Preferred Rewards bonus)'],
     ['Online shopping',           'Amex BCE (3% online retailers incl. Amazon)'],
   ]
-  coverage.forEach(([use, cards]) => console.log(`  ${use.padEnd(28)} → ${cards}`))
+  coverage.forEach(([use, cards]) => logger.info(`  ${use.padEnd(28)} → ${cards}`))
 
   await mongoose.connection.close()
-  console.log('\n✓ Connection closed')
+  logger.info('Connection closed')
 }
 
 seed().catch((err) => {
-  console.error('Fatal seed error:', err)
+  logger.error('Fatal seed error:', err)
   process.exit(1)
 })

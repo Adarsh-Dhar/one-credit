@@ -6,6 +6,7 @@ export const MONGODB_CONFIG = {
   MAX_POOL_SIZE: 10,
   SERVER_SELECTION_TIMEOUT_MS: 5000,
   SOCKET_TIMEOUT_MS: 45000,
+  DUPLICATE_KEY_ERROR_CODE: 11000,
 } as const;
 
 export const RATE_LIMIT_CONFIG = {
@@ -21,6 +22,55 @@ export const DEFAULT_FINANCIALS = {
 
 export const OP_AGENT_CONFIG = {
   MIN_MONTHLY_TXNS: 5,
-  TXN_COUNT_DIVISOR: 3, // Divide total txns by 3 to estimate monthly txns (assumes 3-month avg)
+  TXN_COUNT_DIVISOR: 3,
   DEFAULT_MONTHLY_TXNS: 10,
+  INDUSTRY_STANDARD_CPP: 1.0,
+  FLOAT_PERIOD_DAYS: 30,
+  DAYS_PER_YEAR: 365,
+} as const;
+
+export const SPENDING_CAP_THRESHOLDS = {
+  DANGER_ZONE_PCT: 0.983,
+  WARNING_ZONE_PCT: 0.667,
+} as const;
+
+export const TIME_CONSTANTS = {
+  MILLISECONDS_PER_SECOND: 1000,
+  SECONDS_PER_MINUTE: 60,
+  MINUTES_PER_HOUR: 60,
+  HOURS_PER_DAY: 24,
+  AVG_DAYS_PER_MONTH: 30.44,
+  MILLISECONDS_PER_DAY: 24 * 60 * 60 * 1000,
+  MILLISECONDS_PER_MONTH: 1000 * 60 * 60 * 24 * 30.44,
+} as const;
+
+export const MULTIPLIER_DEFAULTS = {
+  BASE_MULTIPLIER: 1.0,
+} as const;
+
+export const PAYMENT_LIMITS = {
+  MAX_AMOUNT_USD: 10000,
+  MIN_AMOUNT_USD: 0,
+} as const;
+
+export const API_LAYERS = {
+  ALL: 'all',
+  CARDLYTICS: 'cardlytics',
+  NETWORK: 'network',
+  AFFILIATE: 'affiliate',
+} as const;
+
+export const CARD_TABS = {
+  ALL: 'all',
+  CASHBACK: 'cashback',
+  TRAVEL: 'travel',
+} as const;
+
+export const USER_CONTEXT_THRESHOLDS = {
+  FREQUENT_TRAVEL_THRESHOLD_PCT: 15,
+  FREQUENT_DINER_THRESHOLD_PCT: 12,
+  ONLINE_SHOPPER_THRESHOLD_PCT: 20,
+  GROCERY_DOMINANT_THRESHOLD_PCT: 20,
+  BEHAVIOUR_WINDOW_DAYS: 90,
+  ANNUAL_WINDOW_DAYS: 365,
 } as const;

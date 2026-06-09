@@ -3,6 +3,11 @@
  * Simulates affiliate marketing commission offers
  */
 
+interface TieredRate {
+  minSpend: number;
+  rate: number;
+}
+
 interface AffiliateDeal {
   dealId: string;
   merchantName: string;
@@ -10,7 +15,7 @@ interface AffiliateDeal {
   network: string;
   commissionType: string;
   commissionRate: number;
-  tieredRates?: any[];
+  tieredRates?: TieredRate[];
   trackingUrl?: string;
   promoCode?: string;
   cookieWindow?: number;
@@ -44,9 +49,9 @@ class AffiliateStore {
         commissionType: 'percentage',
         commissionRate: 8,
         tieredRates: [
-          { minSales: 0, rate: 8 },
-          { minSales: 10000, rate: 10 },
-          { minSales: 50000, rate: 12 },
+          { minSpend: 0, rate: 8 },
+          { minSpend: 10000, rate: 10 },
+          { minSpend: 50000, rate: 12 },
         ],
         trackingUrl: 'https://rakuten.com/click/nordstrom',
         promoCode: 'NORD8',
@@ -113,8 +118,8 @@ class AffiliateStore {
         commissionType: 'percentage',
         commissionRate: 6,
         tieredRates: [
-          { minSales: 0, rate: 6 },
-          { minSales: 20000, rate: 8 },
+          { minSpend: 0, rate: 6 },
+          { minSpend: 20000, rate: 8 },
         ],
         trackingUrl: 'https://impact.com/click/nike',
         cookieWindow: 30,

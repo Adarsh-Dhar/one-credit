@@ -1,166 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { runOPAgent, CardKnowledge } from '@/lib/op-agent'
-import { FiatCard, type IFiatCard } from '@/lib/models/FiatCard'
-import type { IMilestoneBonus } from '@/lib/models/FiatCard'
+import { runOPAgent, type CardKnowledge } from '@/lib/op-agent'
+import { FiatCard } from '@/lib/models/FiatCard'
 import { buildUserContext } from '@/lib/userContext'
-import { inferCategory, sanitizeForPrompt, getRewardType, isForeignMerchant } from '@/lib/utils'
-import { z } from 'zod'
-import { ratelimit } from '@/lib/rateLimit'
+import { sanitizeForPrompt } from '@/lib/utils'
 import logger from '@/lib/logger'
 import { getEnv } from '@/lib/env'
 import { toErrorResponse } from '@/lib/errors'
 import { createGeminiModel } from '@/lib/gemini'
-import { OP_AGENT_CONFIG } from '@/lib/constants'
-
-const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
-  amazon: 'amazon.com',
-  'amazon.in': 'amazon.in',
-  walmart: 'walmart.com',
-  bestbuy: 'bestbuy.com',
-  target: 'target.com',
-  ebay: 'ebay.com',
-}
-
-// Zod schema for request validation
-const AnalyzeSchema = z.object({
-  product: z.object({
-    name: z.string().max(200),
-    price: z.number().positive().max(1_000_000),
-    url: z.string().url().optional(),
-    source: z.string().max(50).optional(),
-  }),
-  userId: z.string().max(100),
-})
-
-// ─── Helper Functions ───────────────────────────────────────────────────────
-
-async function validateRequestAndApiKey(request: NextRequest): Promise<
-  { success: true; data: { product: z.infer<typeof AnalyzeSchema>['product']; userId: string }; env: ReturnType<typeof getEnv> } |
-  { success: false; response: NextResponse }
-> {
-  const env = getEnv()
-  const apiKey = env.GOOGLE_API_KEY
-  if (!apiKey) {
-    return { success: false, response: NextResponse.json({ error: 'GOOGLE_API_KEY not set on server' }, { status: 500 }) }
-  }
-
-  const parsed = AnalyzeSchema.safeParse(await request.json())
-  if (!parsed.success) {
-    return { success: false, response: NextResponse.json({ error: parsed.error.flatten() }, { status: 400 }) }
-  }
-
-  const { product, userId } = parsed.data
-  if (!userId) {
-    return { success: false, response: NextResponse.json({ error: 'userId is required' }, { status: 400 }) }
-  }
-
-  return { success: true, data: { product, userId }, env }
-}
-
-async function checkRateLimit(userId: string): Promise<NextResponse | null> {
-  const { success } = await ratelimit.limit(userId)
-  if (!success) {
-    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
-  }
-  return null
-}
-
-function transformCardToKnowledge(
-  dbCard: Partial<Pick<IFiatCard, 'display_name' | 'network' | 'currency_type' | 'rewards_structure' | 'benefits_and_credits' | 'financials' | 'points_value_cents'>>,
-  env: ReturnType<typeof getEnv>
-): CardKnowledge {
-  const baseEarnRate = dbCard.rewards_structure?.base_multiplier ?? 1
-  const earnRules: CardKnowledge['earnRules'] = [
-    {
-      merchant: 'all',
-      rate: baseEarnRate,
-      per: 100,
-      currency: dbCard.currency_type?.toLowerCase() ?? 'usd',
-      notes: 'Base earn rate',
-    },
-  ]
-
-  if (dbCard.rewards_structure?.fixed_categories) {
-    for (const cat of dbCard.rewards_structure.fixed_categories) {
-      earnRules.push({
-        merchant: cat.category,
-        rate: cat.multiplier,
-        per: 100,
-        currency: dbCard.currency_type?.toLowerCase() ?? 'usd',
-        ...(cat.cap_amount_usd ? { notes: `Cap: $${cat.cap_amount_usd}` } : {}),
-      })
-    }
-  }
-
-  const redemptionPaths: CardKnowledge['redemptionPaths'] = []
-  if (dbCard.benefits_and_credits?.transfer_partners && dbCard.benefits_and_credits.transfer_partners.length > 0) {
-    for (const partner of dbCard.benefits_and_credits.transfer_partners) {
-      redemptionPaths.push({
-        name: `${partner.program} transfer (${partner.ratio})`,
-        ratePerPoint: partner.cpp_max,
-        ratePerPointMin: partner.cpp_min,
-      })
-    }
-  } else if (dbCard.points_value_cents) {
-    redemptionPaths.push({
-      name: 'Statement credit',
-      ratePerPoint: dbCard.points_value_cents / 100,
-    })
-  } else {
-    redemptionPaths.push({
-      name: 'Direct cashback',
-      ratePerPoint: 1.0,
-    })
-  }
-
-  const bestRedemption = redemptionPaths.reduce((best, current) =>
-    current.ratePerPoint > best.ratePerPoint ? current : best
-  , redemptionPaths[0])
-
-  const rewardType = getRewardType(dbCard.currency_type)
-
-  return {
-    name: dbCard.display_name ?? 'Unknown Card',
-    issuer: dbCard.network ?? 'Unknown',
-    annualFeeUsd: dbCard.financials?.annual_fee ?? 0,
-    gstOnFee: env.GST_RATE,
-    baseEarnRate,
-    earnRules,
-    emiEarnRate: dbCard.rewards_structure?.emi_multiplier ?? 0,
-    monthlyCapPoints: dbCard.rewards_structure?.monthly_cap_points ?? null,
-    excludedCategories: dbCard.rewards_structure?.excluded_categories ?? [],
-    redemptionPaths,
-    bestRedemptionRatePerPoint: bestRedemption.ratePerPoint,
-    bestRedemptionName: bestRedemption.name,
-    statementCredits: (dbCard.benefits_and_credits?.statement_credits ?? []).map((sc: { name: string; reset_period: string; amount_usd: number; merchant_categories?: string[] }) => ({
-      name: sc.name,
-      annualValueUsd: sc.reset_period === 'monthly' ? sc.amount_usd * 12 : sc.amount_usd,
-      merchantCategories: sc.merchant_categories ?? [],
-    })),
-    portalBonuses: (dbCard.benefits_and_credits?.portal_bonuses ?? []).map((pb: { portal_name: string; portal_url: string; categories: string[]; bonus_multiplier: number; bonus_type: string }) => ({
-      portalName: pb.portal_name,
-      portalUrl: pb.portal_url,
-      categories: pb.categories,
-      bonusMultiplier: pb.bonus_multiplier,
-      bonusType: pb.bonus_type,
-    })),
-    rotatingCategory: dbCard.rewards_structure?.rotating_categories
-      ? {
-          isActive: dbCard.rewards_structure.rotating_categories.is_active,
-          activeCategories: dbCard.rewards_structure.rotating_categories.active_categories ?? [],
-          multiplier: dbCard.rewards_structure.rotating_categories.multiplier ?? 1,
-        }
-      : null,
-    milestoneBonuses: (dbCard.rewards_structure?.milestone_bonuses ?? []).map((mb: IMilestoneBonus) => ({
-      spendThresholdUsd: mb.spend_threshold_usd,
-      bonusPoints: mb.bonus_points,
-      period: mb.period,
-    })),
-    feeWaiverSpendUsd: dbCard.financials?.fee_waiver_spend_usd ?? null,
-    foreignTxnFeePct: dbCard.financials?.foreign_transaction_fee_pct ?? 0,
-    rewardType,
-  }
-}
+import { validateRequestAndApiKey, checkRateLimit } from './validators'
+import { transformCardToKnowledge } from './card-transformers'
+import { detectProductAttributes, calculateMonthlyTxns } from './product-helpers'
 
 async function buildCardKnowledge(
   userContext: Awaited<ReturnType<typeof buildUserContext>>,
@@ -200,30 +49,8 @@ async function buildCardKnowledge(
   return cardKnowledgeMap
 }
 
-function detectProductAttributes(product: z.infer<typeof AnalyzeSchema>['product']): {
-  isEmi: boolean
-  merchant: string
-  isForeignMerchant: boolean
-  category: string
-} {
-  const isEmi = product.url?.includes('emi') || product.name?.toLowerCase().includes('emi') || false
-
-  const merchant = sanitizeForPrompt((product.source && SOURCE_TO_MERCHANT_DOMAIN[product.source]) || product.source || 'amazon.in')
-
-  const isForeignMerchantValue = isForeignMerchant(merchant)
-  const category = sanitizeForPrompt(inferCategory(product.name || ''))
-
-  return { isEmi, merchant, isForeignMerchant: isForeignMerchantValue, category }
-}
-
-function calculateMonthlyTxns(userContext: Awaited<ReturnType<typeof buildUserContext>>): number {
-  return userContext.behaviour.monthlyAvgSpendUsd > 0
-    ? Math.max(OP_AGENT_CONFIG.MIN_MONTHLY_TXNS, Math.round(userContext.behaviour.categoryBreakdown.reduce((s, c) => s + c.txCount, 0) / OP_AGENT_CONFIG.TXN_COUNT_DIVISOR))
-    : OP_AGENT_CONFIG.DEFAULT_MONTHLY_TXNS
-}
-
 async function runAgentAndBuildResponse(
-  product: z.infer<typeof AnalyzeSchema>['product'],
+  product: { name?: string; price: number; url?: string },
   cardKeys: string[],
   cardKnowledgeMap: Record<string, CardKnowledge>,
   userContext: Awaited<ReturnType<typeof buildUserContext>>,
@@ -265,31 +92,25 @@ async function runAgentAndBuildResponse(
 
 export async function POST(request: NextRequest) {
   try {
-    // Validate request and check API key
-    const validation = await validateRequestAndApiKey(request)
+    const validation = await validateRequestAndApiKey(request, getEnv)
     if (!validation.success) {
       return validation.response
     }
     const { product, userId } = validation.data
     const env = validation.env
 
-    // Check rate limit
     const rateLimitResponse = await checkRateLimit(userId)
     if (rateLimitResponse) {
       return rateLimitResponse
     }
 
-    // Build user context
     const userContext = await buildUserContext(userId)
 
-    // Build card knowledge map
     const cardKeys = userContext.cards.map(c => c.cardId)
     const cardKnowledgeMap = await buildCardKnowledge(userContext, env, cardKeys)
 
-    // Instantiate Gemini model
     const model = createGeminiModel(env.GOOGLE_API_KEY)
 
-    // Run agent and build response
     return await runAgentAndBuildResponse(product, cardKeys, cardKnowledgeMap, userContext, env, model)
   } catch (error) {
     logger.error({ error }, '[OP Agent] Error')

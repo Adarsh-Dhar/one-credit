@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs'
 import { connectDB } from '../lib/mongodb'
 import { User } from '../lib/models/User'
 import { FiatCard } from '../lib/models/FiatCard'
+import logger from '../lib/logger'
 
 // Generate random email and password
 const randomString = Math.random().toString(36).substring(2, 8)
@@ -13,9 +14,23 @@ const email = `demo-${randomString}@onecredit.test`
 const password = 'Demo123!@#'
 const name = 'Demo User'
 
-type CardType = 'personal' | 'business'
-type Network = 'AMEX' | 'VISA' | 'MASTERCARD' | 'DISCOVER'
-type CurrencyType = 'USD' | 'POINTS' | 'MILES'
+enum CardType {
+  PERSONAL = 'personal',
+  BUSINESS = 'business',
+}
+
+enum Network {
+  AMEX = 'AMEX',
+  VISA = 'VISA',
+  MASTERCARD = 'MASTERCARD',
+  DISCOVER = 'DISCOVER',
+}
+
+enum CurrencyType {
+  USD = 'USD',
+  POINTS = 'POINTS',
+  MILES = 'MILES',
+}
 
 function buildCards(userId: string) {
   return [
@@ -142,46 +157,46 @@ function buildCards(userId: string) {
 
 async function main() {
   await connectDB()
-  
-  console.log('Creating new user...')
-  console.log('Email:', email)
-  console.log('Password:', password)
-  
+
+  logger.info('Creating new user...')
+  logger.info(`Email: ${email}`)
+  logger.info(`Password: ${password}`)
+
   // Check if user exists
   const existing = await User.findOne({ email })
   if (existing) {
-    console.log('User already exists, deleting...')
+    logger.info('User already exists, deleting...')
     await User.deleteOne({ email })
     await FiatCard.deleteMany({ user_id: existing._id.toString() })
   }
-  
+
   // Create user
   const hashed = await bcrypt.hash(password, 12)
-  const user = await User.create({ 
-    email, 
-    name, 
+  const user = await User.create({
+    email,
+    name,
     password: hashed,
     portfolio: { cards: {} }
   })
-  
-  console.log('User created:', user._id.toString())
-  
+
+  logger.info(`User created: ${user._id.toString()}`)
+
   // Seed cards
-  console.log('Seeding cards...')
+  logger.info('Seeding cards...')
   const userId = user._id.toString()
   const cards = buildCards(userId)
-  
+
   await FiatCard.deleteMany({ user_id: userId })
   await FiatCard.insertMany(cards)
-  
-  console.log(`Seeded ${cards.length} cards for user`)
-  
-  console.log('\n=== DEMO CREDENTIALS ===')
-  console.log('Email:', email)
-  console.log('Password:', password)
-  console.log('========================\n')
-  
+
+  logger.info(`Seeded ${cards.length} cards for user`)
+
+  logger.info('=== DEMO CREDENTIALS ===')
+  logger.info(`Email: ${email}`)
+  logger.info(`Password: ${password}`)
+  logger.info('========================')
+
   await mongoose.disconnect()
 }
 
-main().catch(console.error)
+main().catch(logger.error)

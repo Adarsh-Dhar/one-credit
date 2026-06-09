@@ -111,6 +111,35 @@ export interface CardForConversion {
   };
 }
 
+// ─── Helper function ───────────────────────────────────────────────────────────
+
+export function walletCardToConversionCard(card: {
+  currency: string;
+  earnRates: Record<string, number>;
+  pointsProgram?: { name: string; cppMin: number; cppMax: number } | null;
+  perks?: string[];
+  statementCredits?: Array<{ name: string; amount_usd: number; amount_redeemed?: number; reset_period: string; merchant_categories?: string[] }>;
+  portalBonuses?: Array<{ portal_name: string; portal_url: string; categories: string[]; bonus_multiplier: number; bonus_type: 'multiplier' | 'flat_pct' }>;
+  protections?: { extended_warranty: boolean; purchase_protection_days: number; return_protection_days: number; cell_phone_protection: boolean; trip_cancellation: boolean; primary_rental_cdw: boolean };
+}): CardForConversion {
+  return {
+    currency: card.currency,
+    earnRates: card.earnRates,
+    pointsProgram: card.pointsProgram ? {
+      cppMin: card.pointsProgram.cppMin,
+      cppMax: card.pointsProgram.cppMax,
+      name: card.pointsProgram.name,
+    } : undefined,
+    perks: card.perks,
+    statementCredits: card.statementCredits?.map(credit => ({
+      ...credit,
+      merchant_categories: credit.merchant_categories ?? [],
+    })),
+    portalBonuses: card.portalBonuses,
+    protections: card.protections,
+  };
+}
+
 // ─── Main function ───────────────────────────────────────────────────────────
 
 export function computeTotalValue(
@@ -162,13 +191,13 @@ export function computeTotalValue(
     result.earnRateUsd = cashReward;
     result.baseValue = cashReward;
   } else {
-    // Points card — use cpp range
-    const cpp_min = card.pointsProgram?.cppMin ?? 1.0;
-    const cpp_max = card.pointsProgram?.cppMax ?? 1.0;
+    // Points card — use centsPerPoint range
+    const centsPerPointMin = card.pointsProgram?.cppMin ?? 1.0;
+    const centsPerPointMax = card.pointsProgram?.cppMax ?? 1.0;
     const points = spendAmount * (earnRate / 100);
-    result.earnedValue_min = points * cpp_min;
-    result.earnedValue_max = points * cpp_max;
-    result.earnRateUsd = points * cpp_min; // conservative for comparison
+    result.earnedValue_min = points * centsPerPointMin;
+    result.earnedValue_max = points * centsPerPointMax;
+    result.earnRateUsd = points * centsPerPointMin; // conservative for comparison
     result.baseValue = result.earnedValue_min;
     result.confidence = 'derived';
   }

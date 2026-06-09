@@ -8,6 +8,34 @@ import { Menu, X, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSession, signOut } from 'next-auth/react';
 
+interface NavItem {
+  href: string;
+  label: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { href: '/', label: 'Dashboard' },
+  { href: '/cards', label: 'Cards' },
+  { href: '/offers', label: 'Offers' },
+  { href: '/insights', label: 'Insights' },
+  { href: '/pay', label: 'Pay' },
+];
+
+function NavLink({ href, label, pathname, isMobile = false }: NavItem & { pathname: string; isMobile?: boolean }) {
+  const isActive = pathname === href;
+  const baseClasses = 'text-[#C4B8A8] hover:text-[#E8D8B0]';
+  const activeClasses = isActive ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : '';
+  const mobileClasses = isMobile ? 'w-full justify-start' : '';
+
+  return (
+    <Link href={href}>
+      <Button variant="ghost" className={`${baseClasses} ${activeClasses} ${mobileClasses}`}>
+        {label}
+      </Button>
+    </Link>
+  );
+}
+
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const { data: session } = useSession();
@@ -28,31 +56,9 @@ export function Navigation() {
           </Link>
 
           <div className="hidden md:flex items-center gap-1">
-            <Link href="/">
-              <Button variant="ghost" className={`text-[#C4B8A8] hover:text-[#E8D8B0] ${pathname === '/' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Dashboard
-              </Button>
-            </Link>
-            <Link href="/cards">
-              <Button variant="ghost" className={`text-[#C4B8A8] hover:text-[#E8D8B0] ${pathname === '/cards' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Cards
-              </Button>
-            </Link>
-            <Link href="/offers">
-              <Button variant="ghost" className={`text-[#C4B8A8] hover:text-[#E8D8B0] ${pathname === '/offers' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Offers
-              </Button>
-            </Link>
-            <Link href="/insights">
-              <Button variant="ghost" className={`text-[#C4B8A8] hover:text-[#E8D8B0] ${pathname === '/insights' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Insights
-              </Button>
-            </Link>
-            <Link href="/pay">
-              <Button variant="ghost" className={`text-[#C4B8A8] hover:text-[#E8D8B0] ${pathname === '/pay' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Pay
-              </Button>
-            </Link>
+            {NAV_ITEMS.map((item) => (
+              <NavLink key={item.href} {...item} pathname={pathname} />
+            ))}
           </div>
 
           <div className="flex items-center gap-2">
@@ -84,31 +90,9 @@ export function Navigation() {
 
         {isOpen && (
           <div className="md:hidden pb-4 space-y-2">
-            <Link href="/">
-              <Button variant="ghost" className={`w-full justify-start text-[#C4B8A8] ${pathname === '/' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Dashboard
-              </Button>
-            </Link>
-            <Link href="/cards">
-              <Button variant="ghost" className={`w-full justify-start text-[#C4B8A8] ${pathname === '/cards' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Cards
-              </Button>
-            </Link>
-            <Link href="/offers">
-              <Button variant="ghost" className={`w-full justify-start text-[#C4B8A8] ${pathname === '/offers' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Offers
-              </Button>
-            </Link>
-            <Link href="/insights">
-              <Button variant="ghost" className={`w-full justify-start text-[#C4B8A8] ${pathname === '/insights' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Insights
-              </Button>
-            </Link>
-            <Link href="/pay">
-              <Button variant="ghost" className={`w-full justify-start text-[#C4B8A8] ${pathname === '/pay' ? 'text-[#E8D8B0] bg-[#261B0E]/80 rounded' : ''}`}>
-                Pay
-              </Button>
-            </Link>
+            {NAV_ITEMS.map((item) => (
+              <NavLink key={item.href} {...item} pathname={pathname} isMobile />
+            ))}
           </div>
         )}
       </div>

@@ -1,10 +1,134 @@
 // Background service worker for OneCredit extension
 import type { Message, MessageResponse } from '@/types'
+import { logger } from './logger'
+
+// Constants
+const RUM_CONFIG = {
+  FLUSH_INTERVAL_MS: 20000,
+  DEFAULT_API_URL: 'http://localhost:3000',
+} as const;
 
 // RUM event buffer for background worker
-let rumEventBuffer: any[] = []
-const RUM_FLUSH_INTERVAL = 20000 // 20 seconds
+interface RUMEvent {
+  eventType: string
+  timestamp: number
+  [key: string]: unknown
+}
+
+let rumEventBuffer: RUMEvent[] = []
 let rumFlushTimer: ReturnType<typeof setInterval> | null = null
+
+// Chrome storage helpers
+function setUserSession(data: { email?: string; userId?: string; name?: string }, callback?: () => void) {
+  chrome.storage.local.set({
+    userEmail: data.email,
+    userId: data.userId,
+    userName: data.name,
+  }, () => {
+    logger.log('Stored user session in chrome.storage.local')
+    callback?.()
+  })
+}
+
+function getUserSession(callback: (result: { userEmail?: string; userId?: string; userName?: string }) => void) {
+  chrome.storage.local.get(['userEmail', 'userId', 'userName'], callback)
+}
+
+// Message handler type
+type MessageHandler = (
+  request: Message,
+  sendResponse: (response?: MessageResponse) => void
+) => boolean | void
+
+// Shared message handlers
+const handleSetUserSession: MessageHandler = (request, sendResponse) => {
+  logger.log('Received SET_USER_SESSION:', request.data)
+  setUserSession(request.data || {}, () => sendResponse({ success: true }))
+  return true
+}
+
+// Message handler registry
+const messageHandlers: Record<string, MessageHandler> = {
+  RUM_EVENTS: (request, sendResponse) => {
+    const events = (request.data?.events as RUMEvent[]) || []
+    rumEventBuffer.push(...events)
+    sendResponse({ success: true })
+    return true
+  },
+
+  PRODUCT_DETECTED: (request, sendResponse) => {
+    logger.log('Product detected:', request.data)
+
+    chrome.storage.local.set({
+      lastDetectedProduct: request.data,
+      lastProductTime: Date.now(),
+    }, () => {
+      logger.log('Product stored in storage')
+    })
+
+    chrome.runtime.sendMessage({
+      type: 'PRODUCT_DETECTED_UPDATE',
+      data: request.data,
+    }).catch(() => {
+      // Popup/sidepanel not open — that's fine
+    })
+
+    sendResponse({ success: true })
+    return true
+  },
+
+  ANALYZE_PRODUCT: (request, sendResponse) => {
+    rumEventBuffer.push({
+      eventType: 'extension_fire',
+      timestamp: Date.now()
+    })
+    sendResponse({ success: false, error: 'SidePanel should handle this directly' })
+    return true
+  },
+
+  CARD_SELECTED: (request, sendResponse) => {
+    const { cardKey } = request
+    chrome.storage.local.set({ selectedCard: cardKey }, () => {
+      sendResponse({ success: true })
+    })
+    return true
+  },
+
+  GET_STATUS: (request, sendResponse) => {
+    chrome.storage.local.get(['lastDetectedProduct', 'selectedCard'], (result) => {
+      sendResponse({
+        success: true,
+        data: {
+          hasProduct: !!result.lastDetectedProduct,
+          selectedCard: result.selectedCard,
+        },
+      })
+    })
+    return true
+  },
+
+  SET_USER_SESSION: handleSetUserSession,
+
+  GET_USER_SESSION: (request, sendResponse) => {
+    getUserSession((result) => sendResponse({ success: true, data: result }))
+    return true
+  },
+
+  GET_SESSION: (request, sendResponse) => {
+    getUserSession((result) => {
+      sendResponse({
+        success: true,
+        data: {
+          user: result.userId ? {
+            name: result.userName || '',
+            email: result.userEmail || '',
+          } : null,
+        },
+      })
+    })
+    return true
+  },
+}
 
 // Flush RUM events to API
 function flushRUMEvents() {
@@ -20,11 +144,11 @@ function flushRUMEvents() {
     const userId = storage.userId as string | undefined
 
     if (!userId) {
-      console.log('[OneCredit] No userId found, skipping RUM flush')
+      logger.log('No userId found, skipping RUM flush')
       return
     }
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || RUM_CONFIG.DEFAULT_API_URL
     fetch(`${API_BASE}/api/rum/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -35,16 +159,14 @@ function flushRUMEvents() {
     })
       .then((response) => {
         if (!response.ok) {
-          console.error('[OneCredit] RUM ingest failed:', response.status)
+          logger.error('RUM ingest failed:', response.status)
           rumEventBuffer.unshift(...eventsToSend)
         } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[OneCredit] RUM events flushed:', eventsToSend.length)
-          }
+          logger.log('RUM events flushed:', eventsToSend.length)
         }
       })
       .catch((err) => {
-        console.error('[OneCredit] RUM flush error:', err)
+        logger.error('RUM flush error:', err)
         rumEventBuffer.unshift(...eventsToSend)
       })
   })
@@ -55,7 +177,7 @@ function startRUMFlushTimer() {
   if (rumFlushTimer) {
     return
   }
-  rumFlushTimer = setInterval(flushRUMEvents, RUM_FLUSH_INTERVAL)
+  rumFlushTimer = setInterval(flushRUMEvents, RUM_CONFIG.FLUSH_INTERVAL_MS)
 }
 
 // Stop RUM flush timer
@@ -70,168 +192,49 @@ function _stopRUMFlushTimer() {
 // Listen for messages from content scripts and popup
 chrome.runtime.onMessage.addListener(
   (request: Message, sender: chrome.runtime.MessageSender, sendResponse: (response?: MessageResponse) => void) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[OneCredit] Received message:', request.type, 'from', sender.url || 'internal')
+    logger.log('Received message:', request.type, 'from', sender.url || 'internal')
+
+    const handler = messageHandlers[request.type]
+    if (handler) {
+      return handler(request, sendResponse)
     }
 
-    switch (request.type) {
-      case 'RUM_EVENTS': {
-        // Buffer RUM events from content script
-        rumEventBuffer.push(...(request.data?.events || []))
-        sendResponse({ success: true })
-        return true
-      }
-
-      case 'PRODUCT_DETECTED': {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[OneCredit] Product detected:', request.data)
-        }
-
-        chrome.storage.local.set({
-          lastDetectedProduct: request.data,
-          lastProductTime: Date.now(),
-        }, () => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[OneCredit] Product stored in storage')
-          }
-        })
-
-        // Broadcast to extension pages (popup, sidepanel) via runtime — NOT tabs
-        chrome.runtime.sendMessage({
-          type: 'PRODUCT_DETECTED_UPDATE',
-          data: request.data,
-        }).catch(() => {
-          // Popup/sidepanel not open — that's fine, they'll read from storage on open
-        })
-
-        sendResponse({ success: true })
-        return true
-      }
-
-      case 'ANALYZE_PRODUCT': {
-        // Track extension fire event for RUM
-        rumEventBuffer.push({
-          eventType: 'extension_fire',
-          timestamp: Date.now()
-        })
-        // SidePanel handles this directly to avoid CSP issues
-        sendResponse({ success: false, error: 'SidePanel should handle this directly' })
-        return true
-      }
-
-      case 'CARD_SELECTED': {
-        // Handle card selection - store for later processing
-        const { cardKey } = request
-        chrome.storage.local.set({ selectedCard: cardKey }, () => {
-          sendResponse({ success: true })
-        })
-        return true
-      }
-
-      case 'GET_STATUS': {
-        // Get extension status
-        chrome.storage.local.get(['lastDetectedProduct', 'selectedCard'], (result) => {
-          sendResponse({
-            success: true,
-            status: {
-              hasProduct: !!result.lastDetectedProduct,
-              selectedCard: result.selectedCard,
-            },
-          })
-        })
-        return true
-      }
-
-      case 'SET_USER_SESSION': {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[OneCredit] Received SET_USER_SESSION:', request.data)
-        }
-        chrome.storage.local.set({
-          userEmail: request.data?.email,
-          userId: request.data?.userId,
-          userName: request.data?.name,
-        }, () => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[OneCredit] Stored user session in chrome.storage.local')
-          }
-          sendResponse({ success: true })
-        })
-        return true
-      }
-
-      case 'GET_USER_SESSION': {
-        chrome.storage.local.get(['userEmail', 'userId', 'userName'], (result) => {
-          sendResponse({ success: true, data: result })
-        })
-        return true
-      }
-
-      case 'GET_SESSION': {
-        // Return session from storage instead of fetching (avoid CSP)
-        chrome.storage.local.get(['userEmail', 'userId', 'userName'], (result) => {
-          sendResponse({
-            success: true,
-            data: {
-              user: result.userId ? {
-                name: result.userName || '',
-                email: result.userEmail || '',
-              } : null,
-            },
-          })
-        })
-        return true
-      }
-
-      default:
-        sendResponse({ success: false, error: 'Unknown message type' })
-    }
+    sendResponse({ success: false, error: 'Unknown message type' })
   }
 )
+
+// External message handler registry
+const externalMessageHandlers: Record<string, MessageHandler> = {
+  SET_USER_SESSION: handleSetUserSession,
+}
 
 // Listen for messages from external web app (localhost:3000, onecredit.app)
 chrome.runtime.onMessageExternal.addListener(
   (request: Message, sender: chrome.runtime.MessageSender, sendResponse: (response?: MessageResponse) => void) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[OneCredit] Received external message:', request.type, 'from', sender.url)
+    logger.log('Received external message:', request.type, 'from', sender.url)
+
+    const handler = externalMessageHandlers[request.type]
+    if (handler) {
+      return handler(request, sendResponse)
     }
 
-    switch (request.type) {
-      case 'SET_USER_SESSION': {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[OneCredit] Received SET_USER_SESSION from external:', request.data)
-        }
-        chrome.storage.local.set({
-          userEmail: request.data?.email,
-          userId: request.data?.userId,
-          userName: request.data?.name,
-        }, () => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[OneCredit] Stored user session in chrome.storage.local')
-          }
-          sendResponse({ success: true })
-        })
-        return true
-      }
-
-      default:
-        sendResponse({ success: false, error: 'Unknown external message type' })
-    }
+    sendResponse({ success: false, error: 'Unknown external message type' })
   }
 )
 
 // Handle extension installation
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
-    console.log('[OneCredit] Extension installed')
+    logger.log('Extension installed')
     // Open options page on first install
     chrome.runtime.openOptionsPage()
     // Start RUM flush timer
     startRUMFlushTimer()
   } else if (details.reason === 'update') {
-    console.log('[OneCredit] Extension updated')
+    logger.log('Extension updated')
     // Clear cached product data to force re-detection with new conversion logic
     chrome.storage.local.remove(['lastDetectedProduct', 'lastProductTime'], () => {
-      console.log('[OneCredit] Cleared cached product data')
+      logger.log('Cleared cached product data')
     })
     // Start RUM flush timer
     startRUMFlushTimer()

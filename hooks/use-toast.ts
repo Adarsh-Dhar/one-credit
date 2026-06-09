@@ -78,7 +78,6 @@ export const reducer = (state: State, action: Action): State => {
         ...state,
         toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
       }
-
     case 'UPDATE_TOAST':
       return {
         ...state,
@@ -86,7 +85,6 @@ export const reducer = (state: State, action: Action): State => {
           t.id === action.toast.id ? { ...t, ...action.toast } : t,
         ),
       }
-
     case 'DISMISS_TOAST': {
       const { toastId } = action
 
@@ -112,8 +110,9 @@ export const reducer = (state: State, action: Action): State => {
         ),
       }
     }
-    case 'REMOVE_TOAST':
-      if (action.toastId === undefined) {
+    case 'REMOVE_TOAST': {
+      const { toastId } = action
+      if (toastId === undefined) {
         return {
           ...state,
           toasts: [],
@@ -121,8 +120,11 @@ export const reducer = (state: State, action: Action): State => {
       }
       return {
         ...state,
-        toasts: state.toasts.filter((t) => t.id !== action.toastId),
+        toasts: state.toasts.filter((t) => t.id !== toastId),
       }
+    }
+    default:
+      return state
   }
 }
 

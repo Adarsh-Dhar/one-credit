@@ -390,12 +390,14 @@ async function generateContentWithRetry(
       const result = await model.generateContent(contents as any);
       return result as any;
     } catch (error: unknown) {
+      const errorWithStatus = error as { status?: number };
+      const errorWithMessage = error as { message?: string };
       const isRetryable =
-        (error as { status?: number })?.status === 503 ||
-        (error as { status?: number })?.status === 429 ||
-        (error as { message?: string })?.message?.includes('high demand') ||
-        (error as { message?: string })?.message?.includes('quota') ||
-        (error as { message?: string })?.message?.includes('Service Unavailable');
+        errorWithStatus?.status === 503 ||
+        errorWithStatus?.status === 429 ||
+        errorWithMessage?.message?.includes('high demand') ||
+        errorWithMessage?.message?.includes('quota') ||
+        errorWithMessage?.message?.includes('Service Unavailable');
       
       if (isRetryable && attempt < maxRetries - 1) {
         const delay = Math.pow(2, attempt) * INITIAL_RETRY_DELAY_MS
@@ -409,32 +411,34 @@ async function generateContentWithRetry(
   throw new Error('Max retries exceeded');
 }
 
-async function runRUMAgentWithModel(
-  userEmail: string,
-  geminiApiKey: string,
-  modelName: string,
-  extractedPrefs?: import('./models/UserIntent').ExtractedPrefs,
-): Promise<RUMAgentResult> {
-
-  const genAI  = new GoogleGenerativeAI(geminiApiKey)
-  const model = genAI.getGenerativeModel({
+async function createGeminiModel(geminiApiKey: string, modelName: string): Promise<GenerativeModel> {
+  const genAI = new GoogleGenerativeAI(geminiApiKey)
+  return genAI.getGenerativeModel({
     model: modelName,
     tools: [{ functionDeclarations: DynatraceTools } as Tool],
-  });
+  })
+}
 
-  // Fetch user profile from MongoDB and cards from FiatCard
-  const User = (await import('@/lib/models/User')).User;
-  const FiatCard = (await import('@/lib/models/FiatCard')).FiatCard;
+async function fetchUserProfileAndCards(userEmail: string): Promise<{
+  userProfile: unknown
+  cardsOwned: string[]
+}> {
+  const User = (await import('@/lib/models/User')).User
+  const FiatCard = (await import('@/lib/models/FiatCard')).FiatCard
   const [user, fiatCards] = await Promise.all([
     User.findOne({ email: userEmail }),
     FiatCard.find({})
-  ]);
-  const userProfile = user?.profile || null;
-  const cardsOwned = fiatCards.map((card: { display_name: string }) => card.display_name);
+  ])
+  const userProfile = user?.profile || null
+  const cardsOwned = fiatCards.map((card: { display_name: string }) => card.display_name)
+  return { userProfile, cardsOwned }
+}
 
-  // ── Agentic loop: Gemini may call DT tools multiple times ─────────────────
-
-  const constraintBlock = extractedPrefs ? `
+function buildConstraintBlock(extractedPrefs?: import('./models/UserIntent').ExtractedPrefs): string {
+  if (!extractedPrefs) {
+    return ''
+  }
+  return `
 ## CHAT-STATED PREFERENCES (OVERRIDE RUM SIGNALS)
 The user has explicitly stated the following preferences via chat conversation.
 These OVERRIDE any conflicting inference from RUM signals.
@@ -446,9 +450,11 @@ For example:
 - If maxAnnualFee is set, set filterPremiumCards to true regardless of fee-insensitive signals
 - If mustHaveFeatures includes specific benefits, ensure those are reflected in the recommendation
 - If avoidNetworks is set, exclude those networks from recommendations
-` : '';
+`
+}
 
-  const systemPrompt = `
+function buildSystemPrompt(constraintBlock: string): string {
+  return `
 You are the RUMPersonaAgent for one-credit, a credit card wallet app.
 
 ## YOUR ONLY JOB
@@ -511,23 +517,27 @@ After calling the tools, respond ONLY with a JSON object — no markdown, no pre
   "agentReasoning": "<one paragraph explaining signal → persona → recommendation chain>"
 }
 `.trim()
+}
 
-  const userMessage = `Infer the persona for userId: ${userEmail}. Call the Dynatrace tools now.
-
-${userProfile || cardsOwned.length > 0 ? `
+function buildUserMessage(userEmail: string, userProfile: unknown, cardsOwned: string[]): string {
+  const profileSection = userProfile || cardsOwned.length > 0
+    ? `
 ## USER PROFILE
-${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
-` : '(No profile data available)'}
+${JSON.stringify({ ...(userProfile as Record<string, unknown>), cardsOwned }, null, 2)}
 `
+    : '(No profile data available)'
 
-  // Start with the initial message
-  let contents: GeminiContent[] = [
-    {
-      role: 'user',
-      parts: [{ text: `${systemPrompt}\n\n${userMessage}` }],
-    },
-  ]
+  return `Infer the persona for userId: ${userEmail}. Call the Dynatrace tools now.
 
+${profileSection}`
+}
+
+async function runAgenticLoop(
+  model: GenerativeModel,
+  userEmail: string,
+  initialContents: GeminiContent[]
+): Promise<string> {
+  let contents = initialContents
   let finalText = ''
   let iterations = 0
 
@@ -536,7 +546,7 @@ ${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
 
     const result = await generateContentWithRetry(model, contents)
     const response = result.response
-    const parts     = response.candidates?.[0]?.content?.parts ?? []
+    const parts = response.candidates?.[0]?.content?.parts ?? []
 
     // Append model turn
     contents = [
@@ -556,7 +566,7 @@ ${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
     // Execute each tool call and build the function-response turn
     const toolResponses = await Promise.all(
       toolCalls.map(async (part: GeminiPart) => {
-        const fc   = part.functionCall!
+        const fc = part.functionCall!
         const name = fc.name
         const args = (fc.args ?? {}) as Record<string, unknown>
 
@@ -595,20 +605,43 @@ ${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
     throw new Error('[rum-agent] Gemini did not return a final answer within iteration limit')
   }
 
-  // ── Parse Gemini's JSON output ─────────────────────────────────────────────
+  return finalText
+}
 
-  let parsed: { persona: UserPersona; agentReasoning: string }
-
+function parseGeminiResponse(finalText: string): { persona: UserPersona; agentReasoning: string } {
   try {
     const clean = finalText.replace(/```json|```/g, '').trim()
-    parsed = JSON.parse(clean)
+    return JSON.parse(clean)
   } catch {
     logger.error({ finalText: finalText.slice(0, 400) }, '[rum-agent] Gemini returned invalid JSON')
     throw new Error(`[rum-agent] Gemini returned invalid JSON: ${finalText.slice(0, 200)}`)
   }
+}
 
-  // ── Log persona inference back to Dynatrace ────────────────────────────────
+async function runRUMAgentWithModel(
+  userEmail: string,
+  geminiApiKey: string,
+  modelName: string,
+  extractedPrefs?: import('./models/UserIntent').ExtractedPrefs,
+): Promise<RUMAgentResult> {
+  const model = await createGeminiModel(geminiApiKey, modelName)
+  const { userProfile, cardsOwned } = await fetchUserProfileAndCards(userEmail)
+  const constraintBlock = buildConstraintBlock(extractedPrefs)
+  const systemPrompt = buildSystemPrompt(constraintBlock)
+  const userMessage = buildUserMessage(userEmail, userProfile, cardsOwned)
 
+  // Start with the initial message
+  const initialContents: GeminiContent[] = [
+    {
+      role: 'user',
+      parts: [{ text: `${systemPrompt}\n\n${userMessage}` }],
+    },
+  ]
+
+  const finalText = await runAgenticLoop(model, userEmail, initialContents)
+  const parsed = parseGeminiResponse(finalText)
+
+  // Log persona inference back to Dynatrace
   const dynatraceLogId = await logPersonaToDynatrace(
     userEmail,
     parsed.persona,
@@ -626,9 +659,9 @@ ${JSON.stringify({ ...userProfile, cardsOwned }, null, 2)}
 
   return {
     userId: userEmail,
-    persona:              parsed.persona,
+    persona: parsed.persona,
     dynatraceLogId,
-    rawGeminiReasoning:   parsed.agentReasoning,
+    rawGeminiReasoning: parsed.agentReasoning,
   }
 }
 

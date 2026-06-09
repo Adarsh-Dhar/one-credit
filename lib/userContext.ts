@@ -1,508 +1,23 @@
 // lib/userContext.ts
 //
-// Builds a complete user context object from:
-//   - card balances (credit limit, available credit, points balance, APR)
-//   - transaction history (spending behaviour, category breakdown, cap progress)
-//
-// This is fed into the OP agent prompt so Gemini reasons over the
-// REAL user, not a hypothetical optimal user.
+// Main entry point for user context building
+// This file now serves as the main export point, delegating to specialized modules
 
-import { connectDB } from '@/lib/mongodb'
-import { FiatCard, IFiatCard, FIAT_CARD_PROJECTION } from '@/lib/models/FiatCard'
-import { Transaction } from '@/lib/models/Transaction'
-import { isCashbackCard } from '@/lib/utils'
+import type { UserContext } from './userContext/types'
+import type { IFiatCard } from './models/FiatCard'
+import { fetchUserContextData, fetchTransactions } from './userContext/fetchers'
+import { computeRedemptionStats, computeMonthlyTrend, aggregateSpendingBehaviour, deriveLifestyleSignals } from './userContext/calculations'
+import { buildCardLiveStates, computeOpTotals } from './userContext/cardHelpers'
+import { USER_CONTEXT_THRESHOLDS } from '@/lib/constants'
+import type { TransactionLean } from './userContext/types'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface TransactionLean {
-  cardId: string
-  amountUsd: number
-  category: string
-  merchant: string
-  createdAt: Date
-  isEmi?: boolean
-  pointsRedeemed?: number
-  valueReceivedUsd?: number
-}
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const BEHAVIOUR_WINDOW_DAYS = 90
-const ANNUAL_WINDOW_DAYS = 365
-const AVG_DAYS_PER_MONTH = 30.44
-const MS_PER_MONTH = 1000 * 60 * 60 * 24 * AVG_DAYS_PER_MONTH
-const FREQUENT_TRAVEL_THRESHOLD_PCT = 15
-const FREQUENT_DINER_THRESHOLD_PCT = 12
-const ONLINE_SHOPPER_THRESHOLD_PCT = 20
-const GROCERY_DOMINANT_THRESHOLD_PCT = 20
-
-export interface CardLiveState {
-  cardId: string
-  displayName: string
-
-  // Credit health
-  creditLimit: number | null
-  currentBalanceOwed: number
-  availableCredit: number | null
-  utilizationPct: number | null
-  standardAprPct: number
-
-  // Existing rewards
-  pointsBalance: number
-  pointsValueUsd: number
-
-  // OP token state (USD cards only — null when not applicable)
-  opTokenState: {
-    tokenBalance: number                // raw OP token count (= credit_token_balance)
-    tokenValueUsd: number               // tokenBalance * op_cents_per_token / 100
-    opCentsPerToken: number             // redemption rate for this card
-    minRedeemThreshold: number          // min tokens needed to redeem
-    isTokenLow: boolean                 // tokenBalance < minRedeemThreshold
-  } | null
-
-  // Category cap progress this month
-  categoryCapProgress: {
-    category: string
-    spentTowardsCap: number
-    capLimit: number | null
-    remainingCapRoom: number | null
-  }[]
-  annualSpendUsd: number
-}
-
-export interface SpendingBehaviour {
-  // ── Cross-card aggregate (last 90 days) ────────────────────────────────────
-  categoryBreakdown: {
-    category: string
-    totalSpentUsd: number
-    txCount: number
-    sharePct: number
-    avgTxSizeUsd: number
-  }[]
-
-  // ── Per-card category breakdown ────────────────────────────────────────────
-  // Key: cardId — tells Gemini which card the user actually swipes per category
-  cardCategoryBreakdown: Record<string, {
-    category: string
-    totalSpentUsd: number
-    txCount: number
-    sharePct: number          // share of that card's own total spend
-  }[]>
-
-  // ── Merchant tracking ──────────────────────────────────────────────────────
-  topMerchants: {
-    merchant: string
-    totalSpentUsd: number
-    txCount: number
-    category: string          // most common category for this merchant
-    primaryCardId: string     // card the user most often swipes at this merchant
-  }[]
-
-  // Per-card top merchants
-  cardTopMerchants: Record<string, {
-    merchant: string
-    totalSpentUsd: number
-    txCount: number
-  }[]>
-
-  // ── Lifestyle signals ──────────────────────────────────────────────────────
-  topCategory: string
-  isFrequentTraveller: boolean
-  isFrequentDiner: boolean
-  isOnlineShopper: boolean
-  isGroceryDominant: boolean
-  monthlyAvgSpendUsd: number  // now dynamic — based on actual months in window
-
-  // ── Monthly trend (last 3 months) ─────────────────────────────────────────
-  monthlyTrend: {
-    month: string             // 'YYYY-MM'
-    totalSpentUsd: number
-    categoryBreakdown: { category: string; totalSpentUsd: number; sharePct: number }[]
-  }[]
-  // Derived from monthlyTrend — positive = growing, negative = shrinking
-  momSpendChangePct: number | null    // month-over-month change in total spend %
-  fastestGrowingCategory: string | null  // category with biggest MoM $ increase
-
-  // ── Redemption behaviour ───────────────────────────────────────────────────
-  actualAvgCppAchieved: number | null  // now from type:'redemption' transactions
-  totalPointsRedeemed90d: number       // sum of pointsRedeemed in last 90 days
-  redemptionCount90d: number           // how many times user has redeemed
-
-  // ── EMI behaviour ─────────────────────────────────────────────────────────
-  emiTransactionPct: number
-}
-
-export interface UserContext {
-  userId: string
-  cards: CardLiveState[]
-  behaviour: SpendingBehaviour
-  totalOpTokens: number        // sum of credit_token_balance across all USD cards
-  totalOpBalanceUsd: number    // sum of each card's tokenBalance * op_cents_per_token / 100
-}
+// Re-export helper functions for backward compatibility
+export { computeRedemptionStats, computeMonthlyTrend, aggregateSpendingBehaviour, deriveLifestyleSignals, buildCardCategoryBreakdown } from './userContext/calculations'
+export { fetchUserContextData, fetchTransactions } from './userContext/fetchers'
 
 // Helper method to reduce deep chaining
 export function getUserActualAvgCpp(context: UserContext): number | null {
   return context.behaviour?.actualAvgCppAchieved ?? null
-}
-
-// ─── Helper Functions ───────────────────────────────────────────────────────
-
-type MerchantEntry = {
-  total: number
-  count: number
-  categories: Record<string, number>
-  cardCounts: Record<string, number>
-}
-
-function calculateCreditMetrics(card: IFiatCard): {
-  limit: number | null
-  owed: number
-  available: number | null
-  utilization: number | null
-} {
-  const limit = card.credit_limit ?? null
-  const owed = card.current_balance_owed ?? 0
-  const available = limit !== null ? limit - owed : null
-  const utilization = limit ? (owed / limit) * 100 : null
-  return { limit, owed, available, utilization }
-}
-
-function buildCategoryCapProgress(card: IFiatCard): CardLiveState['categoryCapProgress'] {
-  return (card.rewards_structure.fixed_categories ?? [])
-    .filter((fixedCategory) => fixedCategory.cap_amount_usd !== null && fixedCategory.cap_amount_usd !== undefined)
-    .map((fixedCategory) => ({
-      category: fixedCategory.category,
-      spentTowardsCap: fixedCategory.current_spend_towards_cap ?? 0,
-      capLimit: fixedCategory.cap_amount_usd ?? null,
-      remainingCapRoom: fixedCategory.cap_amount_usd !== null && fixedCategory.cap_amount_usd !== undefined
-        ? fixedCategory.cap_amount_usd - (fixedCategory.current_spend_towards_cap ?? 0)
-        : null,
-    }))
-}
-
-function calculatePointsValue(card: IFiatCard): number {
-  const pointsBalance = card.points_balance ?? 0
-  const hasOpTokenBalance = card.currency_type === 'USD'
-    && card.op_redemption
-    && (card.credit_token_balance ?? 0) > 0
-  if (hasOpTokenBalance) {
-    const tokenBalance = card.credit_token_balance ?? 0
-    const centsPerToken = card.op_redemption!.op_cents_per_token / 100
-    return parseFloat((tokenBalance * centsPerToken).toFixed(2))
-  }
-  const centsPerPoint = card.points_value_cents ?? 100
-  return parseFloat((pointsBalance * (centsPerPoint / 100)).toFixed(2))
-}
-
-function buildOpTokenState(card: IFiatCard): CardLiveState['opTokenState'] {
-  if (isCashbackCard(card.currency_type) && card.op_redemption) {
-    const tokenBalance = card.credit_token_balance ?? 0
-    const centsPerToken = card.op_redemption.op_cents_per_token
-    const minThreshold = card.op_redemption.min_redeem_tokens
-    return {
-      tokenBalance,
-      tokenValueUsd: parseFloat((tokenBalance * (centsPerToken / 100)).toFixed(2)),
-      opCentsPerToken: centsPerToken,
-      minRedeemThreshold: minThreshold,
-      isTokenLow: tokenBalance < minThreshold,
-    }
-  }
-  return null
-}
-
-function buildCardLiveStates(
-  cards: IFiatCard[],
-  annualSpendByCard: Record<string, number>
-): CardLiveState[] {
-  return cards.map(card => {
-    const { limit, owed, available, utilization } = calculateCreditMetrics(card)
-    const categoryCapProgress = buildCategoryCapProgress(card)
-    const pointsBalance = card.points_balance ?? 0
-    const pointsValueUsd = calculatePointsValue(card)
-    const opTokenState = buildOpTokenState(card)
-
-    return {
-      cardId: card.card_id,
-      displayName: card.display_name,
-      creditLimit: limit,
-      currentBalanceOwed: owed,
-      availableCredit: available,
-      utilizationPct: utilization ? Math.round(utilization * 10) / 10 : null,
-      standardAprPct: card.financials.standard_apr * 100,
-      pointsBalance,
-      pointsValueUsd,
-      opTokenState,
-      categoryCapProgress,
-      annualSpendUsd: parseFloat((annualSpendByCard[card.card_id] ?? 0).toFixed(2)),
-    }
-  })
-}
-
-function computeOpTotals(
-  cardStates: CardLiveState[]
-): { totalOpTokens: number; totalOpBalanceUsd: number } {
-  let totalOpTokens = 0
-  let totalOpBalanceUsd = 0
-
-  for (const card of cardStates) {
-    if (card.opTokenState) {
-      totalOpTokens += card.opTokenState.tokenBalance
-      totalOpBalanceUsd += card.opTokenState.tokenValueUsd
-    }
-  }
-
-  return { totalOpTokens, totalOpBalanceUsd }
-}
-
-export function computeRedemptionStats(redemptionTxns: TransactionLean[]): {
-  actualAvgCppAchieved: number | null
-  totalPointsRedeemed90d: number
-  redemptionCount90d: number
-} {
-  const totalPointsRedeemed90d = redemptionTxns.reduce((s, t) => s + (t.pointsRedeemed ?? 0), 0)
-  const totalValueReceived90d = redemptionTxns.reduce((s, t) => s + (t.valueReceivedUsd ?? 0), 0)
-
-  const actualAvgCppAchieved = totalPointsRedeemed90d > 0
-    ? Math.round((totalValueReceived90d / totalPointsRedeemed90d) * 10000) / 100
-    : null
-
-  const redemptionCount90d = redemptionTxns.length
-
-  return { actualAvgCppAchieved, totalPointsRedeemed90d, redemptionCount90d }
-}
-
-export function computeMonthlyTrend(monthBuckets: Record<string, Record<string, number>>): {
-  monthlyTrend: SpendingBehaviour['monthlyTrend']
-  momSpendChangePct: number | null
-  fastestGrowingCategory: string | null
-} {
-  const monthlyTrend = Object.entries(monthBuckets)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, catMap]) => {
-      const monthTotal = Object.values(catMap).reduce((s, v) => s + v, 0)
-      return {
-        month,
-        totalSpentUsd: parseFloat(monthTotal.toFixed(2)),
-        categoryBreakdown: Object.entries(catMap)
-          .map(([category, total]) => ({
-            category,
-            totalSpentUsd: parseFloat(total.toFixed(2)),
-            sharePct: monthTotal > 0 ? Math.round((total / monthTotal) * 1000) / 10 : 0,
-          }))
-          .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd),
-      }
-    })
-
-  // MoM change
-  let momSpendChangePct: number | null = null
-  let fastestGrowingCategory: string | null = null
-
-  if (monthlyTrend.length >= 2) {
-    const last = monthlyTrend[monthlyTrend.length - 1]
-    const prev = monthlyTrend[monthlyTrend.length - 2]
-    momSpendChangePct = calculateMonthOverMonthChange(last, prev)
-
-    fastestGrowingCategory = calculateFastestGrowingCategory(last, prev)
-  }
-
-  return { monthlyTrend, momSpendChangePct, fastestGrowingCategory }
-}
-
-function calculateMonthOverMonthChange(
-  current: SpendingBehaviour['monthlyTrend'][number],
-  previous: SpendingBehaviour['monthlyTrend'][number]
-): number | null {
-  if (previous.totalSpentUsd === 0) {
-    return null;
-  }
-  return Math.round(((current.totalSpentUsd - previous.totalSpentUsd) / previous.totalSpentUsd) * 1000) / 10;
-}
-
-function calculateFastestGrowingCategory(
-  current: SpendingBehaviour['monthlyTrend'][number],
-  previous: SpendingBehaviour['monthlyTrend'][number]
-): string | null {
-  const toCatMap = (b: SpendingBehaviour['monthlyTrend'][number]) =>
-    Object.fromEntries(b.categoryBreakdown.map(c => [c.category, c.totalSpentUsd]))
-  const currentCatMap = toCatMap(current)
-  const previousCatMap = toCatMap(previous)
-  const growthByCategory = Object.entries(currentCatMap)
-    .map(([category, currentAmt]) => ({ category, growth: currentAmt - (previousCatMap[category] ?? 0) }))
-    .sort((a, b) => b.growth - a.growth)
-  return growthByCategory[0]?.growth > 0 ? growthByCategory[0].category : null;
-}
-
-export function buildCardCategoryBreakdown(
-  cardCategoryMap: Record<string, Record<string, { total: number; count: number }>>
-): SpendingBehaviour['cardCategoryBreakdown'] {
-  const result: SpendingBehaviour['cardCategoryBreakdown'] = {}
-  for (const [cardId, catMap] of Object.entries(cardCategoryMap)) {
-    const cardTotal = Object.values(catMap).reduce((s, v) => s + v.total, 0)
-    result[cardId] = Object.entries(catMap)
-      .map(([category, data]) => ({
-        category,
-        totalSpentUsd: parseFloat(data.total.toFixed(2)),
-        txCount: data.count,
-        sharePct: cardTotal > 0 ? Math.round((data.total / cardTotal) * 1000) / 10 : 0,
-      }))
-      .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
-  }
-  return result
-}
-
-function keyWithHighestCount(counts: Record<string, number>): string | undefined {
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]
-}
-
-interface AggregationMaps {
-  categoryMap: Record<string, { total: number; count: number }>
-  cardCategoryMap: Record<string, Record<string, { total: number; count: number }>>
-  merchantMap: Record<string, MerchantEntry>
-  cardMerchantMap: Record<string, Record<string, { total: number; count: number }>>
-  monthBuckets: Record<string, Record<string, number>>
-  emiCount: number
-}
-
-function initializeAggregationMaps(): AggregationMaps {
-  return {
-    categoryMap: {},
-    cardCategoryMap: {},
-    merchantMap: {},
-    cardMerchantMap: {},
-    monthBuckets: {},
-    emiCount: 0,
-  }
-}
-
-function processTransaction(transaction: TransactionLean, maps: AggregationMaps): void {
-  const category = transaction.category ?? 'other'
-  const cardId = transaction.cardId
-  const merchant = (transaction.merchant ?? 'unknown').toLowerCase().trim()
-  const month = (transaction.createdAt as Date).toISOString().slice(0, 7)
-  const amt = transaction.amountUsd ?? 0
-
-  // cross-card category aggregate
-  maps.categoryMap[category] ??= { total: 0, count: 0 }
-  maps.categoryMap[category].total += amt
-  maps.categoryMap[category].count += 1
-  if (transaction.isEmi) {
-    maps.emiCount++
-  }
-
-  // per-card category
-  maps.cardCategoryMap[cardId] ??= {}
-  const cardCatMap = maps.cardCategoryMap[cardId]
-  cardCatMap[category] ??= { total: 0, count: 0 }
-  const cardCatEntry = cardCatMap[category]
-  cardCatEntry.total += amt
-  cardCatEntry.count += 1
-
-  // global merchant
-  maps.merchantMap[merchant] ??= { total: 0, count: 0, categories: {}, cardCounts: {} }
-  const merchantEntry = maps.merchantMap[merchant]
-  merchantEntry.total += amt
-  merchantEntry.count += 1
-  merchantEntry.categories[category] = (merchantEntry.categories[category] ?? 0) + 1
-  merchantEntry.cardCounts[cardId] = (merchantEntry.cardCounts[cardId] ?? 0) + 1
-
-  // per-card merchant
-  maps.cardMerchantMap[cardId] ??= {}
-  const cardMerchMap = maps.cardMerchantMap[cardId]
-  cardMerchMap[merchant] ??= { total: 0, count: 0 }
-  const cardMerchEntry = cardMerchMap[merchant]
-  cardMerchEntry.total += amt
-  cardMerchEntry.count += 1
-
-  // monthly trend
-  maps.monthBuckets[month] ??= {}
-  const monthBucket = maps.monthBuckets[month]
-  monthBucket[category] = (monthBucket[category] ?? 0) + amt
-}
-
-function buildCategoryBreakdown(
-  categoryMap: Record<string, { total: number; count: number }>,
-  totalSpend: number
-): SpendingBehaviour['categoryBreakdown'] {
-  return Object.entries(categoryMap)
-    .map(([category, data]) => ({
-      category,
-      totalSpentUsd: parseFloat(data.total.toFixed(2)),
-      txCount: data.count,
-      sharePct: totalSpend > 0 ? Math.round((data.total / totalSpend) * 1000) / 10 : 0,
-      avgTxSizeUsd: parseFloat((data.total / data.count).toFixed(2)),
-    }))
-    .sort((a, b) => b.totalSpentUsd - a.totalSpentUsd)
-}
-
-function buildTopMerchants(
-  merchantMap: Record<string, MerchantEntry>
-): SpendingBehaviour['topMerchants'] {
-  return Object.entries(merchantMap)
-    .map(([merchant, data]) => ({
-      merchant,
-      totalSpentUsd: parseFloat(data.total.toFixed(2)),
-      txCount: data.count,
-      category: keyWithHighestCount(data.categories) ?? 'other',
-      primaryCardId: keyWithHighestCount(data.cardCounts) ?? '',
-    }))
-    .sort((a, b) => b.txCount - a.txCount)
-    .slice(0, 10)
-}
-
-function buildCardTopMerchants(
-  cardMerchantMap: Record<string, Record<string, { total: number; count: number }>>
-): SpendingBehaviour['cardTopMerchants'] {
-  const cardTopMerchants: SpendingBehaviour['cardTopMerchants'] = {}
-  for (const [cardId, merchantMap] of Object.entries(cardMerchantMap)) {
-    cardTopMerchants[cardId] = Object.entries(merchantMap)
-      .map(([merchant, data]) => ({
-        merchant,
-        totalSpentUsd: parseFloat(data.total.toFixed(2)),
-        txCount: data.count,
-      }))
-      .sort((a, b) => b.txCount - a.txCount)
-      .slice(0, 5)
-  }
-  return cardTopMerchants
-}
-
-function aggregateSpendingBehaviour(txns: TransactionLean[], totalSpend: number): {
-  categoryBreakdown: SpendingBehaviour['categoryBreakdown']
-  cardCategoryBreakdown: SpendingBehaviour['cardCategoryBreakdown']
-  topMerchants: SpendingBehaviour['topMerchants']
-  cardTopMerchants: SpendingBehaviour['cardTopMerchants']
-  monthBuckets: Record<string, Record<string, number>>
-  emiTransactionPct: number
-} {
-  const maps = initializeAggregationMaps()
-
-  for (const transaction of txns) {
-    processTransaction(transaction, maps)
-  }
-
-  const categoryBreakdown = buildCategoryBreakdown(maps.categoryMap, totalSpend)
-  const cardCategoryBreakdown = buildCardCategoryBreakdown(maps.cardCategoryMap)
-  const topMerchants = buildTopMerchants(maps.merchantMap)
-  const cardTopMerchants = buildCardTopMerchants(maps.cardMerchantMap)
-  const emiTransactionPct = txns.length > 0 ? Math.round((maps.emiCount / txns.length) * 100) : 0
-
-  return {
-    categoryBreakdown, cardCategoryBreakdown,
-    topMerchants, cardTopMerchants,
-    monthBuckets: maps.monthBuckets, emiTransactionPct,
-  }
-}
-
-// ─── Main builder ─────────────────────────────────────────────────────────────
-
-async function fetchUserContextData(userId: string) {
-  await connectDB()
-  const cards = await FiatCard.find({ user_id: userId })
-    .select({ ...FIAT_CARD_PROJECTION, op_redemption: 1 })
-    .lean()
-
-  const { txns, redemptionTxns, annualTxns, since } = await fetchTransactions(userId)
-  return { cards, txns, redemptionTxns, annualTxns, since }
 }
 
 export async function buildUserContext(userId: string): Promise<UserContext> {
@@ -510,68 +25,65 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
   return assembleContext({ userId, ...data })
 }
 
-async function fetchTransactions(userId: string) {
-  const since = new Date(Date.now() - BEHAVIOUR_WINDOW_DAYS * 24 * 60 * 60 * 1000)
-  const annualSince = new Date(Date.now() - ANNUAL_WINDOW_DAYS * 24 * 60 * 60 * 1000)
-
-  const [txns, redemptionTxns, annualTxns] = await Promise.all([
-    Transaction.find({ userId, type: 'spend', createdAt: { $gte: since } })
-      .select({ cardId: 1, amountUsd: 1, category: 1, merchant: 1, isEmi: 1, createdAt: 1 })
-      .lean(),
-    Transaction.find({ userId, type: 'redemption', createdAt: { $gte: since } })
-      .select({ pointsRedeemed: 1, valueReceivedUsd: 1, createdAt: 1 })
-      .lean(),
-    Transaction.find({ userId, type: 'spend', createdAt: { $gte: annualSince } })
-      .select({ cardId: 1, amountUsd: 1, createdAt: 1 })
-      .lean(),
-  ])
-
-  return { txns, redemptionTxns, annualTxns, since }
-}
-
 interface AssembleContextParams {
-  userId: string;
-  cards: IFiatCard[];
-  txns: TransactionLean[];
-  redemptionTxns: TransactionLean[];
-  annualTxns: TransactionLean[];
-  since: Date;
+  userId: string
+  cards: IFiatCard[]
+  transactions: TransactionLean[]
+  redemptionTransactions: TransactionLean[]
+  annualTransactions: TransactionLean[]
+  since: Date
 }
 
 interface AggregatedContextData {
-  cardStates: CardLiveState[]
+  cardStates: any[]
   totalSpend: number
-  categoryBreakdown: SpendingBehaviour['categoryBreakdown']
-  cardCategoryBreakdown: SpendingBehaviour['cardCategoryBreakdown']
-  topMerchants: SpendingBehaviour['topMerchants']
-  cardTopMerchants: SpendingBehaviour['cardTopMerchants']
+  categoryBreakdown: any
+  cardCategoryBreakdown: any
+  topMerchants: any
+  cardTopMerchants: any
   monthBuckets: Record<string, Record<string, number>>
-  emiTransactionPct: number
-  monthlyTrend: SpendingBehaviour['monthlyTrend']
-  momSpendChangePct: SpendingBehaviour['momSpendChangePct']
-  fastestGrowingCategory: SpendingBehaviour['fastestGrowingCategory']
+  monthlyInstallmentTransactionPct: number
+  monthlyTrend: any
+  momSpendChangePct: number | null
+  fastestGrowingCategory: string | null
   earliestTx: Date
   since: Date
-  actualAvgCppAchieved: SpendingBehaviour['actualAvgCppAchieved']
-  totalPointsRedeemed90d: SpendingBehaviour['totalPointsRedeemed90d']
-  redemptionCount90d: SpendingBehaviour['redemptionCount90d']
+  actualAvgCppAchieved: number | null
+  totalPointsRedeemed90d: number
+  redemptionCount90d: number
+}
+
+function calculateAnnualSpendByCard(annualTransactions: TransactionLean[]): Record<string, number> {
+  const annualSpendByCard: Record<string, number> = {}
+  for (const transaction of annualTransactions) {
+    annualSpendByCard[transaction.cardId] = (annualSpendByCard[transaction.cardId] ?? 0) + (transaction.amountUsd ?? 0)
+  }
+  return annualSpendByCard
+}
+
+function calculateTotalSpend(transactions: TransactionLean[]): number {
+  return transactions.reduce((sum: number, transaction: TransactionLean) => sum + (transaction.amountUsd ?? 0), 0)
+}
+
+function findEarliestTransaction(transactions: TransactionLean[], since: Date): Date {
+  if (transactions.length === 0) {
+    return since
+  }
+  return new Date(Math.min(...transactions.map((t: TransactionLean) => new Date(t.createdAt as Date).getTime())))
 }
 
 function aggregateContextData(params: AssembleContextParams): AggregatedContextData {
-  const { cards, txns, redemptionTxns, annualTxns, since } = params;
-  const annualSpendByCard: Record<string, number> = {}
-  for (const transaction of annualTxns) {
-    annualSpendByCard[transaction.cardId] = (annualSpendByCard[transaction.cardId] ?? 0) + (transaction.amountUsd ?? 0)
-  }
+  const { cards, transactions, redemptionTransactions, annualTransactions, since } = params
 
+  const annualSpendByCard = calculateAnnualSpendByCard(annualTransactions)
   const cardStates = buildCardLiveStates(cards, annualSpendByCard)
-  const totalSpend = txns.reduce((sum, t) => sum + (t.amountUsd ?? 0), 0)
+  const totalSpend = calculateTotalSpend(transactions)
 
   const {
     categoryBreakdown, cardCategoryBreakdown,
     topMerchants, cardTopMerchants,
-    monthBuckets, emiTransactionPct,
-  } = aggregateSpendingBehaviour(txns, totalSpend)
+    monthBuckets, monthlyInstallmentTransactionPct,
+  } = aggregateSpendingBehaviour(transactions, totalSpend)
 
   const {
     monthlyTrend,
@@ -579,15 +91,13 @@ function aggregateContextData(params: AssembleContextParams): AggregatedContextD
     fastestGrowingCategory,
   } = computeMonthlyTrend(monthBuckets)
 
-  const earliestTx = txns.length > 0
-    ? new Date(Math.min(...txns.map(t => new Date(t.createdAt as Date).getTime())))
-    : since
+  const earliestTx = findEarliestTransaction(transactions, since)
 
   const {
     actualAvgCppAchieved,
     totalPointsRedeemed90d,
     redemptionCount90d,
-  } = computeRedemptionStats(redemptionTxns)
+  } = computeRedemptionStats(redemptionTransactions)
 
   return {
     cardStates,
@@ -597,7 +107,7 @@ function aggregateContextData(params: AssembleContextParams): AggregatedContextD
     topMerchants,
     cardTopMerchants,
     monthBuckets,
-    emiTransactionPct,
+    monthlyInstallmentTransactionPct,
     monthlyTrend,
     momSpendChangePct,
     fastestGrowingCategory,
@@ -609,59 +119,15 @@ function aggregateContextData(params: AssembleContextParams): AggregatedContextD
   }
 }
 
-function deriveLifestyleSignals(data: AggregatedContextData): SpendingBehaviour {
-  const {
-    categoryBreakdown,
-    cardCategoryBreakdown,
-    topMerchants,
-    cardTopMerchants,
-    emiTransactionPct,
-    monthlyTrend,
-    momSpendChangePct,
-    fastestGrowingCategory,
-    earliestTx,
-    totalSpend,
-    actualAvgCppAchieved,
-    totalPointsRedeemed90d,
-    redemptionCount90d,
-  } = data
-
-  const actualMonths = Math.max(1, (Date.now() - earliestTx.getTime()) / MS_PER_MONTH)
-  const monthlyAvgSpendUsd = parseFloat((totalSpend / actualMonths).toFixed(2))
-  const topCategory = categoryBreakdown[0]?.category ?? 'shopping'
-  const getShare = (cat: string) => categoryBreakdown.find(c => c.category === cat)?.sharePct ?? 0
-
-  return {
-    categoryBreakdown,
-    cardCategoryBreakdown,
-    topMerchants,
-    cardTopMerchants,
-    topCategory,
-    isFrequentTraveller: getShare('travel') > FREQUENT_TRAVEL_THRESHOLD_PCT,
-    isFrequentDiner: getShare('dining') > FREQUENT_DINER_THRESHOLD_PCT,
-    isOnlineShopper: (getShare('shopping') + getShare('electronics')) > ONLINE_SHOPPER_THRESHOLD_PCT,
-    isGroceryDominant: getShare('grocery') > GROCERY_DOMINANT_THRESHOLD_PCT,
-    monthlyAvgSpendUsd,
-    monthlyTrend,
-    momSpendChangePct,
-    fastestGrowingCategory,
-    actualAvgCppAchieved,
-    totalPointsRedeemed90d,
-    redemptionCount90d,
-    emiTransactionPct,
-  }
-}
-
 function assembleContext(params: AssembleContextParams): UserContext {
-  const { userId } = params;
+  const { userId } = params
   const aggregatedData = aggregateContextData(params)
-  const behaviour = deriveLifestyleSignals(aggregatedData)
+  const behaviour = deriveLifestyleSignals(aggregatedData, USER_CONTEXT_THRESHOLDS)
   const { totalOpTokens, totalOpBalanceUsd } = computeOpTotals(aggregatedData.cardStates)
   return { userId, cards: aggregatedData.cardStates, behaviour, totalOpTokens, totalOpBalanceUsd }
 }
 
 export async function buildUserContextFromCards(userId: string, cards: IFiatCard[]): Promise<UserContext> {
-  await connectDB()
-  const { txns, redemptionTxns, annualTxns, since } = await fetchTransactions(userId)
-  return assembleContext({ userId, cards, txns, redemptionTxns, annualTxns, since })
+  const { transactions, redemptionTransactions, annualTransactions, since } = await fetchTransactions(userId)
+  return assembleContext({ userId, cards, transactions, redemptionTransactions, annualTransactions, since })
 }
