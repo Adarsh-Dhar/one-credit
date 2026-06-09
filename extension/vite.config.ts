@@ -85,7 +85,7 @@ export default defineConfig({
         },
         manualChunks: (id) => {
           // Prevent code splitting for content script - bundle everything inline
-          if (id.includes('content.ts') || id.includes('rum-tracker')) {
+          if (id.includes('src/content') || id.includes('src/content-app') || id.includes('src/logger') || id.includes('src/rum-tracker')) {
             return undefined
           }
         },
