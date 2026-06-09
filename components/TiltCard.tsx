@@ -4,7 +4,7 @@ import { WalletCard } from '@/lib/types';
 interface TiltCardProps {
   card: WalletCard;
   isTopCard: boolean;
-  onClick: () => void;
+  onClick?: () => void;
 }
 
 const ANIMATION_CONFIG = {

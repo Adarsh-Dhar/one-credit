@@ -1,11 +1,17 @@
-import { CardDefinition } from './cards';
 import { IFiatCard } from './models/FiatCard';
 
-export interface WalletCard extends CardDefinition {
+export interface WalletCard {
+  key: string;
+  name: string;
+  issuer: string;
+  cardImageUrl?: string;
   value: number;
   balance?: number;
   limit?: number;
   redemptionRate?: string;
+  currency?: string;
+  earnRates?: Record<string, number>;
+  perks?: string[];
   rawCard?: IFiatCard;
   statementCredits?: IFiatCard['benefits_and_credits']['statement_credits'];
   portalBonuses?: IFiatCard['benefits_and_credits']['portal_bonuses'];

@@ -58,7 +58,7 @@ export function buildCardRows(
         earnRate,
         cashReward,
         isWinner: false,
-        currency: card.currency,
+        currency: card.currency || 'USD',
         totalValue: totalValueResult.portalUsd,
         creditFired,
         portalBonus,

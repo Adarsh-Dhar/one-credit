@@ -1,226 +1,488 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Sparkles, AlertTriangle, Calendar, CheckCircle2 } from 'lucide-react';
+import {
+  Sparkles, CheckCircle2, AlertTriangle,
+  RefreshCw, Tag, Zap, Globe
+} from 'lucide-react';
 import { useRUM, useDwellTime, useScrollDepth } from '@/hooks/useRUM';
+import { IFiatCard } from '@/lib/models/FiatCard';
 
-interface RotatingCategory {
-  id: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface StatementCreditRow {
+  cardId: string;
+  cardName: string;
   name: string;
-  icon: string;
-  multiplier: string;
-  quarterlyCap: string;
-  activationRequired: boolean;
-  activated: boolean;
-  expires: string;
+  remaining: number;
+  total: number;
+  reset_period: string;
+  merchant_categories: string[];
 }
 
-const ROTATING_CATEGORIES: RotatingCategory[] = [
-  {
-    id: 'q1-grocery',
-    name: 'Grocery Stores',
-    icon: '🛒',
-    multiplier: '5%',
-    quarterlyCap: '$1,500',
-    activationRequired: true,
-    activated: false,
-    expires: 'March 31, 2026',
-  },
-  {
-    id: 'q1-gas',
-    name: 'Gas Stations',
-    icon: '⛽',
-    multiplier: '5%',
-    quarterlyCap: '$1,500',
-    activationRequired: true,
-    activated: false,
-    expires: 'March 31, 2026',
-  },
-  {
-    id: 'q1-dining',
-    name: 'Dining',
-    icon: '🍽️',
-    multiplier: '4%',
-    quarterlyCap: '$1,000',
-    activationRequired: false,
-    activated: true,
-    expires: 'March 31, 2026',
-  },
-  {
-    id: 'q1-streaming',
-    name: 'Streaming Services',
-    icon: '📺',
-    multiplier: '3%',
-    quarterlyCap: '$500',
-    activationRequired: false,
-    activated: true,
-    expires: 'March 31, 2026',
-  },
-];
+interface RotatingCardRow {
+  cardId: string;
+  cardName: string;
+  is_active: boolean;
+  current_quarter: string | null;
+  active_categories: string[];
+  multiplier: number | null;
+}
+
+interface LiveOffer {
+  id: string;
+  merchant: string;
+  category: string;
+  rate: number;
+  rateLabel: string;
+  source: 'cardlytics' | 'network' | 'affiliate';
+  minSpend: number;
+  maxReward: number;
+  networks: string[];
+  endDate: string;
+  description: string;
+}
+
+type Tab = 'credits' | 'rotating' | 'offers';
+
+const SOURCE_LABELS: Record<LiveOffer['source'], string> = {
+  cardlytics: 'Card-Linked',
+  network:    'Visa / MC',
+  affiliate:  'Affiliate',
+};
+
+const SOURCE_COLORS: Record<LiveOffer['source'], string> = {
+  cardlytics: 'bg-[#4ECDA4]/20 text-[#4ECDA4] border-[#4ECDA4]/30',
+  network:    'bg-[#C5AA67]/20 text-[#C5AA67] border-[#C5AA67]/30',
+  affiliate:  'bg-[#E8A844]/20 text-[#E8A844] border-[#E8A844]/30',
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function extractStatementCredits(cards: IFiatCard[]): StatementCreditRow[] {
+  const rows: StatementCreditRow[] = [];
+  for (const card of cards) {
+    for (const credit of card.benefits_and_credits?.statement_credits ?? []) {
+      const remaining = credit.amount_usd - (credit.amount_redeemed ?? 0);
+      if (remaining > 0) {
+        rows.push({
+          cardId:   card.card_id,
+          cardName: card.display_name,
+          name:     credit.name,
+          remaining,
+          total:    credit.amount_usd,
+          reset_period:        credit.reset_period,
+          merchant_categories: credit.merchant_categories ?? [],
+        });
+      }
+    }
+  }
+  return rows.sort((a, b) => b.remaining - a.remaining);
+}
+
+function extractRotatingCategories(cards: IFiatCard[]): RotatingCardRow[] {
+  return cards
+    .filter(c => c.rewards_structure?.rotating_categories?.active_categories?.length)
+    .map(c => ({
+      cardId:            c.card_id,
+      cardName:          c.display_name,
+      is_active:         c.rewards_structure!.rotating_categories!.is_active,
+      current_quarter:   c.rewards_structure!.rotating_categories!.current_quarter ?? null,
+      active_categories: c.rewards_structure!.rotating_categories!.active_categories ?? [],
+      multiplier:        c.rewards_structure!.rotating_categories!.multiplier ?? null,
+    }));
+}
+
+// Normalise the three offer shapes into one flat LiveOffer[]
+function normaliseOffers(data: {
+  cardlytics: any[];
+  network: any[];
+  affiliate: any[];
+}): LiveOffer[] {
+  const out: LiveOffer[] = [];
+
+  for (const o of data.cardlytics) {
+    out.push({
+      id:          o.offerId,
+      merchant:    o.merchantName,
+      category:    o.category,
+      rate:        o.cashbackRate,
+      rateLabel:   `${o.cashbackRate}% cashback`,
+      source:      'cardlytics',
+      minSpend:    o.minSpend ?? 0,
+      maxReward:   o.maxCashback ?? 0,
+      networks:    o.cardNetworks ?? [],
+      endDate:     o.endDate,
+      description: o.description,
+    });
+  }
+
+  for (const o of data.network) {
+    out.push({
+      id:          o.offerId,
+      merchant:    o.merchantName,
+      category:    o.category ?? 'general',
+      rate:        o.discountRate,
+      rateLabel:   `${o.discountRate}% off`,
+      source:      'network',
+      minSpend:    o.minSpend ?? 0,
+      maxReward:   o.maxDiscount ?? 0,
+      networks:    [o.network],
+      endDate:     o.endDate,
+      description: o.description,
+    });
+  }
+
+  for (const o of data.affiliate) {
+    out.push({
+      id:          o.dealId,
+      merchant:    o.merchantName,
+      category:    o.vertical ?? 'general',
+      rate:        o.commissionRate,
+      rateLabel:   o.commissionType === 'CPA'
+        ? `$${o.commissionRate} cashback`
+        : `${o.commissionRate}% commission`,
+      source:      'affiliate',
+      minSpend:    0,
+      maxReward:   0,
+      networks:    [],
+      endDate:     o.endDate,
+      description: o.description,
+    });
+  }
+
+  return out.sort((a, b) => b.rate - a.rate);
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OffersPage() {
-  const { trackTabClick, trackCardView } = useRUM();
+  const { data: session } = useSession();
+  const { trackTabClick, trackEvent } = useRUM();
   const { startDwell, endDwell } = useDwellTime('offers');
-  const { startTracking: startScrollTracking, stopTracking: stopScrollTracking } = useScrollDepth([25, 50, 75, 90, 100]);
-  const [categories, setCategories] = useState(ROTATING_CATEGORIES);
-  const [activatingId, setActivatingId] = useState<string | null>(null);
-  const { trackEvent } = useRUM();
+  const { startTracking, stopTracking } = useScrollDepth([25, 50, 75, 90, 100]);
 
-  // Track tab click on mount
+  const [activeTab, setActiveTab]           = useState<Tab>('credits');
+  const [credits, setCredits]               = useState<StatementCreditRow[]>([]);
+  const [rotating, setRotating]             = useState<RotatingCardRow[]>([]);
+  const [offers, setOffers]                 = useState<LiveOffer[]>([]);
+  const [activatingId, setActivatingId]     = useState<string | null>(null);
+  const [loadingCards, setLoadingCards]     = useState(true);
+  const [loadingOffers, setLoadingOffers]   = useState(true);
+  const [error, setError]                   = useState<string | null>(null);
+
+  const userId = session?.user?.id;
+
+  // ── RUM lifecycle ──────────────────────────────────────────────────────────
   useEffect(() => {
     trackTabClick('offers');
     startDwell();
-    startScrollTracking();
-
+    startTracking();
     return () => {
-      endDwell();
-      stopScrollTracking();
-      // Track abandonment if activation was in progress
-      if (activatingId) {
-        trackEvent('abandoned_rotating_activation');
+ endDwell(); stopTracking(); 
+};
+  }, [trackTabClick, startDwell, endDwell, startTracking, stopTracking]);
+
+  // ── Fetch cards (credits + rotating) ──────────────────────────────────────
+  const fetchCards = useCallback(async () => {
+    if (!userId) {
+      return;
+    }
+    setLoadingCards(true);
+    setError(null);
+    try {
+      const res  = await fetch(`/api/fiat-cards?userId=${encodeURIComponent(userId)}`);
+      const data = await res.json();
+      const cards: IFiatCard[] = data.cards ?? [];
+      setCredits(extractStatementCredits(cards));
+      setRotating(extractRotatingCategories(cards));
+    } catch {
+      setError('Failed to load card data.');
+    } finally {
+      setLoadingCards(false);
+    }
+  }, [userId]);
+
+  // ── Fetch live offers ──────────────────────────────────────────────────────
+  const fetchOffers = useCallback(async () => {
+    setLoadingOffers(true);
+    try {
+      const res  = await fetch('/api/rewards/offers');
+      const data = await res.json();
+      setOffers(normaliseOffers(data));
+    } catch {
+      setOffers([]);
+    } finally {
+      setLoadingOffers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCards();
+    fetchOffers();
+  }, [fetchCards, fetchOffers]);
+
+  // ── Activate rotating category ─────────────────────────────────────────────
+  const handleActivate = async (cardId: string) => {
+    setActivatingId(cardId);
+    trackEvent('rotating_category_activation_attempt');
+    try {
+      const res = await fetch(`/api/fiat-cards/${encodeURIComponent(cardId)}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'activate_rotation' }),
+      });
+      if (res.ok) {
+        setRotating(prev =>
+          prev.map(r => r.cardId === cardId ? { ...r, is_active: true } : r)
+        );
+        trackEvent('rotating_category_activated');
       }
-    };
-  }, [trackTabClick, startDwell, endDwell, startScrollTracking, stopScrollTracking, activatingId, trackEvent]);
-
-  const handleActivate = async (categoryId: string) => {
-    // Track category view
-    trackCardView(categoryId);
-
-    setActivatingId(categoryId);
-    
-    // Simulate activation API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setCategories(prev => 
-      prev.map(cat => 
-        cat.id === categoryId ? { ...cat, activated: true } : cat
-      )
-    );
-    setActivatingId(null);
+    } finally {
+      setActivatingId(null);
+    }
   };
 
+  // ── Derived totals ─────────────────────────────────────────────────────────
+  const totalRemainingCredits = credits.reduce((s, c) => s + c.remaining, 0);
+  const pendingActivations    = rotating.filter(r => !r.is_active).length;
+
+  // ─── UI ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0D0A06]">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-[#E8D8B0] mb-2">
-            Quarterly <span className="text-[#C5AA67]">Offers</span>
+            Offers & <span className="text-[#C5AA67]">Credits</span>
           </h1>
-          <p className="text-[#8B8070]">Activate rotating categories to maximize your rewards</p>
-        </div>
-
-        {/* Quarter Info Banner */}
-        <div className="bg-[#261B0E] border border-[#C5AA67]/30 rounded-xl p-6 mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Calendar className="w-5 h-5 text-[#E8A844]" />
-            <span className="text-[#E8D8B0] font-semibold">Q1 2026 (January - March)</span>
-          </div>
-          <p className="text-[#C4B8A8] text-sm">
-            Activate your quarterly categories before the end of the quarter to earn bonus rewards on eligible purchases.
+          <p className="text-[#8B8070]">
+            Statement credits available to use, rotating bonuses to activate, and live merchant offers.
           </p>
         </div>
 
-        {/* Rotating Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {categories.map((category) => (
-            <div
-              key={category.id}
-              className={`bg-[#1A1209] border rounded-xl p-6 transition-all ${
-                category.activated 
-                  ? 'border-[#4ECDA4]/50 shadow-[0_0_20px_rgba(78,205,164,0.2)]' 
-                  : 'border-[#3D2E1A]'
-              }`}
-              data-section="rotating-category"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-4xl">{category.icon}</span>
-                  <div>
-                    <h3 className="text-[#E8D8B0] font-semibold">{category.name}</h3>
-                    <span className="text-xs text-[#8B8070]">Expires: {category.expires}</span>
-                  </div>
-                </div>
-                {category.activated ? (
-                  <CheckCircle2 className="w-6 h-6 text-[#4ECDA4]" />
-                ) : (
-                  <AlertTriangle className="w-6 h-6 text-[#E8A844]" />
-                )}
-              </div>
-
-              <div className="space-y-3 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#8B8070]">Bonus Rate</span>
-                  <span className="text-[#E8D8B0] font-bold">{category.multiplier}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#8B8070]">Quarterly Cap</span>
-                  <span className="text-[#E8D8B0] font-medium">{category.quarterlyCap}</span>
-                </div>
-              </div>
-
-              {category.activationRequired && !category.activated && (
-                <div className="bg-[#E8A844]/10 border border-[#E8A844]/30 rounded-lg p-3 mb-4">
-                  <p className="text-[#DCC98A] text-xs">
-                    ⚠️ Activation required to earn bonus rewards
-                  </p>
-                </div>
-              )}
-
-              {category.activated ? (
-                <div className="bg-[#4ECDA4]/10 border border-[#4ECDA4]/30 rounded-lg p-3">
-                  <p className="text-[#85DFC2] text-sm font-medium">
-                    ✓ Activated - You're earning bonus rewards!
-                  </p>
-                </div>
-              ) : (
-                <Button
-                  onClick={() => handleActivate(category.id)}
-                  disabled={activatingId === category.id}
-                  className="w-full bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] font-bold py-3 rounded-lg transition-all disabled:opacity-50"
-                  data-action="activate-category"
-                >
-                  {activatingId === category.id ? (
-                    'Activating...'
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Activate Category
-                    </>
-                  )}
-                </Button>
-              )}
+        {/* Summary banner */}
+        {!loadingCards && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="bg-[#261B0E] border border-[#3D2E1A] rounded-xl p-5">
+              <p className="text-[#8B8070] text-sm mb-1">Credits Remaining</p>
+              <p className="text-2xl font-bold text-[#4ECDA4]">${totalRemainingCredits.toFixed(0)}</p>
+              <p className="text-xs text-[#6B5E52] mt-1">across {credits.length} credit(s)</p>
             </div>
+            <div className="bg-[#261B0E] border border-[#3D2E1A] rounded-xl p-5">
+              <p className="text-[#8B8070] text-sm mb-1">Bonuses to Activate</p>
+              <p className="text-2xl font-bold text-[#E8A844]">{pendingActivations}</p>
+              <p className="text-xs text-[#6B5E52] mt-1">rotating categor{pendingActivations === 1 ? 'y' : 'ies'} not yet active</p>
+            </div>
+            <div className="bg-[#261B0E] border border-[#3D2E1A] rounded-xl p-5">
+              <p className="text-[#8B8070] text-sm mb-1">Live Offers</p>
+              <p className="text-2xl font-bold text-[#C5AA67]">{loadingOffers ? '—' : offers.length}</p>
+              <p className="text-xs text-[#6B5E52] mt-1">from Cardlytics, Visa/MC, Rakuten</p>
+            </div>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-8 border-b border-[#3D2E1A]">
+          {([
+            { id: 'credits',  label: 'Statement Credits', icon: Tag  },
+            { id: 'rotating', label: 'Rotating Bonuses',  icon: Zap  },
+            { id: 'offers',   label: 'Live Offers',        icon: Globe },
+          ] as const).map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => { 
+                setActiveTab(id); trackTabClick(id); 
+              }}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeTab === id
+                  ? 'border-[#C5AA67] text-[#E8D8B0]'
+                  : 'border-transparent text-[#8B8070] hover:text-[#C4B8A8]'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
           ))}
         </div>
 
-        {/* Tips Section */}
-        <div className="bg-[#1A1209] border border-[#3D2E1A] rounded-xl p-6">
-          <h3 className="text-lg font-bold text-[#E8D8B0] mb-4">💡 Tips for Maximizing Rewards</h3>
-          <ul className="space-y-3 text-[#C4B8A8] text-sm">
-            <li className="flex items-start gap-2">
-              <span className="text-[#C5AA67] mt-1">•</span>
-              <span>Activate categories early in the quarter to avoid missing out on bonus rewards</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-[#C5AA67] mt-1">•</span>
-              <span>Track your spending towards the quarterly cap to optimize your card usage</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-[#C5AA67] mt-1">•</span>
-              <span>Use Omni-Wallet's Pay feature to automatically route purchases to your best card</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-[#C5AA67] mt-1">•</span>
-              <span>Set reminders to activate new categories at the start of each quarter</span>
-            </li>
-          </ul>
-        </div>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-4 mb-6 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* ── Tab: Statement Credits ─────────────────────────────────────── */}
+        {activeTab === 'credits' && (
+          loadingCards ? <LoadingSkeleton /> : credits.length === 0 ? (
+            <EmptyState message="No unused statement credits across your cards." />
+          ) : (
+            <div className="space-y-4">
+              {credits.map((credit, i) => (
+                <div
+                  key={`${credit.cardId}-${i}`}
+                  className="bg-[#1A1209] border border-[#3D2E1A] rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                >
+                  <div>
+                    <p className="text-xs text-[#8B8070] mb-1">{credit.cardName}</p>
+                    <p className="text-[#E8D8B0] font-semibold">{credit.name}</p>
+                    {credit.merchant_categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {credit.merchant_categories.map(cat => (
+                          <span key={cat} className="text-xs bg-[#261B0E] border border-[#3D2E1A] text-[#C4B8A8] px-2 py-0.5 rounded">
+                            {cat}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="sm:text-right shrink-0">
+                    <p className="text-2xl font-bold text-[#4ECDA4]">${credit.remaining.toFixed(0)}</p>
+                    <p className="text-xs text-[#6B5E52]">
+                      of ${credit.total} · resets {credit.reset_period.replace('_', ' ')}
+                    </p>
+                    {/* Progress bar */}
+                    <div className="mt-2 h-1.5 w-32 bg-[#3D2E1A] rounded-full overflow-hidden sm:ml-auto">
+                      <div
+                        className="h-full bg-[#4ECDA4] rounded-full"
+                        style={{ width: `${(credit.remaining / credit.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* ── Tab: Rotating Bonuses ──────────────────────────────────────── */}
+        {activeTab === 'rotating' && (
+          loadingCards ? <LoadingSkeleton /> : rotating.length === 0 ? (
+            <EmptyState message="None of your cards have rotating category bonuses." />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {rotating.map(row => (
+                <div
+                  key={row.cardId}
+                  className={`bg-[#1A1209] border rounded-xl p-6 transition-all ${
+                    row.is_active
+                      ? 'border-[#4ECDA4]/50 shadow-[0_0_20px_rgba(78,205,164,0.15)]'
+                      : 'border-[#3D2E1A]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-xs text-[#8B8070] mb-0.5">{row.cardName}</p>
+                      <p className="text-[#E8D8B0] font-semibold">
+                        {row.multiplier ? `${row.multiplier}x` : 'Bonus'} Rotating Categories
+                      </p>
+                      {row.current_quarter && (
+                        <p className="text-xs text-[#6B5E52] mt-0.5">{row.current_quarter}</p>
+                      )}
+                    </div>
+                    {row.is_active
+                      ? <CheckCircle2 className="w-6 h-6 text-[#4ECDA4] shrink-0" />
+                      : <AlertTriangle className="w-6 h-6 text-[#E8A844] shrink-0" />
+                    }
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {row.active_categories.map(cat => (
+                      <span
+                        key={cat}
+                        className="text-sm bg-[#261B0E] border border-[#3D2E1A] text-[#C5AA67] px-3 py-1 rounded-full capitalize"
+                      >
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
+
+                  {row.is_active ? (
+                    <div className="bg-[#4ECDA4]/10 border border-[#4ECDA4]/30 rounded-lg p-3 text-sm text-[#85DFC2] font-medium">
+                      ✓ Active — bonus rewards are live on these categories
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => handleActivate(row.cardId)}
+                      disabled={activatingId === row.cardId}
+                      className="w-full bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] font-bold py-3 rounded-lg transition-all disabled:opacity-50"
+                    >
+                      {activatingId === row.cardId ? (
+                        <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Activating...</>
+                      ) : (
+                        <><Sparkles className="w-4 h-4 mr-2" />Activate Bonus</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* ── Tab: Live Offers ──────────────────────────────────────────── */}
+        {activeTab === 'offers' && (
+          loadingOffers ? <LoadingSkeleton /> : offers.length === 0 ? (
+            <EmptyState message="No live offers available right now." />
+          ) : (
+            <div className="space-y-3">
+              {offers.map(offer => (
+                <div
+                  key={offer.id}
+                  className="bg-[#1A1209] border border-[#3D2E1A] rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <p className="text-[#E8D8B0] font-semibold truncate">{offer.merchant}</p>
+                      <span className={`text-xs px-2 py-0.5 rounded border ${SOURCE_COLORS[offer.source]}`}>
+                        {SOURCE_LABELS[offer.source]}
+                      </span>
+                      <span className="text-xs text-[#6B5E52] capitalize">{offer.category}</span>
+                    </div>
+                    <p className="text-sm text-[#8B8070] truncate">{offer.description}</p>
+                    <div className="flex flex-wrap gap-3 mt-2 text-xs text-[#6B5E52]">
+                      {offer.minSpend > 0 && <span>Min spend: ${offer.minSpend}</span>}
+                      {offer.maxReward > 0 && <span>Max reward: ${offer.maxReward}</span>}
+                      {offer.networks.length > 0 && <span>Eligible: {offer.networks.join(', ')}</span>}
+                      <span>Ends {offer.endDate}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xl font-bold text-[#C5AA67]">{offer.rateLabel}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
       </main>
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="bg-[#1A1209] border border-[#3D2E1A] rounded-xl h-20" />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="text-center py-16 text-[#8B8070]">
+      <p>{message}</p>
     </div>
   );
 }

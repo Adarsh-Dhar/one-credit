@@ -4,7 +4,7 @@ import { WalletCard } from '@/lib/types';
 interface CardPortfolioGridProps {
   cards: WalletCard[];
   loading: boolean;
-  onCardClick: (card: WalletCard) => void;
+  onCardClick?: (card: WalletCard) => void;
 }
 
 export function CardPortfolioGrid({ cards, loading, onCardClick }: CardPortfolioGridProps) {
@@ -32,7 +32,7 @@ export function CardPortfolioGrid({ cards, loading, onCardClick }: CardPortfolio
                 key={card.key}
                 card={card}
                 isTopCard={isTopCard}
-                onClick={() => onCardClick(card)}
+                onClick={onCardClick ? () => onCardClick(card) : undefined}
               />
             );
           })}

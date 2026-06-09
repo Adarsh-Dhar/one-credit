@@ -79,7 +79,7 @@ export function useRUM() {
 
   // ─── Convenience methods for common events ─────────────────────────────────────
 
-  const trackTabClick = useCallback((tab: 'transfer_partners' | 'cashback' | 'offers') => {
+  const trackTabClick = useCallback((tab: 'transfer_partners' | 'cashback' | 'offers' | 'credits' | 'rotating') => {
     trackEvent('tab_click', { tab });
   }, [trackEvent]);
 

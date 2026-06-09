@@ -434,7 +434,7 @@ async function fetchUserProfileAndCards(userEmail: string): Promise<{
   return { userProfile, cardsOwned }
 }
 
-function buildConstraintBlock(extractedPrefs?: import('./models/UserIntent').ExtractedPrefs): string {
+function buildConstraintBlock(extractedPrefs?: Record<string, unknown>): string {
   if (!extractedPrefs) {
     return ''
   }
@@ -622,7 +622,7 @@ async function runRUMAgentWithModel(
   userEmail: string,
   geminiApiKey: string,
   modelName: string,
-  extractedPrefs?: import('./models/UserIntent').ExtractedPrefs,
+  extractedPrefs?: Record<string, unknown>,
 ): Promise<RUMAgentResult> {
   const model = await createGeminiModel(geminiApiKey, modelName)
   const { userProfile, cardsOwned } = await fetchUserProfileAndCards(userEmail)
@@ -668,7 +668,7 @@ async function runRUMAgentWithModel(
 export async function runRUMAgent(
   userId: string,
   geminiApiKey: string,
-  extractedPrefs?: import('./models/UserIntent').ExtractedPrefs,
+  extractedPrefs?: Record<string, unknown>,
 ): Promise<RUMAgentResult> {
   // Try gemini-2.5-flash first, fall back to gemini-pro if it fails
   try {

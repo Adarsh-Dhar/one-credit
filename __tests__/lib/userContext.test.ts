@@ -72,12 +72,12 @@ describe('computeMonthlyTrend', () => {
 
   it('should calculate monthlyTrend for single month', () => {
     const monthBuckets = {
-      '2024-01': { grocery: 500, dining: 300 },
+      '2026-01': { grocery: 500, dining: 300 },
     }
     const result = computeMonthlyTrend(monthBuckets)
     expect(result.monthlyTrend).toHaveLength(1)
     expect(result.monthlyTrend[0]).toEqual({
-      month: '2024-01',
+      month: '2026-01',
       totalSpentUsd: 800,
       categoryBreakdown: expect.arrayContaining([
         expect.objectContaining({ category: 'grocery', totalSpentUsd: 500 }),
@@ -90,8 +90,8 @@ describe('computeMonthlyTrend', () => {
 
   it('should calculate MoM change for multiple months', () => {
     const monthBuckets = {
-      '2024-01': { grocery: 500, dining: 300 },
-      '2024-02': { grocery: 600, dining: 400 },
+      '2026-01': { grocery: 500, dining: 300 },
+      '2026-02': { grocery: 600, dining: 400 },
     }
     const result = computeMonthlyTrend(monthBuckets)
     expect(result.monthlyTrend).toHaveLength(2)
@@ -100,8 +100,8 @@ describe('computeMonthlyTrend', () => {
 
   it('should detect fastest growing category', () => {
     const monthBuckets = {
-      '2024-01': { grocery: 500, dining: 300, travel: 100 },
-      '2024-02': { grocery: 550, dining: 350, travel: 300 },
+      '2026-01': { grocery: 500, dining: 300, travel: 100 },
+      '2026-02': { grocery: 550, dining: 350, travel: 300 },
     }
     const result = computeMonthlyTrend(monthBuckets)
     expect(result.fastestGrowingCategory).toBe('travel')
@@ -109,8 +109,8 @@ describe('computeMonthlyTrend', () => {
 
   it('should handle zero previous month spend', () => {
     const monthBuckets = {
-      '2024-01': {},
-      '2024-02': { grocery: 500 },
+      '2026-01': {},
+      '2026-02': { grocery: 500 },
     }
     const result = computeMonthlyTrend(monthBuckets)
     expect(result.momSpendChangePct).toBeNull()
@@ -118,14 +118,14 @@ describe('computeMonthlyTrend', () => {
 
   it('should sort months chronologically', () => {
     const monthBuckets = {
-      '2024-03': { grocery: 100 },
-      '2024-01': { grocery: 100 },
-      '2024-02': { grocery: 100 },
+      '2026-03': { grocery: 100 },
+      '2026-01': { grocery: 100 },
+      '2026-02': { grocery: 100 },
     }
     const result = computeMonthlyTrend(monthBuckets)
-    expect(result.monthlyTrend[0].month).toBe('2024-01')
-    expect(result.monthlyTrend[1].month).toBe('2024-02')
-    expect(result.monthlyTrend[2].month).toBe('2024-03')
+    expect(result.monthlyTrend[0].month).toBe('2026-01')
+    expect(result.monthlyTrend[1].month).toBe('2026-02')
+    expect(result.monthlyTrend[2].month).toBe('2026-03')
   })
 })
 

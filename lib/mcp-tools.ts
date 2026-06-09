@@ -1,7 +1,6 @@
 // lib/mcp-tools.ts
 import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models/User';
-import { IFiatCard } from '@/lib/models/FiatCard';
 import logger from '@/lib/logger';
 import { z } from 'zod';
 
@@ -257,8 +256,6 @@ Be specific: quote the actual cashback %, dollar amounts, and terms from the dat
 // Real MongoDB read
 async function getUserBalances(userId: string) {
   await connectDB();
-  const { getCards } = await import('@/lib/cards');
-  const CARDS = await getCards(userId);
   const { FiatCard } = await import('@/lib/models/FiatCard');
 
   const user = await User.findOne({
@@ -270,26 +267,16 @@ return { error: 'User not found' };
 }
 
   const cards = user.portfolio?.cards ?? {};
-  const balances: Record<string, number> = {};
-
-  if (!CARDS) {
-    return { error: 'No cards found' };
-  }
-
-  for (const card of CARDS) {
-    balances[card.key] = cards[card.key]?.balance ?? card.defaultBalance;
-  }
 
   // Fetch FiatCard data to get benefits (statement credits, portal bonuses, protections)
   const fiatCards = await FiatCard.find({ user_id: userId }).lean();
-  const fiatCardMap = new Map(fiatCards.map((fixedCategory: IFiatCard) => [fixedCategory.card_id, fixedCategory]));
 
   // Per-card breakdown for Gemini to reason over
-  const cardBreakdown = CARDS.map((card) => {
-    const fiatCard = fiatCardMap.get(card.key);
+  const cardBreakdown = fiatCards.map((fiatCard) => {
     const benefits = fiatCard?.benefits_and_credits || {};
     const opRedemption = fiatCard?.op_redemption || null;
     const tokenBalance = fiatCard?.credit_token_balance ?? 0;
+    const balance = cards[fiatCard.card_id]?.balance ?? 0;
 
     // Build opTokenState for USD cards that have an op_redemption catalog
     const opTokenState = opRedemption
@@ -315,13 +302,13 @@ return { error: 'User not found' };
       : null;
 
     return {
-      key:      card.key,
-      name:     card.name,
-      type:     card.type,
-      balance:  balances[card.key],
-      value:    balances[card.key],
-      currency: card.currency,
-      earnRates: card.earnRates,
+      key:      fiatCard.card_id,
+      name:     fiatCard.display_name,
+      type:     fiatCard.card_type,
+      balance:  balance,
+      value:    balance,
+      currency: 'USD',
+      earnRates: {},
       opTokenState,
       opRedemptionCatalog,
       statementCredits: (benefits.statement_credits || []).filter((c: { merchant_categories?: string[] }) =>
@@ -348,7 +335,7 @@ return { error: 'User not found' };
 
   return {
     cards:    cardBreakdown,
-    totalValue: CARDS.reduce((sum, card) => sum + (balances[card.key] ?? 0), 0),
+    totalValue: cardBreakdown.reduce((sum, card) => sum + (card.balance ?? 0), 0),
     totalOpTokens,
     totalOpValueUsd,
     lastSync: new Date().toISOString(),

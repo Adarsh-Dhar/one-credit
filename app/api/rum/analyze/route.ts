@@ -6,7 +6,6 @@
 // shared the same response shape. Now there is exactly one entry point.
 //
 // Called by:
-//   - /cards page  → "Calculate Best Card" button
 //   - /insights page → on-mount auto-fetch AND the "Refresh" button
 //   - /api/cron/persona-refresh → scheduled cron job
 import { runRUMAgent } from '@/lib/rum-agent';
