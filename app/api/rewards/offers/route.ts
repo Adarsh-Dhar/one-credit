@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const layer = searchParams.get('layer') || API_LAYERS.ALL;
     const category = searchParams.get('category') || undefined;
-    const network = searchParams.get('network') || undefined;
+    const networks = searchParams.get('networks') || undefined;
+    const network: string | string[] | undefined = networks
+      ? networks.split(',').map(n => n.trim())
+      : (searchParams.get('network') || undefined);
     const country = searchParams.get('country') || undefined;
     const minCashback = searchParams.get('minCashback') ? parseFloat(searchParams.get('minCashback')!) : undefined;
     const minEpc = searchParams.get('minEpc') ? parseFloat(searchParams.get('minEpc')!) : undefined;

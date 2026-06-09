@@ -13,14 +13,14 @@ interface GetActiveOffersParams {
 }
 
 interface GetNetworkDealsParams {
-  network?: string;
+  network?: string | string[];
   country?: string;
   activeOnly?: boolean;
 }
 
 interface GetAffiliateDealsParams {
   vertical?: string;
-  network?: string;
+  network?: string | string[];
   minEpc?: number;
 }
 
@@ -46,14 +46,15 @@ export async function getNetworkDeals(params?: GetNetworkDealsParams) {
   let offers = networkOfferStore.listOffers();
 
   if (params?.network) {
-    offers = offers.filter(o => 
-      o.network.toLowerCase() === params.network!.toLowerCase()
+    const networks = Array.isArray(params.network) ? params.network : [params.network];
+    offers = offers.filter(o =>
+      networks.some(n => o.network.toLowerCase() === n.toLowerCase())
     );
   }
 
   if (params?.country) {
-    offers = offers.filter(o => 
-      o.geoTargets?.some((g: any) => 
+    offers = offers.filter(o =>
+      o.geoTargets?.some((g: any) =>
         g.country.toLowerCase() === params.country!.toLowerCase()
       )
     );
@@ -71,14 +72,15 @@ export async function getAffiliateDeals(params?: GetAffiliateDealsParams) {
   let deals = [...result.rakuten, ...result.impact];
 
   if (params?.vertical) {
-    deals = deals.filter(d => 
+    deals = deals.filter(d =>
       d.vertical.toLowerCase().includes(params.vertical!.toLowerCase())
     );
   }
 
   if (params?.network) {
-    deals = deals.filter(d => 
-      d.network.toLowerCase() === params.network!.toLowerCase()
+    const networks = Array.isArray(params.network) ? params.network : [params.network];
+    deals = deals.filter(d =>
+      networks.some(n => d.network.toLowerCase() === n.toLowerCase())
     );
   }
 

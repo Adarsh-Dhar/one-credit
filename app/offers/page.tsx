@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ interface LiveOffer {
   networks: string[];
   endDate: string;
   description: string;
+  eligibleCards: { cardId: string; cardName: string; network: string }[];
 }
 
 type Tab = 'credits' | 'rotating' | 'offers';
@@ -117,6 +118,7 @@ function normaliseOffers(data: {
       networks:    o.cardNetworks ?? [],
       endDate:     o.endDate,
       description: o.description,
+      eligibleCards: [],
     });
   }
 
@@ -133,6 +135,7 @@ function normaliseOffers(data: {
       networks:    [o.network],
       endDate:     o.endDate,
       description: o.description,
+      eligibleCards: [],
     });
   }
 
@@ -151,10 +154,35 @@ function normaliseOffers(data: {
       networks:    [],
       endDate:     o.endDate,
       description: o.description,
+      eligibleCards: [],
     });
   }
 
   return out.sort((a, b) => b.rate - a.rate);
+}
+
+function enrichOffersWithCards(offers: LiveOffer[], cards: IFiatCard[]): LiveOffer[] {
+  return offers
+    .map(offer => {
+      const eligibleCards =
+        offer.networks.length === 0
+          // Affiliate: all cards qualify
+          ? cards.map(c => ({ cardId: c.card_id, cardName: c.display_name, network: c.network }))
+          // Cardlytics / network: match on card network
+          : cards
+              .filter(c => offer.networks.includes(c.network))
+              .map(c => ({ cardId: c.card_id, cardName: c.display_name, network: c.network }));
+      return { ...offer, eligibleCards };
+    })
+    .sort((a, b) => {
+      if (a.eligibleCards.length > 0 && b.eligibleCards.length === 0) {
+        return -1;
+      }
+      if (a.eligibleCards.length === 0 && b.eligibleCards.length > 0) {
+        return 1;
+      }
+      return b.rate - a.rate;
+    });
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -166,6 +194,7 @@ export default function OffersPage() {
   const { startTracking, stopTracking } = useScrollDepth([25, 50, 75, 90, 100]);
 
   const [activeTab, setActiveTab]           = useState<Tab>('credits');
+  const [rawCards, setRawCards]             = useState<IFiatCard[]>([]);
   const [credits, setCredits]               = useState<StatementCreditRow[]>([]);
   const [rotating, setRotating]             = useState<RotatingCardRow[]>([]);
   const [offers, setOffers]                 = useState<LiveOffer[]>([]);
@@ -173,6 +202,7 @@ export default function OffersPage() {
   const [loadingCards, setLoadingCards]     = useState(true);
   const [loadingOffers, setLoadingOffers]   = useState(true);
   const [error, setError]                   = useState<string | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const userId = session?.user?.id;
 
@@ -197,6 +227,7 @@ export default function OffersPage() {
       const res  = await fetch(`/api/fiat-cards?userId=${encodeURIComponent(userId)}`);
       const data = await res.json();
       const cards: IFiatCard[] = data.cards ?? [];
+      setRawCards(cards);
       setCredits(extractStatementCredits(cards));
       setRotating(extractRotatingCategories(cards));
     } catch {
@@ -207,10 +238,13 @@ export default function OffersPage() {
   }, [userId]);
 
   // ── Fetch live offers ──────────────────────────────────────────────────────
-  const fetchOffers = useCallback(async () => {
+  const fetchOffers = useCallback(async (networks?: string[]) => {
     setLoadingOffers(true);
     try {
-      const res  = await fetch('/api/rewards/offers');
+      const query = networks && networks.length > 0
+        ? `?networks=${encodeURIComponent(networks.join(','))}`
+        : '';
+      const res  = await fetch(`/api/rewards/offers${query}`);
       const data = await res.json();
       setOffers(normaliseOffers(data));
     } catch {
@@ -222,8 +256,59 @@ export default function OffersPage() {
 
   useEffect(() => {
     fetchCards();
-    fetchOffers();
-  }, [fetchCards, fetchOffers]);
+  }, [fetchCards]);
+
+  // ── Fetch offers with network filter after cards load ─────────────────────
+  useEffect(() => {
+    if (!loadingCards && rawCards.length > 0) {
+      const networks = [...new Set(rawCards.map(c => c.network))];
+      fetchOffers(networks);
+    }
+  }, [loadingCards, rawCards, fetchOffers]);
+
+  // ── Poll for live offers updates ───────────────────────────────────────────
+  useEffect(() => {
+    // Clear existing interval when leaving offers tab
+    if (activeTab !== 'offers') {
+      if (pollingIntervalRef.current) {
+        console.log('[Polling] Clearing interval (left offers tab)');
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Don't start polling if cards are still loading or empty
+    if (loadingCards || rawCards.length === 0) {
+      return;
+    }
+
+    // Don't start a new interval if one already exists
+    if (pollingIntervalRef.current) {
+      return;
+    }
+
+    const networks = [...new Set(rawCards.map(c => c.network))];
+    
+    console.log('[Polling] Starting interval with networks:', networks);
+    
+    // Initial fetch
+    fetchOffers(networks);
+    
+    // Set up polling
+    pollingIntervalRef.current = setInterval(() => {
+      console.log('[Polling] Fetching live offers...');
+      fetchOffers(networks);
+    }, 30000); // Poll every 30 seconds
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        console.log('[Polling] Clearing interval (cleanup)');
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [activeTab, loadingCards, rawCards.length]);
 
   // ── Activate rotating category ─────────────────────────────────────────────
   const handleActivate = async (cardId: string) => {
@@ -245,6 +330,11 @@ export default function OffersPage() {
       setActivatingId(null);
     }
   };
+
+  const enrichedOffers = useMemo(
+    () => enrichOffersWithCards(offers, rawCards),
+    [offers, rawCards]
+  );
 
   // ── Derived totals ─────────────────────────────────────────────────────────
   const totalRemainingCredits = credits.reduce((s, c) => s + c.remaining, 0);
@@ -282,7 +372,7 @@ export default function OffersPage() {
             </div>
             <div className="bg-[#261B0E] border border-[#3D2E1A] rounded-xl p-5">
               <p className="text-[#8B8070] text-sm mb-1">Live Offers</p>
-              <p className="text-2xl font-bold text-[#C5AA67]">{loadingOffers ? '—' : offers.length}</p>
+              <p className="text-2xl font-bold text-[#C5AA67]">{loadingOffers ? '—' : enrichedOffers.length}</p>
               <p className="text-xs text-[#6B5E52] mt-1">from Cardlytics, Visa/MC, Rakuten</p>
             </div>
           </div>
@@ -428,36 +518,61 @@ export default function OffersPage() {
 
         {/* ── Tab: Live Offers ──────────────────────────────────────────── */}
         {activeTab === 'offers' && (
-          loadingOffers ? <LoadingSkeleton /> : offers.length === 0 ? (
+          loadingOffers || loadingCards ? <LoadingSkeleton /> : enrichedOffers.length === 0 ? (
             <EmptyState message="No live offers available right now." />
           ) : (
             <div className="space-y-3">
-              {offers.map(offer => (
-                <div
-                  key={offer.id}
-                  className="bg-[#1A1209] border border-[#3D2E1A] rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <p className="text-[#E8D8B0] font-semibold truncate">{offer.merchant}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded border ${SOURCE_COLORS[offer.source]}`}>
-                        {SOURCE_LABELS[offer.source]}
-                      </span>
-                      <span className="text-xs text-[#6B5E52] capitalize">{offer.category}</span>
+              {enrichedOffers.map(offer => {
+                const hasEligible = offer.eligibleCards.length > 0;
+                return (
+                  <div
+                    key={offer.id}
+                    className={`bg-[#1A1209] border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 ${
+                      hasEligible ? 'border-[#3D2E1A]' : 'border-[#3D2E1A] opacity-60'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <p className="text-[#E8D8B0] font-semibold truncate">{offer.merchant}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded border ${SOURCE_COLORS[offer.source]}`}>
+                          {SOURCE_LABELS[offer.source]}
+                        </span>
+                        <span className="text-xs text-[#6B5E52] capitalize">{offer.category}</span>
+                      </div>
+                      <p className="text-sm text-[#8B8070] truncate">{offer.description}</p>
+                      <div className="flex flex-wrap gap-3 mt-2 text-xs text-[#6B5E52]">
+                        {offer.minSpend > 0 && <span>Min spend: ${offer.minSpend}</span>}
+                        {offer.maxReward > 0 && <span>Max reward: ${offer.maxReward}</span>}
+                        <span>Ends {offer.endDate}</span>
+                      </div>
+                      <div className="mt-3">
+                        {hasEligible ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs text-[#8B8070]">Use with:</span>
+                            {offer.eligibleCards.map(c => (
+                              <span
+                                key={c.cardId}
+                                className="text-xs bg-[#4ECDA4]/10 border border-[#4ECDA4]/30 text-[#4ECDA4] px-2 py-0.5 rounded"
+                              >
+                                {c.cardName}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#E8A844]/70">
+                            ⚠ None of your cards are eligible for this offer
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-[#8B8070] truncate">{offer.description}</p>
-                    <div className="flex flex-wrap gap-3 mt-2 text-xs text-[#6B5E52]">
-                      {offer.minSpend > 0 && <span>Min spend: ${offer.minSpend}</span>}
-                      {offer.maxReward > 0 && <span>Max reward: ${offer.maxReward}</span>}
-                      {offer.networks.length > 0 && <span>Eligible: {offer.networks.join(', ')}</span>}
-                      <span>Ends {offer.endDate}</span>
+                    <div className="shrink-0 text-right">
+                      <p className={`text-xl font-bold ${hasEligible ? 'text-[#C5AA67]' : 'text-[#6B5E52]'}`}>
+                        {offer.rateLabel}
+                      </p>
                     </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-xl font-bold text-[#C5AA67]">{offer.rateLabel}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )
         )}
