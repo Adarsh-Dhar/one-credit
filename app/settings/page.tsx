@@ -27,42 +27,78 @@ export default function Settings() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [airportLoading, setAirportLoading] = useState(false)
   const [categoryLoading, setCategoryLoading] = useState(false)
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported'>('idle')
 
-  const handleDetectAirport = () => {
+  const autoDetectAirport = () => {
     if (!navigator.geolocation) {
-return
-}
-    setAirportLoading(true)
+      setLocationStatus('unsupported');
+      console.error('Geolocation not supported by this browser');
+      return;
+    }
+    setLocationStatus('requesting');
+    setAirportLoading(true);
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
+        setLocationStatus('granted');
         try {
-          const res = await fetch(
-            `/api/settings/nearest-airport?lat=${coords.latitude}&lng=${coords.longitude}`
-          )
-          const data = await res.json()
+          const res = await fetch(`/api/settings/nearest-airport?lat=${coords.latitude}&lng=${coords.longitude}`);
+          const data = await res.json();
           if (data.airport?.iata) {
-            setProfile(p => ({ ...p, homeAirport: data.airport.iata }))
+            setProfile(p => {
+              const updated = { ...p, homeAirport: data.airport.iata };
+              // silent auto-save
+              fetch('/api/settings/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
+              return updated;
+            });
           }
         } finally {
-          setAirportLoading(false)
+          setAirportLoading(false);
         }
       },
-      () => setAirportLoading(false)   // user denied location
-    )
-  }
+      (error) => {
+        console.error('Geolocation error:', error.code, error.message);
+        setLocationStatus('denied');
+        setAirportLoading(false);
+        
+        // Show user-friendly error message
+        let errorMessage = 'Location access denied';
+        if (error.code === 1) {
+          errorMessage = 'Location permission denied by user';
+        } else if (error.code === 2) {
+          errorMessage = 'Unable to determine your location';
+        } else if (error.code === 3) {
+          errorMessage = 'Location request timed out';
+        }
+        toast({
+          title: 'Location Error',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 300000,
+      }
+    );
+  };
 
-  const handleDetectCategories = async () => {
-    setCategoryLoading(true)
+  const autoDetectCategories = async () => {
+    setCategoryLoading(true);
     try {
-      const res = await fetch('/api/settings/top-categories')
-      const data = await res.json()
+      const res = await fetch('/api/settings/top-categories');
+      const data = await res.json();
       if (data.topCategories?.length) {
-        setProfile(p => ({ ...p, topSpendCategories: data.topCategories }))
+        setProfile(p => {
+          const updated = { ...p, topSpendCategories: data.topCategories };
+          fetch('/api/settings/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
+          return updated;
+        });
       }
     } finally {
-      setCategoryLoading(false)
+      setCategoryLoading(false);
     }
-  }
+  };
 
   // Auto-populate email from authenticated session
   useEffect(() => {
@@ -83,8 +119,13 @@ return
         const res = await fetch('/api/settings/profile');
         if (res.ok) {
           const data = await res.json();
-          if (data.profile) {
-            setProfile(data.profile);
+          const existing = data.profile || {};
+          setProfile(existing);
+          if (!existing.homeAirport) {
+            autoDetectAirport();
+          }
+          if (!existing.topSpendCategories?.length) {
+            autoDetectCategories();
           }
         }
       } catch {
@@ -172,80 +213,40 @@ throw new Error('Failed to save');
           <Card className="bg-[#261B0E]/80 border-[#3D2E1A] p-6">
             <h2 className="text-xl font-bold text-[#E8D8B0] mb-4">Your Profile</h2>
             <p className="text-[#C4B8A8] mb-6">
-              Tell us about your spending habits to improve AI recommendations.
+              Profile data is detected automatically from your location and transaction history.
             </p>
 
             <div className="space-y-4">
               <div>
                 <Label className="text-[#E8D8B0] mb-2 block">Home Airport</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="e.g. JFK, LHR, BOM"
-                    value={profile.homeAirport}
-                    onChange={(e) => setProfile({ ...profile, homeAirport: e.target.value })}
-                    className="bg-[#261B0E]/80 border-[#3D2E1A] text-[#E8D8B0] placeholder:text-[#6B5E52] flex-1"
-                  />
-                  <Button
-                    onClick={handleDetectAirport}
-                    disabled={airportLoading}
-                    variant="outline"
-                    className="border-[#3D2E1A] text-[#C4B8A8] hover:text-[#E8D8B0] hover:bg-[#261B0E] whitespace-nowrap"
-                  >
-                    {airportLoading ? (
-                      <Loader className="w-4 h-4 animate-spin" />
-                    ) : (
-                      '📍 Detect'
-                    )}
-                  </Button>
+                <div className="flex items-center gap-2 py-2 px-3 rounded bg-[#1A1208] border border-[#3D2E1A] text-[#E8D8B0]">
+                  {airportLoading ? (
+                    <><Loader className="w-4 h-4 animate-spin text-[#C5AA67]" /><span className="text-[#C4B8A8] text-sm">Detecting nearest airport…</span></>
+                  ) : locationStatus === 'denied' ? (
+                    <span className="text-slate-400 text-sm">Location access denied — airport detection unavailable</span>
+                  ) : profile.homeAirport ? (
+                    <><span className="text-[#C5AA67]">✈</span><span className="font-mono font-bold">{profile.homeAirport}</span><span className="text-[#8B8070] text-xs ml-1">auto-detected</span></>
+                  ) : (
+                    <span className="text-slate-500 text-sm">Requesting location…</span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Or click Detect to auto-find from your location.
-                </p>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-[#E8D8B0]">Top Spend Categories</Label>
-                  <Button
-                    onClick={handleDetectCategories}
-                    disabled={categoryLoading}
-                    variant="outline"
-                    className="border-[#3D2E1A] text-[#C4B8A8] hover:text-[#E8D8B0] hover:bg-[#261B0E] text-xs h-7 px-2"
-                  >
-                    {categoryLoading ? (
-                      <Loader className="w-3 h-3 animate-spin mr-1" />
-                    ) : (
-                      '⚡'
-                    )}
-                    {categoryLoading ? 'Analysing...' : 'Auto-detect from transactions'}
-                  </Button>
+                <Label className="text-[#E8D8B0] mb-2 block">Top Spend Categories</Label>
+                <div className="flex items-center gap-2 flex-wrap py-2">
+                  {categoryLoading ? (
+                    <><Loader className="w-4 h-4 animate-spin text-[#C5AA67]" /><span className="text-[#C4B8A8] text-sm">Analysing transaction history…</span></>
+                  ) : profile.topSpendCategories.length ? (
+                    profile.topSpendCategories.map(cat => (
+                      <span key={cat} className="px-3 py-1 rounded-full bg-[#C5AA67]/15 border border-[#C5AA67]/30 text-[#C5AA67] text-sm capitalize">
+                        {cat}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-500 text-sm">No transaction history found</span>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[0, 1].map((i) => (
-                    <select
-                      key={i}
-                      value={profile.topSpendCategories[i] || ''}
-                      onChange={(e) => {
-                        const newCats = [...profile.topSpendCategories]
-                        newCats[i] = e.target.value
-                        setProfile({ ...profile, topSpendCategories: newCats })
-                      }}
-                      className="bg-[#261B0E]/80 border-[#3D2E1A] text-[#E8D8B0] p-2 rounded"
-                    >
-                      <option value="">Select...</option>
-                      <option value="dining">Dining</option>
-                      <option value="groceries">Groceries</option>
-                      <option value="travel">Travel</option>
-                      <option value="gas">Gas</option>
-                      <option value="streaming">Streaming</option>
-                      <option value="other">Other</option>
-                    </select>
-                  ))}
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Auto-detect picks these from your real transaction history.
-                </p>
               </div>
 
               <div>
@@ -291,10 +292,10 @@ throw new Error('Failed to save');
                 {profileLoading ? (
                   <>
                     <Loader className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
+                    Saving Preference...
                   </>
                 ) : (
-                  'Save Profile'
+                  'Save Preference'
                 )}
               </Button>
             </div>

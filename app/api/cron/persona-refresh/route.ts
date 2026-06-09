@@ -53,11 +53,6 @@ export async function GET(request: Request) {
     }
   }
 
-  const geminiApiKey = process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) {
-    logger.error('[cron/persona-refresh] GOOGLE_API_KEY not set');
-    return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
-  }
 
   const startedAt = Date.now();
   logger.info('[cron/persona-refresh] Starting persona refresh run');
@@ -69,7 +64,7 @@ export async function GET(request: Request) {
     const users = await User.find({})
       .sort({ updatedAt: 1 })
       .limit(BATCH_SIZE)
-      .select('email')
+      .select('email geminiApiKey')
       .lean();
 
     if (users.length === 0) {
@@ -89,8 +84,16 @@ export async function GET(request: Request) {
       const chunkResults = await Promise.allSettled(
         chunk.map(async (user) => {
           const userId = user.email as string;
+          const userGeminiApiKey = user.geminiApiKey as string | undefined;
+          
+          // Skip users who haven't configured their API key
+          if (!userGeminiApiKey) {
+            logger.info({ userId }, '[cron/persona-refresh] Skipping user - no API key configured');
+            return { userId, status: 'error' as const, error: 'No API key configured' };
+          }
+          
           try {
-            const result = await runRUMAgent(userId, geminiApiKey);
+            const result = await runRUMAgent(userId, userGeminiApiKey);
             logger.info({ userId, persona: result.persona.label }, '[cron/persona-refresh] Inferred');
             return { userId, status: 'ok' as const, persona: result.persona.label };
           } catch (err) {

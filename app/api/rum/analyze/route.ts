@@ -15,6 +15,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { ratelimit } from '@/lib/rateLimit';
 import { UnauthorizedError, ValidationError, toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
+import { User } from '@/lib/models/User';
 
 export async function POST(_request: Request) {
   try {
@@ -31,11 +32,14 @@ export async function POST(_request: Request) {
       throw new ValidationError('Rate limit exceeded — please wait before refreshing your persona.');
     }
 
-    const geminiApiKey = process.env.GOOGLE_API_KEY;
+    // Fetch user's Gemini API key from database
+    const user = await User.findOne({ email: userId });
+    const geminiApiKey = user?.geminiApiKey;
+    
     if (!geminiApiKey) {
       return NextResponse.json(
-        { error: 'Gemini API key not configured on the server.' },
-        { status: 500 },
+        { error: 'Gemini API key not configured. Please add your API key in Settings.' },
+        { status: 400 },
       );
     }
 

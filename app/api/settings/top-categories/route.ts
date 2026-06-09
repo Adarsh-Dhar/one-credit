@@ -18,8 +18,8 @@ export async function GET() {
   // Aggregate total spend per category for this user
   const result = await Transaction.aggregate([
     { $match: { userId: session.user.id, type: 'spend' } },
-    { $group: { _id: '$category', totalSpend: { $sum: '$amountUsd' } } },
-    { $sort: { totalSpend: -1 } },
+    { $group: { _id: '$category', txCount: { $sum: 1 }, totalSpend: { $sum: '$amountUsd' } } },
+    { $sort: { txCount: -1, totalSpend: -1 } },
     { $limit: 5 },
   ])
 

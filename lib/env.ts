@@ -10,8 +10,8 @@ const envSchema = z.object({
   // MongoDB
   MONGODB_URI: z.string().url('Invalid MongoDB URI format'),
 
-  // Google Gemini AI
-  GOOGLE_API_KEY: z.string().min(1, 'GOOGLE_API_KEY is required'),
+  // Google Gemini AI (optional - users can provide their own key in settings)
+  GOOGLE_API_KEY: z.string().optional(),
 
   // Fivetran
   FIVETRAN_API_KEY: z.string().optional(),

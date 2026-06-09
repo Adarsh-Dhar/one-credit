@@ -18,6 +18,7 @@ const UserSchema = new mongoose.Schema(
       topSpendCategories: [{ type: String, enum: ['dining', 'groceries', 'travel', 'gas', 'streaming', 'other'] }],
       carryBalance: { type: String, enum: ['yes', 'sometimes', 'never'] },
     },
+    geminiApiKey: String,
   },
   { timestamps: true }
 );
