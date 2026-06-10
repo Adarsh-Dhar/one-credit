@@ -11,16 +11,31 @@ const SOURCE_TO_MERCHANT_DOMAIN: Record<string, string> = {
   ebay: 'ebay.com',
 }
 
-export function detectProductAttributes(product: { name?: string; url?: string; source?: string }): {
+export function detectProductAttributes(product: { name?: string; url?: string; source?: string; website?: string }): {
   isEmi: boolean
   merchant: string
   isForeignMerchant: boolean
   category: string
 } {
   const isEmi = product.url?.includes('emi') || product.name?.toLowerCase().includes('emi') || false
-  const merchant = sanitizeForPrompt((product.source && SOURCE_TO_MERCHANT_DOMAIN[product.source]) || product.source || 'amazon.in')
+  // Use website if available, otherwise fall back to source mapping
+  const merchant = sanitizeForPrompt(product.website || (product.source && SOURCE_TO_MERCHANT_DOMAIN[product.source]) || product.source || 'generic')
   const isForeignMerchantValue = isForeignMerchant(merchant)
-  const category = sanitizeForPrompt(inferCategory(product.name || ''))
+  
+  // Use website to infer category if available (e.g., flight booking sites)
+  let category = sanitizeForPrompt(inferCategory(product.name || ''))
+  if (product.website) {
+    const websiteLower = product.website.toLowerCase()
+    // Detect flight/travel booking sites
+    if (websiteLower.includes('goindigo') || websiteLower.includes('indigo') || 
+        websiteLower.includes('airindia') || websiteLower.includes('vistara') ||
+        websiteLower.includes('spicejet') || websiteLower.includes('makemytrip') ||
+        websiteLower.includes('cleartrip') || websiteLower.includes('yatra') ||
+        websiteLower.includes('expedia') || websiteLower.includes('booking') ||
+        websiteLower.includes('airline') || websiteLower.includes('flight')) {
+      category = 'airlines'
+    }
+  }
 
   return { isEmi, merchant, isForeignMerchant: isForeignMerchantValue, category }
 }

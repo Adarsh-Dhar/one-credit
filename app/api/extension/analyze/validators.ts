@@ -5,10 +5,11 @@ import { ratelimit } from '@/lib/rateLimit'
 
 const AnalyzeSchema = z.object({
   product: z.object({
-    name: z.string().max(200),
+    name: z.string().max(500),
     price: z.number().positive().max(1_000_000),
     url: z.string().url().optional(),
     source: z.string().max(50).optional(),
+    website: z.string().max(255).optional(),
   }),
   userId: z.string().max(100),
 })

@@ -141,7 +141,8 @@ export function SidePanel() {
       if (!response.ok) {
         const err = await response.json()
         console.error('[SidePanel] Analysis error:', err)
-        throw new Error(err.error || `HTTP ${response.status}`)
+        const errorMessage = typeof err.error === 'string' ? err.error : JSON.stringify(err.error || err)
+        throw new Error(errorMessage || `HTTP ${response.status}`)
       }
 
       const data: AnalysisResult = await response.json()

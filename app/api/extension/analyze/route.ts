@@ -187,28 +187,6 @@ export async function POST(request: NextRequest) {
       cardKeys = cardKeys.filter(id => !savedPrefs.excludedCardIds.includes(id));
     }
 
-    // ── EXCLUSIVE PIN LOGIC: If a card is pinned for a specific category, exclude it from other categories ──
-    if (savedPrefs?.pinnedCards?.length) {
-      const matchedPin = findMatchingPin(savedPrefs.pinnedCards, merchant, category, isForeignMerchant);
-      logger.info({ matchedPin }, '[Pin Logic] Matched pin')
-      
-      // If a category pin matched, ONLY keep that pinned card
-      // If no category pin matched, exclude ALL pinned cards
-      const pinnedCardIds = savedPrefs.pinnedCards.map(p => p.cardId);
-      
-      if (matchedPin && matchedPin.matchType === 'category') {
-        // Category pin matched - keep ONLY this pinned card, exclude all others
-        logger.info('[Pin Logic] Category pin matched - keeping only this pinned card')
-        cardKeys = cardKeys.filter(id => id === matchedPin.cardId);
-      } else {
-        // No category pin matched - exclude ALL pinned cards
-        logger.info('[Pin Logic] No category pin matched - excluding all pinned cards')
-        cardKeys = cardKeys.filter(id => !pinnedCardIds.includes(id));
-      }
-      logger.info({ cardKeys }, '[Pin Logic] Filtered card keys')
-    }
-    // ── END EXCLUSIVE PIN LOGIC ─────────────────────────────────────────────
-
     const cardKnowledgeMap = await buildCardKnowledge(userContext, env, cardKeys)
 
     const model = createGeminiModel(env.GOOGLE_API_KEY)

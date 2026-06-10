@@ -63,6 +63,7 @@ export function detectAmazonProduct(url: string): Product | null {
       category: 'electronics',
       source: 'amazon',
       detectedAt: new Date().toISOString(),
+      website: new URL(url).hostname,
     }
   }
 
@@ -83,6 +84,7 @@ export function detectWalmartProduct(url: string): Product | null {
       category: 'general',
       source: 'walmart',
       detectedAt: new Date().toISOString(),
+      website: new URL(url).hostname,
     }
   }
 
@@ -103,6 +105,7 @@ export function detectBestBuyProduct(url: string): Product | null {
       category: 'electronics',
       source: 'bestbuy',
       detectedAt: new Date().toISOString(),
+      website: new URL(url).hostname,
     }
   }
 
@@ -123,6 +126,7 @@ export function detectTargetProduct(url: string): Product | null {
       category: 'general',
       source: 'target',
       detectedAt: new Date().toISOString(),
+      website: new URL(url).hostname,
     }
   }
 

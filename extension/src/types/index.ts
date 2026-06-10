@@ -8,6 +8,7 @@ export interface Product {
   category: string
   source: 'amazon' | 'walmart' | 'bestbuy' | 'target' | 'ebay' | 'generic'
   detectedAt: string
+  website?: string
 }
 
 export interface Card {
