@@ -123,6 +123,9 @@ export function SidePanel() {
         chrome.storage.local.get(['userId'], resolve)
       )
 
+      console.log('[SidePanel] Running analysis with userId:', stored.userId)
+      console.log('[SidePanel] Product:', product)
+
       // Make direct fetch request (SidePanel has CSP meta tag allowing localhost)
       const response = await fetch(`${API_BASE}/api/extension/analyze`, {
         method: 'POST',
@@ -133,8 +136,11 @@ export function SidePanel() {
         }),
       })
 
+      console.log('[SidePanel] Response status:', response.status)
+
       if (!response.ok) {
         const err = await response.json()
+        console.error('[SidePanel] Analysis error:', err)
         throw new Error(err.error || `HTTP ${response.status}`)
       }
 

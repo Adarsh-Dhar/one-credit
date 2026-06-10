@@ -1,6 +1,12 @@
 // Content script for OneCredit extension
-// Inline logger to avoid module issues in content script
-const EXTENSION_LOGGER_PREFIX = '[OneCredit]';
+// Prevent multiple injections
+if ((window as any).__ONE_CREDIT_CONTENT_LOADED__) {
+  console.log('[OneCredit] Content script already loaded, skipping')
+} else {
+  (window as any).__ONE_CREDIT_CONTENT_LOADED__ = true
+
+  // Inline logger to avoid module issues in content script
+  const EXTENSION_LOGGER_PREFIX = '[OneCredit]';
 class ExtensionLogger {
   private isDevelopment: boolean;
   constructor() {
@@ -405,3 +411,5 @@ chrome.runtime.onMessage.addListener((request) => {
 })
 
 logger.log('Content script loaded')
+
+}
