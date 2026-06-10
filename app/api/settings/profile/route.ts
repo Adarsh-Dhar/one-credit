@@ -4,6 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { User } from '@/lib/models/User';
 import { UnauthorizedError, toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
+import connectDB from '@/lib/mongodb';
 import { z } from 'zod';
 
 // Zod schema for profile validation
@@ -19,6 +20,8 @@ export async function GET(_request: Request) {
     if (!session?.user?.id) {
       throw new UnauthorizedError();
     }
+
+    await connectDB();
 
     const user = await User.findOne({ email: session.user.email });
     if (!user) {
@@ -39,6 +42,8 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       throw new UnauthorizedError();
     }
+
+    await connectDB();
 
     const body = await request.json();
     const validatedData = ProfileSchema.parse(body);

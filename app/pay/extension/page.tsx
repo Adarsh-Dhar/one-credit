@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
@@ -25,7 +25,7 @@ interface CardDetails {
   netCost?: number;
 }
 
-export default function ExtensionPaymentPage() {
+function ExtensionPaymentContent() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const userId = session?.user?.id;
@@ -317,5 +317,20 @@ export default function ExtensionPaymentPage() {
         </AnimatePresence>
       </main>
     </div>
+  );
+}
+
+export default function ExtensionPaymentPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0D0A06] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-[#C5AA67] animate-spin mx-auto mb-4" />
+          <p className="text-[#C4B8A8]">Loading payment details...</p>
+        </div>
+      </div>
+    }>
+      <ExtensionPaymentContent />
+    </Suspense>
   );
 }

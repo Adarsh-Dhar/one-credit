@@ -39,3 +39,5 @@ declare global {
     promise: Promise<mongoose.Mongoose> | null;
   };
 }
+
+export default connectDB;

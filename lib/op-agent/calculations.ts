@@ -6,7 +6,6 @@
 import type { CardKnowledge, EarnAudit, EarnOutcome, CostBreakdown, Valuation, CalculationContext } from './types'
 import { OP_AGENT_CONFIG } from '@/lib/constants'
 
-const INDUSTRY_STANDARD_CPP = OP_AGENT_CONFIG.INDUSTRY_STANDARD_CPP
 const FLOAT_PERIOD_DAYS = OP_AGENT_CONFIG.FLOAT_PERIOD_DAYS
 const DAYS_PER_YEAR = OP_AGENT_CONFIG.DAYS_PER_YEAR
 
@@ -89,7 +88,7 @@ export function calculateCppTiers(
 ): { conservativeCpp: number; realisticCpp: number; industryAssumedCpp: number } {
   const conservativeCpp = redemptionPaths[0]?.ratePerPoint ?? 1.0
   const realisticCpp = actualAvgCppAchieved ?? bestRedemptionRatePerPoint
-  const industryAssumedCpp = INDUSTRY_STANDARD_CPP
+  const industryAssumedCpp = 1.0
   return { conservativeCpp, realisticCpp, industryAssumedCpp }
 }
 
@@ -252,11 +251,12 @@ function calculateFeeWaiverStatus(
 function calculateRewardValue(
   totalPoints: number,
   realisticCpp: number,
-  industryAssumedCpp: number
+  price: number,
+  earnRate: number
 ): { trueRewardValueUsd: number; industryRewardValue: number } {
   return {
     trueRewardValueUsd: (totalPoints * realisticCpp) / 100,
-    industryRewardValue: (totalPoints * industryAssumedCpp) / 100,
+    industryRewardValue: (price * earnRate) / 100,
   }
 }
 
@@ -327,7 +327,9 @@ function calculateEffectiveEarnRate(
 function calculateCardValuation(
   card: CardKnowledge,
   totalPoints: number,
-  userContext: CalculationContext['userContext']
+  userContext: CalculationContext['userContext'],
+  price: number,
+  earnRate: number
 ): {
   conservativeCpp: number
   realisticCpp: number
@@ -342,7 +344,7 @@ function calculateCardValuation(
   )
   const { conservativeCpp, realisticCpp, industryAssumedCpp } = centsPerPointResult
 
-  const { trueRewardValueUsd, industryRewardValue } = calculateRewardValue(totalPoints, realisticCpp, industryAssumedCpp)
+  const { trueRewardValueUsd, industryRewardValue } = calculateRewardValue(totalPoints, realisticCpp, price, earnRate)
 
   return { conservativeCpp, realisticCpp, industryAssumedCpp, trueRewardValueUsd, industryRewardValue }
 }
@@ -417,7 +419,7 @@ export function calculateCardResult(
 
   const { basePoints, totalPoints, bonusPoints } = calculatePointsEarned(price, baseRate, earnRateResult.earnRate)
 
-  const valuation = calculateCardValuation(card, totalPoints, userContext)
+  const valuation = calculateCardValuation(card, totalPoints, userContext, price, earnRateResult.earnRate)
 
   const costs = calculateCardCosts(
     product,

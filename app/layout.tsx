@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
+import { PreferencesDrawer } from '@/components/PreferencesDrawer'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <Providers>
           {children}
+          <PreferencesDrawer />
           {process.env.NODE_ENV === 'production' && <Analytics />}
         </Providers>
       </body>

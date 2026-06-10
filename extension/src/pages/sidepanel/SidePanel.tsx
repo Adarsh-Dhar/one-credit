@@ -59,7 +59,10 @@ interface CardResult {
 }
 
 interface AnalysisResult {
-  product: { name: string; price: number; url?: string }
+  product: {
+    merchant: any
+    category: any; name: string; price: number; url?: string 
+}
   cards: CardResult[]
   winner: CardResult
   industryWinner: CardResult
@@ -101,6 +104,7 @@ export function SidePanel() {
   const [selectedCard, setSelectedCard] = useState<string | null>(null)
   const [pendingProduct, setPendingProduct] = useState<any>(null)
   const [sortMode, setSortMode] = useState<'cost' | 'points'>('cost')
+  const [pointsMode, setPointsMode] = useState<'industry' | 'delphi'>('industry')
   const [confirmingPurchase, setConfirmingPurchase] = useState(false)
   const [purchaseError, setPurchaseError] = useState<string | null>(null)
   const [purchaseSuccess, setPurchaseSuccess] = useState(false)
@@ -237,9 +241,15 @@ export function SidePanel() {
         netCost: selectedCardData.cost.netCost.toString(),
       })
 
-      if (result.product.category) params.append('category', result.product.category)
-      if (result.product.merchant) params.append('merchant', result.product.merchant)
-      if (result.product.url) params.append('url', result.product.url)
+      if (result.product.category) {
+        params.append('category', result.product.category)
+      }
+      if (result.product.merchant) {
+        params.append('merchant', result.product.merchant)
+      }
+      if (result.product.url) {
+        params.append('url', result.product.url)
+      }
 
       const paymentUrl = `${API_BASE}/pay/extension?${params.toString()}`
 
@@ -544,35 +554,63 @@ export function SidePanel() {
           {/* All cards */}
           <div>
             <div className="flex items-center justify-between mb-2 px-1">
-              <p className="text-xs font-medium text-[#8B8070]">ALL CARDS RANKED</p>
-              <div className="flex bg-[#261B0E] border border-[#3D2E1A] rounded-lg p-0.5 gap-0.5">
-                <button
-                  onClick={() => setSortMode('cost')}
-                  className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
-                    sortMode === 'cost'
-                      ? 'bg-[#C5AA67] text-[#0D0A06]'
-                      : 'text-[#8B8070] hover:text-[#C4B8A8]'
-                  }`}
-                >
-                  $ Price
-                </button>
-                <button
-                  onClick={() => setSortMode('points')}
-                  className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
-                    sortMode === 'points'
-                      ? 'bg-[#C5AA67] text-[#0D0A06]'
-                      : 'text-[#8B8070] hover:text-[#C4B8A8]'
-                  }`}
-                >
-                  ✦ Points
-                </button>
+              <p className="text-xs font-medium text-[#8B8070]">RANK BY</p>
+              <div className="flex items-center gap-2">
+                <div className="flex bg-[#261B0E] border border-[#3D2E1A] rounded-lg p-0.5 gap-0.5">
+                  <button
+                    onClick={() => setSortMode('cost')}
+                    className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
+                      sortMode === 'cost'
+                        ? 'bg-[#C5AA67] text-[#0D0A06]'
+                        : 'text-[#8B8070] hover:text-[#C4B8A8]'
+                    }`}
+                  >
+                    $ Price
+                  </button>
+                  <button
+                    onClick={() => setSortMode('points')}
+                    className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
+                      sortMode === 'points'
+                        ? 'bg-[#C5AA67] text-[#0D0A06]'
+                        : 'text-[#8B8070] hover:text-[#C4B8A8]'
+                    }`}
+                  >
+                    ✦ Points
+                  </button>
+                </div>
+                {sortMode === 'points' && (
+                  <div className="flex bg-[#261B0E] border border-[#3D2E1A] rounded-lg p-0.5 gap-0.5">
+                    <button
+                      onClick={() => setPointsMode('industry')}
+                      className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
+                        pointsMode === 'industry'
+                          ? 'bg-[#C5AA67] text-[#0D0A06]'
+                          : 'text-[#8B8070] hover:text-[#C4B8A8]'
+                      }`}
+                    >
+                      Normal
+                    </button>
+                    <button
+                      onClick={() => setPointsMode('delphi')}
+                      className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
+                        pointsMode === 'delphi'
+                          ? 'bg-[#C5AA67] text-[#0D0A06]'
+                          : 'text-[#8B8070] hover:text-[#C4B8A8]'
+                      }`}
+                    >
+                      Delphi
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div className="space-y-2">
               {[...result.cards].sort((a, b) =>
                 sortMode === 'cost'
                   ? a.cost.netCost - b.cost.netCost
-                  : b.earn.actualPointsEarned - a.earn.actualPointsEarned
+                  : pointsMode === 'industry'
+                    ? b.valuation.industryRewardValue - a.valuation.industryRewardValue
+                    : b.valuation.trueRewardValueUsd - a.valuation.trueRewardValueUsd
               ).map((card, idx) => (
                 <div
                   key={card.cardKey}
@@ -612,10 +650,7 @@ export function SidePanel() {
                       ) : (
                         <>
                           <p className="text-sm font-bold text-[#4ECDA4]">
-                            {card.rewardType === 'cashback'
-                              ? `+${fmtUsd(card.valuation.trueRewardValueUsd)}`
-                              : `+${card.earn.actualPointsEarned.toLocaleString()} pts`
-                            }
+                            +{pointsMode === 'industry' ? fmtUsd(card.valuation.industryRewardValue) : fmtUsd(card.valuation.trueRewardValueUsd)}
                           </p>
                           <p className="text-xs text-slate-400">
                             net {isGuaranteedRate(card) ? '' : '~'}{fmtUsd(card.cost.netCost)}
@@ -664,11 +699,14 @@ export function SidePanel() {
                         <div className="flex justify-between text-slate-300">
                           <span>Points value</span>
                           <span className="text-[#4ECDA4]">
-                            {card.rewardType === 'cashback'
-                              ? `−${fmtUsd(card.valuation.trueRewardValueUsd)}`
-                              : <>−{card.earn.actualPointsEarned.toLocaleString()} pts
-                                  <span className="text-slate-500 ml-1 text-xs">({fmtUsd(card.valuation.trueRewardValueUsd)})</span>
-                                </>
+                            {sortMode === 'points'
+                              ? `−${pointsMode === 'industry' ? fmtUsd(card.valuation.industryRewardValue) : fmtUsd(card.valuation.trueRewardValueUsd)}`
+                              : (card.rewardType === 'cashback'
+                                  ? `−${fmtUsd(card.valuation.trueRewardValueUsd)}`
+                                  : <>−{card.earn.actualPointsEarned.toLocaleString()} pts
+                                      <span className="text-slate-500 ml-1 text-xs">({fmtUsd(card.valuation.trueRewardValueUsd)})</span>
+                                    </>
+                                )
                             }
                           </span>
                         </div>
