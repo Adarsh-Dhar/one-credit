@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, X, Trash2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { IUserPreferences, IPinnedCard } from '@/lib/models/UserPreferences';
+import type { IUserPreferences, IPinnedCard, IUserIntent } from '@/lib/models/UserPreferences';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -55,6 +55,12 @@ function ActiveRulesPanel({ prefs, onClear }: ActiveRulesBadgeProps) {
   });
   (prefs?.excludedCardIds ?? []).forEach((id: string) => {
     rules.push({ label: `Excluded: ${id}`, field: `exclude:${id}` });
+  });
+  (prefs?.userIntents ?? []).forEach((intent: IUserIntent, i: number) => {
+    rules.push({
+      label: `"${intent.sentence}"`,
+      field: `intent:${i}`,
+    });
   });
 
   if (rules.length === 0) {
@@ -244,14 +250,15 @@ export function PreferencesDrawer() {
   const rulesCount =
     (prefs?.pinnedCards?.length ?? 0) +
     (prefs?.excludedCardIds?.length ?? 0) +
-    (prefs?.maxAnnualFeeUsd !== null ? 1 : 0) +
+    (prefs?.userIntents?.length ?? 0) +
+    (prefs?.maxAnnualFeeUsd !== null && prefs?.maxAnnualFeeUsd !== undefined ? 1 : 0) +
     (prefs?.preferCashback ? 1 : 0) +
     (prefs?.preferMiles ? 1 : 0) +
     (prefs?.preferFinancing ? 1 : 0) +
     (prefs?.preferLoungeAccess ? 1 : 0) +
     (prefs?.avoidNetworks?.length ?? 0) +
     (prefs?.carryBalance ? 1 : 0) +
-    (prefs?.minSavingsThresholdUsd !== null ? 1 : 0);
+    (prefs?.minSavingsThresholdUsd !== null && prefs?.minSavingsThresholdUsd !== undefined ? 1 : 0);
 
   return (
     <>

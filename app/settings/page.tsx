@@ -15,16 +15,22 @@ export default function Settings() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState('');
+  const [redactedKey, setRedactedKey] = useState<string | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [isEditingApiKey, setIsEditingApiKey] = useState(false);
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [apiKeySuccess, setApiKeySuccess] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState('');
   const [profile, setProfile] = useState({
     homeAirport: '',
+    homeAirportName: '',
     topSpendCategories: [] as string[],
     carryBalance: '' as 'yes' | 'sometimes' | 'never',
   });
   const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [profileError, setProfileError] = useState('');
   const [airportLoading, setAirportLoading] = useState(false)
   const [categoryLoading, setCategoryLoading] = useState(false)
   const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported'>('idle')
@@ -45,7 +51,7 @@ export default function Settings() {
           const data = await res.json();
           if (data.airport?.iata) {
             setProfile(p => {
-              const updated = { ...p, homeAirport: data.airport.iata };
+              const updated = { ...p, homeAirport: data.airport.iata, homeAirportName: data.airport.name };
               // silent auto-save
               fetch('/api/settings/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
               return updated;
@@ -107,6 +113,28 @@ export default function Settings() {
     }
   }, [session]);
 
+  // Load existing API key on mount
+  useEffect(() => {
+    if (!session?.user?.email) {
+      return;
+    }
+
+    const loadApiKey = async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          setHasApiKey(data.hasApiKey);
+          setRedactedKey(data.redactedKey);
+        }
+      } catch {
+        // Silently fail if we can't load the key
+      }
+    };
+
+    loadApiKey();
+  }, [session?.user?.email]);
+
   // Load profile on mount
   useEffect(() => {
     if (!session?.user?.email) {
@@ -143,8 +171,8 @@ export default function Settings() {
   }, [session?.user?.email]);
 
   const handleSaveProfile = async () => {
-    setError('');
-    setSuccess(false);
+    setProfileError('');
+    setProfileSuccess(false);
     setProfileLoading(true);
 
     try {
@@ -158,25 +186,31 @@ export default function Settings() {
         throw new Error('Failed to save profile');
       }
 
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 3000);
     } catch {
-      setError('Failed to save profile. Please try again.');
+      setProfileError('Failed to save profile. Please try again.');
     } finally {
       setProfileLoading(false);
     }
   };
 
   const handleSaveApiKey = async () => {
-    setError('');
-    setSuccess(false);
+    setApiKeyError('');
+    setApiKeySuccess(false);
 
-    if (!apiKey.trim()) {
-      setError('Please enter your Gemini API key');
+    // If user is editing but didn't enter a new key, just cancel the edit mode
+    if (isEditingApiKey && !apiKey.trim()) {
+      setIsEditingApiKey(false);
       return;
     }
 
-    setLoading(true);
+    if (!apiKey.trim()) {
+      setApiKeyError('Please enter your Gemini API key');
+      return;
+    }
+
+    setApiKeyLoading(true);
 
     try {
       // Send the key to your server to store in env / secrets manager
@@ -191,13 +225,21 @@ export default function Settings() {
 throw new Error('Failed to save');
 }
 
-      setSuccess(true);
+      setApiKeySuccess(true);
       setApiKey(''); // Clear from state after saving
-      setTimeout(() => setSuccess(false), 3000);
+      setIsEditingApiKey(false); // Reset editing mode
+      // Reload the redacted key
+      const keyRes = await fetch('/api/settings');
+      if (keyRes.ok) {
+        const keyData = await keyRes.json();
+        setHasApiKey(keyData.hasApiKey);
+        setRedactedKey(keyData.redactedKey);
+      }
+      setTimeout(() => setApiKeySuccess(false), 3000);
     } catch {
-      setError('Failed to save configuration. Please try again.');
+      setApiKeyError('Failed to save configuration. Please try again.');
     } finally {
-      setLoading(false);
+      setApiKeyLoading(false);
     }
   };
 
@@ -219,15 +261,36 @@ throw new Error('Failed to save');
             <div className="space-y-4">
               <div>
                 <Label className="text-[#E8D8B0] mb-2 block">Home Airport</Label>
-                <div className="flex items-center gap-2 py-2 px-3 rounded bg-[#1A1208] border border-[#3D2E1A] text-[#E8D8B0]">
-                  {airportLoading ? (
-                    <><Loader className="w-4 h-4 animate-spin text-[#C5AA67]" /><span className="text-[#C4B8A8] text-sm">Detecting nearest airport…</span></>
-                  ) : locationStatus === 'denied' ? (
-                    <span className="text-slate-400 text-sm">Location access denied — airport detection unavailable</span>
-                  ) : profile.homeAirport ? (
-                    <><span className="text-[#C5AA67]">✈</span><span className="font-mono font-bold">{profile.homeAirport}</span><span className="text-[#8B8070] text-xs ml-1">auto-detected</span></>
-                  ) : (
-                    <span className="text-slate-500 text-sm">Requesting location…</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Enter airport code (e.g., BBI, DEL)"
+                      value={profile.homeAirport}
+                      onChange={(e) => setProfile({ ...profile, homeAirport: e.target.value.toUpperCase(), homeAirportName: '' })}
+                      className="bg-[#261B0E]/80 border-[#3D2E1A] text-[#E8D8B0] placeholder:text-[#6B5E52] flex-1"
+                    />
+                    <Button
+                      onClick={autoDetectAirport}
+                      disabled={airportLoading}
+                      variant="outline"
+                      className="bg-[#261B0E]/80 border-[#3D2E1A] text-[#C5AA67] hover:bg-[#3D2E1A]"
+                    >
+                      {airportLoading ? (
+                        <Loader className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Auto-detect'
+                      )}
+                    </Button>
+                  </div>
+                  {profile.homeAirportName && (
+                    <div className="flex items-center gap-2 text-sm text-[#C4B8A8]">
+                      <span className="text-[#C5AA67]">✈</span>
+                      <span>{profile.homeAirportName} ({profile.homeAirport})</span>
+                    </div>
+                  )}
+                  {locationStatus === 'denied' && (
+                    <span className="text-slate-400 text-xs">Location access denied — enter manually</span>
                   )}
                 </div>
               </div>
@@ -249,33 +312,14 @@ throw new Error('Failed to save');
                 </div>
               </div>
 
-              <div>
-                <Label className="text-[#E8D8B0] mb-2 block">Do You Carry a Balance?</Label>
-                <div className="flex gap-2">
-                  {(['yes', 'sometimes', 'never'] as const).map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => setProfile({ ...profile, carryBalance: option })}
-                      className={`flex-1 py-2 rounded capitalize ${
-                        profile.carryBalance === option
-                          ? 'bg-[#C5AA67] text-[#0D0A06]'
-                          : 'bg-[#261B0E]/80 border-[#3D2E1A] text-[#C4B8A8]'
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {error && (
+              {profileError && (
                 <Alert className="bg-red-500/10 border-red-500/30">
                   <AlertCircle className="h-4 w-4 text-red-500" />
-                  <AlertDescription className="text-red-200">{error}</AlertDescription>
+                  <AlertDescription className="text-red-200">{profileError}</AlertDescription>
                 </Alert>
               )}
 
-              {success && (
+              {profileSuccess && (
                 <Alert className="bg-green-500/10 border-green-500/30">
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <AlertDescription className="text-green-200">
@@ -331,26 +375,60 @@ throw new Error('Failed to save');
 
               <div>
                 <Label className="text-[#E8D8B0] mb-2 block">Gemini API Key</Label>
-                <Input
-                  type="password"
-                  placeholder="Paste your API key here (starts with AIzaSy...)"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="bg-[#261B0E]/80 border-[#3D2E1A] text-[#E8D8B0] placeholder:text-[#6B5E52]"
-                />
+                {hasApiKey && redactedKey && !isEditingApiKey ? (
+                  <div className="flex items-center gap-2 py-2 px-3 rounded bg-[#1A1208] border border-[#3D2E1A] text-[#E8D8B0]">
+                    <span className="font-mono text-sm">{redactedKey}</span>
+                    <button
+                      onClick={() => setIsEditingApiKey(true)}
+                      className="text-xs text-[#C5AA67] hover:text-[#DCC98A] underline ml-2"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        type="password"
+                        placeholder={hasApiKey ? "Enter new API key to replace existing key..." : "Paste your API key here (starts with AIzaSy...)"}
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        className="bg-[#261B0E]/80 border-[#3D2E1A] text-[#E8D8B0] placeholder:text-[#6B5E52] flex-1"
+                      />
+                      {hasApiKey && (
+                        <Button
+                          onClick={() => {
+                            setIsEditingApiKey(false);
+                            setApiKey('');
+                            setApiKeyError('');
+                          }}
+                          variant="outline"
+                          className="bg-[#261B0E]/80 border-[#3D2E1A] text-[#C4B8A8] hover:bg-[#3D2E1A]"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                    {hasApiKey && (
+                      <p className="text-xs text-[#8B8070]">
+                        Leave empty and click Cancel to keep your existing key
+                      </p>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-[#8B8070] mt-2">
                   Your API key is stored securely server-side.
                 </p>
               </div>
 
-              {error && (
+              {apiKeyError && (
                 <Alert className="bg-red-500/10 border-red-500/30">
                   <AlertCircle className="h-4 w-4 text-red-500" />
-                  <AlertDescription className="text-red-200">{error}</AlertDescription>
+                  <AlertDescription className="text-red-200">{apiKeyError}</AlertDescription>
                 </Alert>
               )}
 
-              {success && (
+              {apiKeySuccess && (
                 <Alert className="bg-green-500/10 border-green-500/30">
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <AlertDescription className="text-green-200">
@@ -361,10 +439,10 @@ throw new Error('Failed to save');
 
               <Button
                 onClick={handleSaveApiKey}
-                disabled={loading}
+                disabled={apiKeyLoading}
                 className="bg-[#C5AA67] hover:bg-[#A8893F] text-[#0D0A06] border-0 w-full"
               >
-                {loading ? (
+                {apiKeyLoading ? (
                   <>
                     <Loader className="w-4 h-4 mr-2 animate-spin" />
                     Saving...

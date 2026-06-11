@@ -80,7 +80,7 @@ export function calculateCardValue(
   pointsBalance: number,
   pointsValueCents: number
 ): number {
-  if (currencyType === CurrencyType.POINTS) {
+  if (currencyType === CurrencyType.POINTS || currencyType === CurrencyType.MILES) {
     return pointsBalance * (pointsValueCents / 100)
   }
   return creditTokenBalance

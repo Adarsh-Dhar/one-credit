@@ -10,7 +10,30 @@ import { z } from 'zod';
 // Zod schema for profile validation
 const ProfileSchema = z.object({
   homeAirport: z.string().optional(),
-  topSpendCategories: z.array(z.enum(['dining', 'groceries', 'travel', 'gas', 'streaming', 'other'])).max(2).optional(),
+  homeAirportName: z.string().optional(),
+  topSpendCategories: z.array(z.enum([
+    'dining',
+    'groceries',
+    'travel',
+    'airlines',
+    'gas',
+    'streaming',
+    'shopping',
+    'luxury',
+    'electronics',
+    'apparel',
+    'jewelry',
+    'home',
+    'health',
+    'fitness',
+    'education',
+    'entertainment',
+    'transportation',
+    'utilities',
+    'insurance',
+    'professional_services',
+    'other'
+  ])).max(2).optional(),
   carryBalance: z.enum(['yes', 'sometimes', 'never']).optional(),
 });
 

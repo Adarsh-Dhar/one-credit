@@ -144,4 +144,5 @@ export interface OPAgentInput {
   riskFreeRatePercent: number
   billingCycleDays: number
   userContext: UserContext
+  userIntentSentences?: string[]
 }

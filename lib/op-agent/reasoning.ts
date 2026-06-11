@@ -50,13 +50,19 @@ function generateAgentReasoning(winner: CardResult, allCards: CardResult[], prod
 export async function generateReasoningWithGemini(
   cards: CardResult[],
   product: OPAgentInput['product'],
-  model: import('@google/generative-ai').GenerativeModel
+  model: import('@google/generative-ai').GenerativeModel,
+  userIntentSentences: string[] = [],
 ): Promise<{ cardReasonings: Record<string, string>; agentReasoning: string }> {
   try {
+    const intentBlock = userIntentSentences?.length
+      ? `\nUser's stated preferences (apply these when generating reasoning):\n${userIntentSentences.map(s => `- "${s}"`).join('\n')}`
+      : '';
+
     const prompt = `
 You are a credit card optimization expert. Given a product and card analysis results, generate reasoning strings.
 
 Product: ${product.name}, Price: $${product.price}, Category: ${product.category}, Merchant: ${product.merchant}
+${intentBlock}
 
 Card results:
 ${cards.map(c => `- ${c.name} (key: ${c.cardKey}): Earn rate ${c.earn.earnAudit.rate}x, Points earned ${c.earn.actualPointsEarned.toLocaleString()}, Net cost $${c.cost.netCost.toFixed(2)}, ${c.earn.earnAudit.exclusionReason || 'No exclusions'}, ${c.earn.rotatingBonusApplied ? 'Rotating bonus active' : ''}, ${c.earn.portalBonusApplied ? `Portal bonus: ${c.earn.portalBonusName}` : ''}`).join('\n')}

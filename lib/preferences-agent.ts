@@ -31,6 +31,8 @@ export interface PreferenceDiff {
   excludedCardIdsToAdd?: string[];
   excludedCardIdsToRemove?: string[];
   minSavingsThresholdUsd?: number | null;
+  userIntentsToAdd?: string[];      // new natural-language sentences to persist
+  userIntentsToRemove?: number[];   // indices to remove (0-based)
   confirmed?: boolean;              // true when user explicitly confirms
   needsClarification?: boolean;     // true when agent is still asking questions
 }
@@ -49,9 +51,10 @@ const MODEL_NAME = 'gemini-2.5-flash';
 
 function buildConversationalSystemPrompt(
   currentPrefs: Partial<IUserPreferences>,
-  walletCardNames: string[],
+  walletCards: { displayName: string; cardId: string }[],
 ): string {
   const activePrefs = summariseActivePrefs(currentPrefs);
+  const walletList = walletCards.map(c => `${c.displayName} (id: ${c.cardId})`).join(', ');
 
   return `
 You are the Delphi Preferences Assistant — a concise, friendly AI built into a credit card optimization app.
@@ -60,7 +63,7 @@ You are the Delphi Preferences Assistant — a concise, friendly AI built into a
 Help the user configure how the AI agent recommends cards. You collect their preferences through natural conversation, clarify ambiguities, and only apply changes once the user explicitly confirms.
 
 ## WALLET CARDS AVAILABLE
-The user owns these cards: ${walletCardNames.length > 0 ? walletCardNames.join(', ') : 'none loaded yet'}.
+The user owns these cards: ${walletList.length > 0 ? walletList : 'none loaded yet'}.
 When the user refers to a card by nickname ("my Amex", "the travel card"), always clarify which specific card they mean from this list before proceeding.
 
 ## CURRENT ACTIVE PREFERENCES
@@ -118,14 +121,16 @@ Return ONLY a valid JSON object matching this exact schema. No markdown, no prea
   "excludedCardIdsToAdd": <string[]>,
   "excludedCardIdsToRemove": <string[]>,
   "minSavingsThresholdUsd": <number | null>,
+  "userIntentsToAdd": ["<the user's original intent sentence, cleaned up, as a single string>"],
   "confirmed": <boolean>
 }
 
 Rules:
 - Only include fields where an explicit change was confirmed.
 - "confirmed" is true only if the user said yes/confirmed/approved in their last message.
-- For cardId, use a lowercase-hyphenated slug of the card name (e.g. "amex-gold", "chase-sapphire-reserve").
+- For cardId, use the exact card id from the wallet list provided in the conversation (e.g. "card_amex_platinum_01"). Never invent a slug.
 - null means "no change to this field". Use an empty array [] to explicitly clear a list.
+- For "userIntentsToAdd": include a clean, plain-English sentence summarizing each confirmed preference the user stated. This should read like the user's own words — e.g. "Use Amex Platinum only for airline transactions" or "I want Chase Sapphire points when dining at Nobu". Include one sentence per distinct preference confirmed. If nothing new was confirmed, return an empty array.
 - If nothing was confirmed, return { "confirmed": false }.
 `.trim();
 
@@ -165,6 +170,9 @@ function summariseActivePrefs(prefs: Partial<IUserPreferences>): string {
       lines.push(`• Pinned: ${pin.cardDisplayName} for ${pin.matchType} "${pin.matchValue}"`);
     }
   }
+  if (prefs.userIntents?.length) {
+    lines.push(`\nSAVED INTENT RULES:\n${prefs.userIntents.map((i, n) => `${n+1}. "${i.sentence}"`).join('\n')}`);
+  }
   return lines.join('\n');
 }
 
@@ -174,14 +182,14 @@ export async function runPreferencesChatTurn(
   userMessage: string,
   history: ChatMessage[],
   currentPrefs: Partial<IUserPreferences>,
-  walletCardNames: string[],
+  walletCards: { displayName: string; cardId: string }[],
   geminiApiKey: string,
 ): Promise<ChatTurnResult> {
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
   // ── Step 1: Conversational turn ───────────────────────────────────────────
-  const systemPrompt = buildConversationalSystemPrompt(currentPrefs, walletCardNames);
+  const systemPrompt = buildConversationalSystemPrompt(currentPrefs, walletCards);
 
   // Build Gemini contents array from history
   const contents = history.map(msg => ({
@@ -229,6 +237,8 @@ export async function runPreferencesChatTurn(
       `Assistant: ${cleanReply}`,
     ].join('\n');
 
+    const walletList = walletCards.map(c => `${c.displayName} (id: ${c.cardId})`).join(', ');
+
     try {
       const extractChat = model.startChat({
         history: [],
@@ -236,7 +246,7 @@ export async function runPreferencesChatTurn(
       let extractResult;
       try {
         extractResult = await extractChat.sendMessage(
-          `${EXTRACTION_SYSTEM_PROMPT}\n\nConversation:\n${fullConversation}`
+          `${EXTRACTION_SYSTEM_PROMPT}\n\nWallet cards available: ${walletList}\n\nConversation:\n${fullConversation}`
         );
       } catch (apiErr) {
         logger.error({ err: apiErr }, '[preferences-agent] Gemini extraction API call failed');
@@ -311,6 +321,19 @@ export function applyDiffToPrefs(
   if (diff.excludedCardIdsToRemove?.length) {
     updated.excludedCardIds = (updated.excludedCardIds ?? []).filter(
       id => !diff.excludedCardIdsToRemove!.includes(id),
+    );
+  }
+
+  if (diff.userIntentsToAdd?.length) {
+    const newIntents = diff.userIntentsToAdd.map(sentence => ({
+      sentence,
+      createdAt: new Date(),
+    }));
+    updated.userIntents = [...(updated.userIntents ?? []), ...newIntents];
+  }
+  if (diff.userIntentsToRemove?.length) {
+    updated.userIntents = (updated.userIntents ?? []).filter(
+      (_, i) => !diff.userIntentsToRemove!.includes(i),
     );
   }
 

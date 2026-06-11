@@ -62,9 +62,12 @@ export async function POST(request: NextRequest) {
 
         // Load wallet card names for the agent to reference
         const fiatCards = await FiatCard.find({ user_id: userId }).select('display_name card_id').lean();
-        const walletCardNames = fiatCards.map((c: { display_name: string }) => c.display_name);
+        const walletCards = fiatCards.map((c: { display_name: string; card_id: string }) => ({
+          displayName: c.display_name,
+          cardId: c.card_id,
+        }));
 
-        logger.info({ userId, walletCardCount: walletCardNames.length }, '[chat/preferences] Loaded wallet cards');
+        logger.info({ userId, walletCardCount: walletCards.length }, '[chat/preferences] Loaded wallet cards');
 
         // Run the conversational + extraction turns
         logger.info({ userId, messageLength: body.message.length }, '[chat/preferences] Calling preferences agent');
@@ -76,7 +79,7 @@ export async function POST(request: NextRequest) {
             body.message,
             body.history as ChatMessage[],
             existingPrefs,
-            walletCardNames,
+            walletCards,
             user.geminiApiKey,
           );
           reply = result.reply;
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
             { upsert: true, new: true },
           );
 
-          logger.info({ userId, diff }, '[chat/preferences] Preferences updated');
+          logger.info({ userId, diff, userIntentsCount: updatedPrefs.userIntents?.length ?? 0 }, '[chat/preferences] Preferences stored in database');
           send('preferences_saved', { preferences: updatedPrefs });
         }
 
@@ -171,21 +174,35 @@ export async function DELETE(request: NextRequest) {
     if (field === 'all') {
       await UserPreferences.deleteOne({ userId });
     } else {
-      // Clear a specific field back to its default
-      const fieldDefaults: Record<string, unknown> = {
-        maxAnnualFeeUsd: null,
-        preferCashback: false,
-        preferMiles: false,
-        preferFinancing: false,
-        preferLoungeAccess: false,
-        avoidNetworks: [],
-        carryBalance: null,
-        pinnedCards: [],
-        excludedCardIds: [],
-        minSavingsThresholdUsd: null,
-      };
-      if (field in fieldDefaults) {
-        await UserPreferences.updateOne({ userId }, { $set: { [field]: fieldDefaults[field] } });
+      // Handle intent:N deletions (remove array element by index)
+      if (field.startsWith('intent:')) {
+        const idx = parseInt(field.split(':')[1], 10);
+        await UserPreferences.updateOne(
+          { userId },
+          { $unset: { [`userIntents.${idx}`]: 1 } }
+        );
+        await UserPreferences.updateOne(
+          { userId },
+          { $pull: { userIntents: null } }
+        );
+      } else {
+        // Clear a specific field back to its default
+        const fieldDefaults: Record<string, unknown> = {
+          maxAnnualFeeUsd: null,
+          preferCashback: false,
+          preferMiles: false,
+          preferFinancing: false,
+          preferLoungeAccess: false,
+          avoidNetworks: [],
+          carryBalance: null,
+          pinnedCards: [],
+          excludedCardIds: [],
+          minSavingsThresholdUsd: null,
+          userIntents: [],
+        };
+        if (field in fieldDefaults) {
+          await UserPreferences.updateOne({ userId }, { $set: { [field]: fieldDefaults[field] } });
+        }
       }
     }
 

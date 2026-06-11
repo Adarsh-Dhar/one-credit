@@ -44,7 +44,7 @@ function ExtensionPaymentContent() {
     const category = searchParams.get('category');
     const merchant = searchParams.get('merchant');
     const productUrl = searchParams.get('url');
-    
+
     const cardKey = searchParams.get('cardKey');
     const cardName = searchParams.get('cardName');
     const cardIssuer = searchParams.get('cardIssuer');
@@ -57,8 +57,8 @@ function ExtensionPaymentContent() {
       setProduct({
         name: productName,
         price: parseFloat(productPrice),
-        category: category || undefined,
-        merchant: merchant || undefined,
+        category: category || 'other',
+        merchant: merchant || '',
         url: productUrl || undefined,
       });
     }
@@ -94,8 +94,8 @@ function ExtensionPaymentContent() {
           product: {
             name: product.name,
             price: product.price,
-            category: product.category,
-            merchant: product.merchant,
+            category: product.category || 'other',
+            merchant: product.merchant || '',
             url: product.url,
             isEmi: false,
             isForeignMerchant: false,

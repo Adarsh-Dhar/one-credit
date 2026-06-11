@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runOPAgent, type CardKnowledge } from '@/lib/op-agent'
 import { FiatCard } from '@/lib/models/FiatCard'
+import { User } from '@/lib/models/User'
 import { UserPreferences } from '@/lib/models/UserPreferences'
 import type { IUserPreferences, IPinnedCard } from '@/lib/models/UserPreferences'
 import { buildUserContext } from '@/lib/userContext'
@@ -59,8 +60,10 @@ async function runAgentAndBuildResponse(
   env: ReturnType<typeof getEnv>,
   model: import('@google/generative-ai').GenerativeModel,
   userPrefs: IUserPreferences | null = null,
+  userIntentSentences: string[] = [],
+  geminiApiKey?: string,
 ): Promise<NextResponse> {
-  const { isEmi, merchant, isForeignMerchant, category } = detectProductAttributes(product)
+  const { isEmi, merchant, isForeignMerchant, category } = await detectProductAttributes(product, geminiApiKey)
   const monthlyTxns = calculateMonthlyTxns(userContext)
 
   const result = await runOPAgent(
@@ -72,6 +75,7 @@ async function runAgentAndBuildResponse(
       riskFreeRatePercent: env.RISK_FREE_RATE_PERCENT,
       billingCycleDays: env.BILLING_CYCLE_DAYS,
       userContext,
+      userIntentSentences,
     },
     model
   )
@@ -173,13 +177,20 @@ export async function POST(request: NextRequest) {
 
     const userContext = await buildUserContext(userId)
 
-    // Detect product attributes for pin matching
-    const { isEmi: _isEmi, merchant, isForeignMerchant, category } = detectProductAttributes(product)
+    // Get user's Gemini API key for AI-based category detection
+    const user = await User.findOne({ email: validation.data.email }).select('geminiApiKey').lean()
+    const geminiApiKey = user?.geminiApiKey
+
+    // Detect product attributes for pin matching (now uses AI if available)
+    const { isEmi: _isEmi, merchant, isForeignMerchant, category } = await detectProductAttributes(product, geminiApiKey)
     logger.info({ merchant, category, isForeignMerchant }, '[Pin Logic] Product attributes')
 
     // ── LOAD USER PREFERENCES ─────────────────────────────────────────────
     const savedPrefs = await UserPreferences.findOne({ userId }).lean() as IUserPreferences | null;
     logger.info({ pinnedCards: savedPrefs?.pinnedCards, excludedCardIds: savedPrefs?.excludedCardIds }, '[Pin Logic] User preferences')
+
+    // Extract user intent sentences for AI reasoning
+    const userIntentSentences: string[] = savedPrefs?.userIntents?.map(i => i.sentence) ?? [];
 
     // Apply hard exclusions: remove excluded cards before op-agent runs
     let cardKeys = userContext.cards.map(c => c.cardId);
@@ -191,7 +202,7 @@ export async function POST(request: NextRequest) {
 
     const model = createGeminiModel(env.GOOGLE_API_KEY)
 
-    return await runAgentAndBuildResponse(product, cardKeys, cardKnowledgeMap, userContext, env, model, savedPrefs)
+    return await runAgentAndBuildResponse(product, cardKeys, cardKnowledgeMap, userContext, env, model, savedPrefs, userIntentSentences, geminiApiKey)
   } catch (error) {
     logger.error({ error }, '[OP Agent] Error')
     const { error: err, status } = toErrorResponse(error)

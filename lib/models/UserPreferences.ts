@@ -12,6 +12,11 @@ export interface IPinnedCard {
   cardDisplayName: string;
 }
 
+export interface IUserIntent {
+  sentence: string;          // e.g. "use amex platinum only in airlines"
+  createdAt: Date;
+}
+
 export interface IUserPreferences {
   userId: string;
 
@@ -29,6 +34,9 @@ export interface IUserPreferences {
   excludedCardIds: string[];
   minSavingsThresholdUsd: number | null;
 
+  // ── Natural language intents ─────────────────────────────────────────────
+  userIntents: IUserIntent[];   // raw intent sentences for AI reasoning
+
   // ── Meta ─────────────────────────────────────────────────────────────────
   chatSummary: string;          // plain-English summary of active prefs
   lastUpdatedViaChat: Date;
@@ -41,6 +49,14 @@ const PinnedCardSchema = new mongoose.Schema<IPinnedCard>(
     matchValue:      { type: String, required: true },
     cardId:          { type: String, required: true },
     cardDisplayName: { type: String, required: true },
+  },
+  { _id: false },
+);
+
+const UserIntentSchema = new mongoose.Schema<IUserIntent>(
+  {
+    sentence:   { type: String, required: true },
+    createdAt:  { type: Date, required: true },
   },
   { _id: false },
 );
@@ -60,6 +76,8 @@ const UserPreferencesSchema = new mongoose.Schema<IUserPreferences>(
     pinnedCards:           { type: [PinnedCardSchema], default: [] },
     excludedCardIds:       { type: [String], default: [] },
     minSavingsThresholdUsd:{ type: Number, default: null },
+
+    userIntents:           { type: [UserIntentSchema], default: [] },
 
     chatSummary:           { type: String, default: '' },
     lastUpdatedViaChat:    { type: Date, default: Date.now },

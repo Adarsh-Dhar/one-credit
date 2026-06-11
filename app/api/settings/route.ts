@@ -5,11 +5,40 @@ import { User } from '@/lib/models/User';
 import { UnauthorizedError, toErrorResponse } from '@/lib/errors';
 import logger from '@/lib/logger';
 import { z } from 'zod';
+import connectDB from '@/lib/mongodb';
 
 const SettingsSchema = z.object({
   email: z.string().email(),
   geminiApiKey: z.string().min(1, 'API key is required'),
 });
+
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new UnauthorizedError();
+    }
+
+    await connectDB();
+
+    const user = await User.findOne({ email: session.user.email });
+    if (!user?.geminiApiKey) {
+      return NextResponse.json({ hasApiKey: false, redactedKey: null });
+    }
+
+    // Redact the API key - show first 6 chars and last 4 chars with asterisks in between
+    const key = user.geminiApiKey;
+    const redactedKey = key.length > 10
+      ? `${key.substring(0, 6)}${'*'.repeat(key.length - 10)}${key.substring(key.length - 4)}`
+      : `${key.substring(0, 3)}${'*'.repeat(Math.max(0, key.length - 3))}`;
+
+    return NextResponse.json({ hasApiKey: true, redactedKey });
+  } catch (error) {
+    logger.error({ error }, '[settings GET]');
+    const { error: errResponse, status } = toErrorResponse(error);
+    return NextResponse.json(errResponse, { status });
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +49,8 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const validatedData = SettingsSchema.parse(body);
+
+    await connectDB();
 
     // Update the user's geminiApiKey
     await User.findOneAndUpdate(

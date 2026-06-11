@@ -15,7 +15,8 @@ const UserSchema = new mongoose.Schema(
     },
     profile: {
       homeAirport: String,
-      topSpendCategories: [{ type: String, enum: ['dining', 'groceries', 'travel', 'gas', 'streaming', 'other'] }],
+      homeAirportName: String,
+      topSpendCategories: [{ type: String, enum: ['dining', 'groceries', 'travel', 'airlines', 'gas', 'streaming', 'shopping', 'luxury', 'electronics', 'apparel', 'jewelry', 'home', 'health', 'fitness', 'education', 'entertainment', 'transportation', 'utilities', 'insurance', 'professional_services', 'other'] }],
       carryBalance: { type: String, enum: ['yes', 'sometimes', 'never'] },
     },
     geminiApiKey: String,

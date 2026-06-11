@@ -91,7 +91,7 @@ export async function runOPAgent(
   }
 
   // Pass 2: Generate reasoning with Gemini (or fall back to auto-generated)
-  const { cardReasonings, agentReasoning } = await generateReasoningWithGemini(cardResults, product, model)
+  const { cardReasonings, agentReasoning } = await generateReasoningWithGemini(cardResults, product, model, input.userIntentSentences ?? [])
 
   // Apply reasoning to cards
   for (const card of cardResults) {
