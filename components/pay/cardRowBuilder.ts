@@ -59,7 +59,7 @@ export function buildCardRows(
         cashReward,
         isWinner: false,
         currency: card.currency || 'USD',
-        totalValue: totalValueResult.portalUsd,
+        totalValue: totalValueResult.totalValue,
         creditFired,
         portalBonus,
         protectionValue: totalValueResult.protectionUsd,

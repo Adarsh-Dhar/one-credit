@@ -17,6 +17,47 @@ import {
   calculateTokensEarned,
   getBalanceUpdateField,
 } from '@/lib/cardBalanceHelpers';
+import { getEnv } from '@/lib/env';
+
+async function logPurchaseToDynatrace(data: {
+  userId: string; cardId: string; productName: string;
+  price: number; category: string; merchant: string;
+  pointsEarned: number; rewardValueUsd: number; timestamp: string;
+}): Promise<void> {
+  const env = getEnv()
+  const DT_ENV_URL  = env.DT_ENV_URL  ?? ''
+  const DT_API_TOKEN = env.DT_API_TOKEN ?? ''
+  if (!DT_ENV_URL || !DT_API_TOKEN) {
+    return
+  }
+
+  const IS_PLATFORM_URL = DT_ENV_URL.includes('.apps.dynatrace.com')
+  const AUTH_SCHEME = IS_PLATFORM_URL ? 'Bearer' : 'Api-Token'
+
+  const logEntry = {
+    timestamp: data.timestamp,
+    content: JSON.stringify({
+      event: 'extension.purchase.confirmed',
+      ...data,
+    }),
+    'log.source':   'one-credit',
+    'service.name': 'extension-purchase',
+    'severity':     'INFO',
+    'user.id':      data.userId,
+    'purchase.category': data.category,
+    'purchase.merchant': data.merchant,
+    'purchase.price':    data.price,
+  }
+
+  await fetch(`${DT_ENV_URL}/api/v2/logs/ingest`, {
+    method: 'POST',
+    headers: {
+      Authorization:  `${AUTH_SCHEME} ${DT_API_TOKEN}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify([logEntry]),
+  })
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,6 +163,19 @@ export async function POST(request: NextRequest) {
       pointsEarned,
       rewardValueUsd,
     });
+
+    // Log purchase to Dynatrace
+    await logPurchaseToDynatrace({
+      userId,
+      cardId,
+      productName: product.name ?? '',
+      price,
+      category: category ?? 'other',
+      merchant: merchant ?? '',
+      pointsEarned,
+      rewardValueUsd,
+      timestamp: new Date().toISOString(),
+    })
 
     logger.info(
       {

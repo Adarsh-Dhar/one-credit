@@ -104,6 +104,28 @@ const eventHandlers: Record<string, EventHandler> = {
       acc.incOps[key] = (acc.incOps[key] || 0) + amount;
     }
   },
+  product_analyzed: (event, acc) => {
+    acc.incOps.extensionAnalyzeApiCallCount =
+      (acc.incOps.extensionAnalyzeApiCallCount || 0) + 1;
+    // store the last analyzed product for DT log enrichment
+    if (event.data?.category) {
+      const cat = sanitizeMongoKey(event.data.category as string);
+      acc.incOps[`analyzedCategories.${cat}`] =
+        (acc.incOps[`analyzedCategories.${cat}`] || 0) + 1;
+    }
+  },
+  purchase_confirmed: (event, acc) => {
+    acc.incOps.extensionFireCount =
+      (acc.incOps.extensionFireCount || 0) + 1;
+    if (event.data?.category) {
+      const cat = sanitizeMongoKey(event.data.category as string);
+      acc.incOps[`purchasedCategories.${cat}`] =
+        (acc.incOps[`purchasedCategories.${cat}`] || 0) + 1;
+    }
+    if (event.data?.merchant) {
+      acc.stringSetOps.lastPurchasedMerchant = event.data.merchant as string;
+    }
+  },
 };
 
 export async function POST(request: Request) {

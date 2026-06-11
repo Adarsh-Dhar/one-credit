@@ -273,6 +273,23 @@ export function SidePanel() {
 
       if (response.success) {
         setPurchaseSuccess(true)
+
+        // Track purchase confirmation
+        trackEvent({
+          eventType: 'purchase_confirmed',
+          timestamp: Date.now(),
+          data: {
+            cardKey,
+            cardName: selectedCardData.name,
+            productName: result.product.name,
+            price: result.product.price,
+            category: result.product.category,
+            merchant: result.product.merchant,
+            pointsEarned: selectedCardData.earn.actualPointsEarned,
+            rewardValueUsd: selectedCardData.valuation.trueRewardValueUsd,
+          }
+        })
+
         setTimeout(() => {
           setSelectedCard(null)
           setPurchaseSuccess(false)

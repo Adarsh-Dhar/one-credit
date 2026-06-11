@@ -33,6 +33,11 @@ const RUMSignalsSchema = new mongoose.Schema(
 
     // Infrastructure signals from Dynatrace APM
     extensionAnalyzeApiCallCount: { type: Number, default: 0 },
+
+    // Extension purchase signals
+    analyzedCategories: { type: Map, of: Number, default: {} },
+    purchasedCategories: { type: Map, of: Number, default: {} },
+    lastPurchasedMerchant: { type: String, default: null },
   },
   { timestamps: true }
 );

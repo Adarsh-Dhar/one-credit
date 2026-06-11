@@ -370,8 +370,8 @@ function calculateCardCosts(
   savings: number
   effectiveDiscountPercent: number
 } {
-  const feeBurdenUsd = calculateFeeBurden(card.annualFeeUsd, userMonthlyTxns)
   const { feeWaiverActive, feeWaiverNote } = calculateFeeWaiverStatus(card, userContext)
+  const feeBurdenUsd = feeWaiverActive ? 0 : calculateFeeBurden(card.annualFeeUsd, userMonthlyTxns)
 
   const { floatValueUsd, statementCreditApplied, foreignFeeUsd } = calculateCostComponents(
     product,

@@ -14,7 +14,6 @@
 import { GoogleGenerativeAI, Tool, FunctionDeclaration, GenerativeModel } from '@google/generative-ai'
 import logger from '@/lib/logger'
 import type { RUMSignals } from '@/lib/types'
-import { RUMSignals as RUMSignalsModel } from '@/lib/models/RUMSignals'
 import { getEnv } from '@/lib/env'
 
 // Re-export RUMSignals from lib/types for backward compatibility
@@ -161,6 +160,23 @@ const DynatraceTools = [
       required: ['userId'],
     },
   },
+  {
+    name: 'dt_get_purchase_history',
+    description:
+      'Fetch the user\'s real purchase history from Dynatrace logs. ' +
+      'Returns the last 30 days of confirmed purchases from the extension: ' +
+      'product name, price, category, merchant, card used, and points earned. ' +
+      'Use this to ground persona inference in actual spend behaviour, ' +
+      'not just UI interaction signals.',
+    parameters: {
+      type: 'object',
+      properties: {
+        userId:       { type: 'string' },
+        lookbackDays: { type: 'number', description: 'Days of history (default 30)' },
+      },
+      required: ['userId'],
+    },
+  },
 ] as FunctionDeclaration[]
 
 // ─── Dynatrace MCP executor (runs on the server, calls DT REST APIs) ─────────
@@ -175,23 +191,23 @@ async function executeDTTool(
 ): Promise<unknown> {
 
   if (!dtIsAvailable) {
+    // MongoDB fallback for dt_get_purchase_history when DT isn't configured
+    if (toolName === 'dt_get_purchase_history') {
+      const Transaction = (await import('@/lib/models/Transaction')).Transaction
+      const userId = args.userId as string
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60_000)
+      const txs = await Transaction.find({
+        userId,
+        type: 'spend',
+        createdAt: { $gte: cutoff }
+      }).sort({ createdAt: -1 }).limit(100).lean()
+      return { results: txs }
+    }
+
     if (IS_PLATFORM_URL && IS_CLASSIC_API_TOKEN) {
-      logger.warn('[rum-agent] Platform URLs require OAuth2/JWT tokens, not API tokens — reading RUM signals from MongoDB')
-    } else if (!DT_ENV_URL || !DT_API_TOKEN) {
-      logger.warn('[rum-agent] DT_ENV_URL or DT_API_TOKEN not set — reading RUM signals from MongoDB')
+      throw new Error('Dynatrace Platform URLs require OAuth2/JWT tokens, not API tokens. Please configure DT_ENV_URL and DT_API_TOKEN correctly.')
     }
-    const userId = args.userId as string
-    
-    try {
-      const doc = await RUMSignalsModel.findOne({ userId })
-      if (doc) {
-        return doc.toObject()
-      }
-      logger.info('[rum-agent] No RUM signals found in MongoDB, returning mock')
-    } catch (err) {
-      logger.error({ err }, '[rum-agent] Failed to read RUM signals from MongoDB, returning mock')
-    }
-    return mockRUMSignals(userId)
+    throw new Error('Dynatrace is not configured. Please set DT_ENV_URL and DT_API_TOKEN environment variables.')
   }
 
   // Log the URL being used (without exposing the full token)
@@ -277,33 +293,29 @@ const DT_TOOL_EXECUTORS: Record<string, DTToolExecutor> = {
     }
     return res.json()
   },
+
+  dt_get_purchase_history: async (args, headers) => {
+    const lookback = ((args.lookbackDays as number) ?? 30) * 24 * 60 * 60_000
+    const now   = Date.now()
+    const from  = now - lookback
+
+    const res = await fetch(
+      `${DT_ENV_URL}/api/v2/logs/search?` +
+      new URLSearchParams({
+        query: `service.name="extension-purchase" AND user.id="${args.userId}"`,
+        from:  String(from),
+        to:    String(now),
+        limit: '200',
+        sort:  'timestamp:desc',
+      }),
+      { headers }
+    )
+    if (!res.ok) {
+      throw new Error(`DT purchase history error: ${res.status}`)
+    }
+    return res.json()
+  },
 };
-
-// ─── Mock signals (used when DT creds are absent, e.g. local dev) ─────────────
-
-function mockRUMSignals(userId: string): RUMSignals {
-  return {
-    userId,
-    sessionId: 'mock-session-001',
-    transferPartnerTabClicks: 0,
-    cardDetailExpansions: 2,
-    dwellOnTransferGuides: 4,
-    dwellOnTravelCards: 8,
-    dwellOnCashbackCards: 45,
-    dwellOnLoungeDetails: 2,
-    dwellOnAprSection: 3,
-    dwellOnAnnualFeeField: 12,
-    scrolledPastAnnualFee: false,
-    scrollDepthMax: 0,
-    abandonedRotatingActivation: true,
-    backNavAfterRecommendation: false,
-    cardViewCounts: { 'Chase Freedom Unlimited': 3, 'Citi Double Cash': 2 },
-    extensionFireCount: 1,
-    transferPartnersClicked: [],
-    cardAddedToWallet: null,
-    extensionAnalyzeApiCallCount: 1,
-  }
-}
 
 // ─── Dynatrace Log Ingest ─────────────────────────────────────────────────────
 
@@ -312,10 +324,9 @@ async function logPersonaToDynatrace(
   persona: UserPersona,
   reasoning: string,
   context: PersonaLogContext = { source: 'rum_inferred', intentOverrideActive: false }
-): Promise<string | null> {
+): Promise<string> {
   if (!DT_ENV_URL || !DT_API_TOKEN) {
-    logger.info({ userId, persona: persona.label }, '[rum-agent] DT not configured — skipping log ingest')
-    return null
+    throw new Error('Dynatrace is not configured. Please set DT_ENV_URL and DT_API_TOKEN environment variables.')
   }
 
   const logEntry = {
@@ -355,8 +366,9 @@ async function logPersonaToDynatrace(
     })
 
     if (!res.ok) {
-      logger.error({ status: res.status }, '[rum-agent] DT log ingest failed')
-      return null
+      const errorText = await res.text()
+      logger.error({ status: res.status, errorText }, '[rum-agent] DT log ingest failed')
+      throw new Error(`Dynatrace log ingest failed with status ${res.status}: ${errorText}`)
     }
 
     logger.info({ userId, persona: persona.label }, '[rum-agent] Persona logged to Dynatrace')
@@ -365,7 +377,7 @@ async function logPersonaToDynatrace(
 
   } catch (err) {
     logger.error({ err }, '[rum-agent] DT log ingest threw')
-    return null
+    throw new Error(`Dynatrace log ingest failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 }
 
@@ -468,7 +480,9 @@ ${constraintBlock}
 Call dt_get_rum_sessions to get click, dwell, and scroll data.
 Call dt_get_custom_events to get card.viewed, card.compared, transfer_partner.clicked, etc.
 Call dt_get_apm_metrics to get backend API call frequency and response times.
-Call all three tools before inferring the persona.
+Call dt_get_purchase_history to get the user's real confirmed purchases
+from the last 30 days (product, price, category, merchant, points earned).
+Call all four tools before inferring the persona.
 
 ## USER PROFILE DATA
 You will also receive the user's self-reported profile data:
@@ -488,13 +502,24 @@ Map the signals you retrieve to exactly ONE persona label:
 | Simplifier        | dwellOnCashbackCards dominant + dwellOnTransferGuides near zero      |
 | CarryProne        | carryBalance = yes/sometimes OR dwellOnAprSection > 20s             |
 | CreditHarvester   | cardDetailExpansions high, repeated views of credit/benefit detail |
-| AmazonAnchored    | extensionFireCount >= 3                                            |
-| VolumeSpender     | extensionAnalyzeApiCallCount high + low dwell on benefits          |
+| AmazonAnchored    | extensionFireCount >= 3 OR purchase_history shows amazon.* merchant dominant across purchases |
+| VolumeSpender     | extensionAnalyzeApiCallCount high + purchase_history shows 10+ transactions with low avg price |
 | LoungeSeeker      | dwellOnLoungeDetails > 20s every session                           |
 | FeeInsensitive    | scrolledPastAnnualFee = true without pause                         |
 | FeeAverse         | dwellOnAnnualFeeField > 10s + backNavAfterRecommendation = true    |
 
 If signals are ambiguous or missing, return label "Unknown" with confidence < ${UNKNOWN_PERSONA_CONFIDENCE_CEILING}.
+
+## PURCHASE HISTORY SIGNALS
+When dt_get_purchase_history returns data, extract:
+- dominantCategory: the category with highest total spend
+- dominantMerchant: the merchant appearing most frequently
+- avgTransactionUsd: total spend / transaction count
+- totalRewardValueUsd: sum of rewardValueUsd across all purchases
+- cardUsageDistribution: which cards are being used for which categories
+
+Use these to INCREASE confidence on an already-matched persona,
+or to BREAK A TIE when UI signals are ambiguous.
 
 ## OUTPUT FORMAT
 After calling the tools, respond ONLY with a JSON object — no markdown, no preamble:
@@ -641,16 +666,22 @@ async function runRUMAgentWithModel(
   const finalText = await runAgenticLoop(model, userEmail, initialContents)
   const parsed = parseGeminiResponse(finalText)
 
-  // Log persona inference back to Dynatrace
-  const dynatraceLogId = await logPersonaToDynatrace(
-    userEmail,
-    parsed.persona,
-    parsed.agentReasoning,
-    {
-      source: extractedPrefs ? 'chat_override' : 'rum_inferred',
-      intentOverrideActive: !!extractedPrefs,
-    },
-  )
+  // Log persona inference back to Dynatrace (gracefully handle failures)
+  let dynatraceLogId: string | null = null
+  try {
+    dynatraceLogId = await logPersonaToDynatrace(
+      userEmail,
+      parsed.persona,
+      parsed.agentReasoning,
+      {
+        source: extractedPrefs ? 'chat_override' : 'rum_inferred',
+        intentOverrideActive: !!extractedPrefs,
+      },
+    )
+  } catch (err) {
+    logger.error({ err, userId: userEmail, persona: parsed.persona.label }, '[rum-agent] Failed to log persona to Dynatrace (continuing with inference result)')
+    // Continue with persona inference even if log ingest fails
+  }
 
   logger.info(
     { userId: userEmail, persona: parsed.persona.label, confidence: parsed.persona.confidence, dynatraceLogId },

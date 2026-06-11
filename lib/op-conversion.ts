@@ -86,6 +86,7 @@ export interface CardForConversion {
     cppMax: number;
     name: string;
   };
+  actualAvgCppAchieved?: number | null;
   perks?: string[];            // experiential perks from card data
   statementCredits?: Array<{
     name: string;
@@ -117,6 +118,7 @@ export function walletCardToConversionCard(card: {
   currency: string;
   earnRates: Record<string, number>;
   pointsProgram?: { name: string; cppMin: number; cppMax: number } | null;
+  actualAvgCppAchieved?: number | null;
   perks?: string[];
   statementCredits?: Array<{ name: string; amount_usd: number; amount_redeemed?: number; reset_period: string; merchant_categories?: string[] }>;
   portalBonuses?: Array<{ portal_name: string; portal_url: string; categories: string[]; bonus_multiplier: number; bonus_type: 'multiplier' | 'flat_pct' }>;
@@ -130,6 +132,7 @@ export function walletCardToConversionCard(card: {
       cppMax: card.pointsProgram.cppMax,
       name: card.pointsProgram.name,
     } : undefined,
+    actualAvgCppAchieved: card.actualAvgCppAchieved ?? null,
     perks: card.perks,
     statementCredits: card.statementCredits?.map(credit => ({
       ...credit,
@@ -194,10 +197,11 @@ export function computeTotalValue(
     // Points card — use centsPerPoint range
     const centsPerPointMin = card.pointsProgram?.cppMin ?? 1.0;
     const centsPerPointMax = card.pointsProgram?.cppMax ?? 1.0;
+    const realisticCpp = card.actualAvgCppAchieved ?? card.pointsProgram?.cppMax ?? centsPerPointMin;
     const points = spendAmount * (earnRate / 100);
     result.earnedValue_min = points * centsPerPointMin;
     result.earnedValue_max = points * centsPerPointMax;
-    result.earnRateUsd = points * centsPerPointMin; // conservative for comparison
+    result.earnRateUsd = points * realisticCpp;  // consistent with agent
     result.baseValue = result.earnedValue_min;
     result.confidence = 'derived';
   }
